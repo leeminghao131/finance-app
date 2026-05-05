@@ -583,7 +583,6 @@ export default function FinanceVisualizerApp() {
   setDeleteConfirm(null);
   setSyncStatus("Record deleted from cloud");
 }
-  }
 
   function exportCsv() {
     const q = String.fromCharCode(34);
