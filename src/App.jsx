@@ -588,8 +588,7 @@ export default function FinanceVisualizerApp() {
     const reader = new FileReader();
     reader.onload = async (e) => {
       try {
-        const lines = String(e.target.result || "").split("
-").slice(1).filter(Boolean);
+      const lines = String(e.target.result || "").split(/\r?\n/).slice(1).filter(Boolean);
         const imported = lines.map((line) => {
           const match = line.match(/^([^,]*),([^,]*),([^,]*),([^,]*),([^,]*),(.*)$/);
           if (!match) return null;
