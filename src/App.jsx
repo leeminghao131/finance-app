@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState } from "react";
+import { supabase, hasSupabaseEnv } from "./supabaseClient";
 import {
   BarChart, Bar, PieChart, Pie, Cell, XAxis, YAxis, Tooltip,
   ResponsiveContainer, CartesianGrid, Legend, LineChart, Line,
@@ -261,17 +262,99 @@ function TrendTooltip({ active, payload, records, category }) {
   );
 }
 
+function normalizeRecord(row) {
+  return {
+    id: row.id,
+    type: row.type,
+    amount: Number(row.amount || 0),
+    category: row.category,
+    method: row.method,
+    note: row.note || "",
+    date: row.date,
+  };
+}
+
+function toRecordPayload(record, userId) {
+  return {
+    user_id: userId,
+    type: record.type,
+    amount: Number(record.amount || 0),
+    category: record.category,
+    method: record.method,
+    note: record.note || "",
+    date: record.date,
+  };
+}
+
+function AuthScreen() {
+  const [mode, setMode] = useState("signIn");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [message, setMessage] = useState("");
+  const [busy, setBusy] = useState(false);
+
+  async function handleSubmit(event) {
+    event.preventDefault();
+    setBusy(true);
+    setMessage("");
+    const { error } = mode === "signUp"
+      ? await supabase.auth.signUp({ email, password })
+      : await supabase.auth.signInWithPassword({ email, password });
+    setBusy(false);
+    if (error) {
+      setMessage(error.message);
+      return;
+    }
+    setMessage(mode === "signUp" ? "Account created. You can sign in now." : "Signed in successfully.");
+  }
+
+  if (!hasSupabaseEnv) {
+    return (
+      <div className="min-h-screen bg-slate-50 p-6 text-slate-900">
+        <div className="mx-auto mt-16 max-w-xl rounded-3xl bg-white p-8 shadow-sm ring-1 ring-red-200">
+          <h1 className="text-2xl font-bold text-red-700">Supabase is not configured</h1>
+          <p className="mt-3 text-sm text-slate-600">Please add VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY in Vercel Environment Variables, then redeploy.</p>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="min-h-screen bg-slate-50 p-6 text-slate-900">
+      <div className="mx-auto mt-16 max-w-md rounded-3xl bg-white p-8 shadow-sm ring-1 ring-slate-200">
+        <p className="text-sm font-medium text-slate-500">Personal Finance Dashboard</p>
+        <h1 className="mt-2 text-3xl font-bold">记账可视化软件</h1>
+        <p className="mt-2 text-sm text-slate-500">Sign in to sync your data across computer and phone.</p>
+        <form onSubmit={handleSubmit} className="mt-6 space-y-4">
+          <label className="block">
+            <span className="text-sm font-semibold text-slate-600">Email</span>
+            <input value={email} onChange={(event) => setEmail(event.target.value)} type="email" required className="mt-1 w-full rounded-2xl border border-slate-200 px-4 py-3 outline-none" />
+          </label>
+          <label className="block">
+            <span className="text-sm font-semibold text-slate-600">Password</span>
+            <input value={password} onChange={(event) => setPassword(event.target.value)} type="password" minLength={6} required className="mt-1 w-full rounded-2xl border border-slate-200 px-4 py-3 outline-none" />
+          </label>
+          <button disabled={busy} className="w-full rounded-2xl bg-slate-900 px-4 py-3 text-sm font-bold text-white disabled:opacity-50">
+            {busy ? "Please wait..." : mode === "signUp" ? "Create account" : "Sign in"}
+          </button>
+        </form>
+        {message && <p className="mt-4 rounded-2xl bg-slate-50 p-3 text-sm text-slate-600 ring-1 ring-slate-100">{message}</p>}
+        <button onClick={() => setMode(mode === "signUp" ? "signIn" : "signUp")} className="mt-4 w-full text-sm font-semibold text-slate-600 hover:text-slate-900">
+          {mode === "signUp" ? "Already have an account? Sign in" : "No account yet? Create one"}
+        </button>
+      </div>
+    </div>
+  );
+}
+
 export default function FinanceVisualizerApp() {
-  const demo = [
-    { id: makeId(), type: "expense", amount: 12.5, category: "饮食", method: "TNG", note: "午餐", date: today() },
-    { id: makeId(), type: "income", amount: 300, category: "Allowance", method: "BANK IN", note: "Monthly allowance", date: today() },
-  ];
-  const [records, setRecords] = useState(() => {
-    try { return JSON.parse(localStorage.getItem(RECORDS_KEY)) || demo; } catch { return demo; }
-  });
-  const [budgets, setBudgets] = useState(() => {
-    try { return { ...DEFAULT_BUDGETS, ...(JSON.parse(localStorage.getItem(BUDGET_KEY)) || {}) }; } catch { return DEFAULT_BUDGETS; }
-  });
+  const [session, setSession] = useState(null);
+  const [user, setUser] = useState(null);
+  const [authLoading, setAuthLoading] = useState(true);
+  const [dataLoading, setDataLoading] = useState(false);
+  const [syncStatus, setSyncStatus] = useState("");
+  const [records, setRecords] = useState([]);
+  const [budgets, setBudgets] = useState(DEFAULT_BUDGETS);
   const [form, setForm] = useState({ type: "expense", amount: "", category: "饮食", method: "TNG", note: "", date: today() });
   const [calculationText, setCalculationText] = useState("");
   const [calculationResult, setCalculationResult] = useState(null);
@@ -284,10 +367,82 @@ export default function FinanceVisualizerApp() {
   const [soundEnabled, setSoundEnabled] = useState(() => localStorage.getItem(SOUND_KEY) !== "false");
   const [deleteConfirm, setDeleteConfirm] = useState(null);
 
-  useEffect(() => localStorage.setItem(RECORDS_KEY, JSON.stringify(records)), [records]);
-  useEffect(() => localStorage.setItem(BUDGET_KEY, JSON.stringify(budgets)), [budgets]);
+  useEffect(() => {
+    if (!hasSupabaseEnv) {
+      setAuthLoading(false);
+      return;
+    }
+    supabase.auth.getSession().then(({ data }) => {
+      setSession(data.session || null);
+      setUser(data.session?.user || null);
+      setAuthLoading(false);
+    });
+    const { data: listener } = supabase.auth.onAuthStateChange((_event, nextSession) => {
+      setSession(nextSession || null);
+      setUser(nextSession?.user || null);
+    });
+    return () => listener.subscription.unsubscribe();
+  }, []);
+
+  useEffect(() => {
+    if (user) loadCloudData();
+    else {
+      setRecords([]);
+      setBudgets(DEFAULT_BUDGETS);
+    }
+  }, [user?.id]);
+
   useEffect(() => localStorage.setItem(SOUND_KEY, String(soundEnabled)), [soundEnabled]);
   useEffect(() => setForm((p) => ({ ...p, category: categoriesFor(p.type).includes(p.category) ? p.category : categoriesFor(p.type)[0], method: methodsFor(p.type).includes(p.method) ? p.method : methodsFor(p.type)[0] })), [form.type]);
+
+
+  async function loadCloudData() {
+    if (!user) return;
+    setDataLoading(true);
+    setSyncStatus("Loading cloud data...");
+    const { data: recordRows, error: recordError } = await supabase
+      .from("records")
+      .select("id,type,amount,category,method,note,date,created_at")
+      .order("date", { ascending: false })
+      .order("created_at", { ascending: false });
+    if (recordError) {
+      setSyncStatus(recordError.message);
+      setDataLoading(false);
+      return;
+    }
+    setRecords((recordRows || []).map(normalizeRecord));
+    const { data: settingsRow, error: settingsError } = await supabase
+      .from("user_settings")
+      .select("category_budgets")
+      .eq("user_id", user.id)
+      .maybeSingle();
+    if (settingsError) setSyncStatus(settingsError.message);
+    if (settingsRow?.category_budgets) {
+      setBudgets({ ...DEFAULT_BUDGETS, ...settingsRow.category_budgets });
+    } else {
+      setBudgets(DEFAULT_BUDGETS);
+      await saveBudgets(DEFAULT_BUDGETS);
+    }
+    setSyncStatus("Cloud synced");
+    setDataLoading(false);
+  }
+
+  async function saveBudgets(nextBudgets) {
+    if (!user) return;
+    const { error } = await supabase
+      .from("user_settings")
+      .upsert({ user_id: user.id, category_budgets: nextBudgets, updated_at: new Date().toISOString() });
+    if (error) setSyncStatus(error.message);
+    else setSyncStatus("Budget synced");
+  }
+
+  function updateBudgets(updater) {
+    setBudgets((previous) => {
+      const next = typeof updater === "function" ? updater(previous) : updater;
+      saveBudgets(next);
+      return next;
+    });
+  }
 
   const filteredRecords = useMemo(() => filterRecords(records, filterMode, selectedMonth, selectedYear, keyword), [records, filterMode, selectedMonth, selectedYear, keyword]);
   const expenseRecords = filteredRecords.filter((r) => r.type === "expense");
@@ -380,12 +535,17 @@ export default function FinanceVisualizerApp() {
     } catch {}
   }
 
-  function addRecord(e) {
+  async function addRecord(e) {
     e.preventDefault();
+    if (!user) return alert("Please sign in first.");
     const amount = Number(form.amount);
     if (!amount || amount <= 0) return alert("Please enter a valid amount.");
-    setRecords((p) => [{ id: makeId(), ...form, amount, note: form.note.trim() }, ...p]);
+    const payload = toRecordPayload({ ...form, amount, note: form.note.trim() }, user.id);
+    const { data, error } = await supabase.from("records").insert(payload).select("id,type,amount,category,method,note,date,created_at").single();
+    if (error) return alert(error.message);
+    setRecords((p) => [normalizeRecord(data), ...p]);
     setForm((p) => ({ ...p, amount: "", note: "" }));
+    setSyncStatus("Record added to cloud");
   }
 
   function fillCalculation() {
@@ -396,15 +556,19 @@ export default function FinanceVisualizerApp() {
     } catch { alert("Invalid calculation. Example: 3.50 + 12.90 + 2*5.40"); }
   }
 
-  function updateRecord(recordId, field, value) {
-    setRecords((p) => p.map((r) => {
-      if (r.id !== recordId) return r;
-      if (field === "type") return { ...r, type: value, category: categoriesFor(value)[0], method: methodsFor(value)[0] };
-      return { ...r, [field]: field === "amount" ? Number(value) : value };
-    }));
+  async function updateRecord(recordId, field, value) {
+    const current = records.find((r) => r.id === recordId);
+    if (!current) return;
+    const updates = field === "type"
+      ? { type: value, category: categoriesFor(value)[0], method: methodsFor(value)[0] }
+      : { [field]: field === "amount" ? Number(value) : value };
+    const { error } = await supabase.from("records").update(updates).eq("id", recordId);
+    if (error) return alert(error.message);
+    setRecords((p) => p.map((r) => (r.id === recordId ? { ...r, ...updates } : r)));
+    setSyncStatus("Record synced");
   }
 
-  function deleteRecord(recordId) {
+  async function deleteRecord(recordId) {
     setRecords((p) => p.filter((r) => r.id !== recordId));
     setDeleteConfirm(null);
   }
@@ -420,24 +584,42 @@ export default function FinanceVisualizerApp() {
 
   function importCsv(event) {
     const file = event.target.files?.[0];
-    if (!file) return;
+    if (!file || !user) return;
     const reader = new FileReader();
-    reader.onload = (e) => {
+    reader.onload = async (e) => {
       try {
-        const lines = String(e.target.result || "").split("\n").slice(1).filter(Boolean);
+        const lines = String(e.target.result || "").split("
+").slice(1).filter(Boolean);
         const imported = lines.map((line) => {
           const match = line.match(/^([^,]*),([^,]*),([^,]*),([^,]*),([^,]*),(.*)$/);
           if (!match) return null;
           const [, date, type, category, method, amount, note] = match;
-          return { id: makeId(), date: date.trim(), type: type.trim(), category: category.trim(), method: method.trim(), amount: Number(amount), note: note.replace(/^"|"$/g, "").trim() };
+          return { date: date.trim(), type: type.trim(), category: category.trim(), method: method.trim(), amount: Number(amount), note: note.replace(/^"|"$/g, "").trim() };
         }).filter(Boolean);
         if (!imported.length) return alert("No valid records found in CSV.");
-        setRecords((p) => [...imported, ...p]);
-        alert(`Imported ${imported.length} records.`);
-      } catch { alert("Failed to parse CSV."); }
+        const payloads = imported.map((record) => toRecordPayload(record, user.id));
+        const { data, error } = await supabase.from("records").insert(payloads).select("id,type,amount,category,method,note,date,created_at");
+        if (error) return alert(error.message);
+        setRecords((p) => [...(data || []).map(normalizeRecord), ...p]);
+        setSyncStatus(`Imported ${data?.length || 0} records to cloud`);
+      } catch {
+        alert("Failed to parse CSV.");
+      }
     };
     reader.readAsText(file);
     event.target.value = "";
+  }
+
+  async function signOut() {
+    await supabase.auth.signOut();
+  }
+
+  if (authLoading) {
+    return <div className="flex min-h-screen items-center justify-center bg-slate-50 text-slate-600">Loading...</div>;
+  }
+
+  if (!session) {
+    return <AuthScreen />;
   }
 
   return (
@@ -445,8 +627,9 @@ export default function FinanceVisualizerApp() {
       <div className="mx-auto max-w-7xl space-y-6">
         <header className="flex flex-col gap-4 rounded-3xl bg-slate-900 p-6 text-white md:flex-row md:items-center md:justify-between">
           <div><p className="text-sm font-medium text-slate-300">Personal Finance Dashboard</p><h1 className="mt-2 text-3xl font-bold md:text-4xl">记账可视化软件</h1><p className="mt-2 text-sm text-slate-300">记录收入与支出，自动生成统计、分类比例、每日趋势和预算使用情况。</p></div>
-          <div className="flex flex-wrap gap-3"><button onClick={() => setSoundEnabled((v) => !v)} className="rounded-2xl bg-slate-800 px-4 py-3 text-sm font-semibold text-white ring-1 ring-slate-600">{soundEnabled ? "🔊" : "🔇"} Sound</button><button onClick={exportCsv} className="rounded-2xl bg-white px-4 py-3 text-sm font-semibold text-slate-900">⬇ Export CSV</button><label className="cursor-pointer rounded-2xl bg-slate-700 px-4 py-3 text-sm font-semibold text-white ring-1 ring-slate-600">⬆ Import CSV<input type="file" accept=".csv" className="hidden" onChange={importCsv} /></label></div>
+          <div className="flex flex-wrap gap-3"><button onClick={() => setSoundEnabled((v) => !v)} className="rounded-2xl bg-slate-800 px-4 py-3 text-sm font-semibold text-white ring-1 ring-slate-600">{soundEnabled ? "🔊" : "🔇"} Sound</button><button onClick={exportCsv} className="rounded-2xl bg-white px-4 py-3 text-sm font-semibold text-slate-900">⬇ Export CSV</button><label className="cursor-pointer rounded-2xl bg-slate-700 px-4 py-3 text-sm font-semibold text-white ring-1 ring-slate-600">⬆ Import CSV<input type="file" accept=".csv" className="hidden" onChange={importCsv} /></label><button onClick={signOut} className="rounded-2xl bg-white px-4 py-3 text-sm font-semibold text-slate-900">Sign out</button></div>
         </header>
+        <div className="rounded-2xl bg-white px-4 py-3 text-sm text-slate-600 ring-1 ring-slate-200">Signed in as <b>{user?.email}</b> · {dataLoading ? "Syncing..." : syncStatus || "Cloud ready"}</div>
 
         <section className="grid gap-4 md:grid-cols-3"><StatCard title="Total Income" value={money(income)} icon="📈" desc="Overall records" /><StatCard title="Total Expense" value={money(expense)} icon="📉" desc="Overall records" /><BalanceCard title="Balance" value={income - expense} desc="Overall cash flow" /></section>
 
@@ -467,7 +650,7 @@ export default function FinanceVisualizerApp() {
 
           <div className="space-y-6">
             <Card><div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between"><h2 className="text-xl font-bold">Filters</h2><div className="flex flex-col gap-3 md:flex-row md:flex-wrap md:justify-end"><select value={filterMode} onChange={(e) => setFilterMode(e.target.value)} className="rounded-2xl border border-slate-200 px-4 py-3 outline-none"><option value="all">全部</option><option value="month">按月份</option><option value="year">按年份</option><option value="recent30">最近 30 天</option><option value="recent7">最近 7 天</option><option value="recent3">最近 3 天</option></select>{filterMode === "month" && <input type="month" value={selectedMonth} onChange={(e) => setSelectedMonth(e.target.value)} className="rounded-2xl border border-slate-200 px-4 py-3 outline-none" />}{filterMode === "year" && <input type="number" value={selectedYear} onChange={(e) => setSelectedYear(e.target.value)} className="rounded-2xl border border-slate-200 px-4 py-3 outline-none" />}<input value={keyword} onChange={(e) => setKeyword(e.target.value)} placeholder="Search category, method or note" className="rounded-2xl border border-slate-200 px-4 py-3 outline-none" /></div></div></Card>
-            <section className={`grid gap-4 ${showBudget ? "md:grid-cols-4" : "md:grid-cols-3"}`}><StatCard title="Filtered Income" value={money(filteredIncome)} icon="📈" desc={`Current filter: ${filterLabel}`} /><StatCard title="Filtered Expense" value={money(filteredExpense)} icon="📉" desc={`Current filter: ${filterLabel}`} /><BalanceCard title="Filtered Balance" value={filteredIncome - filteredExpense} desc={`Current filter: ${filterLabel}`} />{showBudget && <BudgetCard totalBudget={totalBudget} used={budgetUsed} budgets={budgets} setBudgets={setBudgets} spentMap={spentMap} />}</section>
+            <section className={`grid gap-4 ${showBudget ? "md:grid-cols-4" : "md:grid-cols-3"}`}><StatCard title="Filtered Income" value={money(filteredIncome)} icon="📈" desc={`Current filter: ${filterLabel}`} /><StatCard title="Filtered Expense" value={money(filteredExpense)} icon="📉" desc={`Current filter: ${filterLabel}`} /><BalanceCard title="Filtered Balance" value={filteredIncome - filteredExpense} desc={`Current filter: ${filterLabel}`} />{showBudget && <BudgetCard totalBudget={totalBudget} used={budgetUsed} budgets={budgets} setBudgets={updateBudgets} spentMap={spentMap} />}</section>
             <section className="grid gap-6 xl:grid-cols-3"><ForecastCard stats={forecast.stats} data={forecast.data} month={forecastMonth} /><HeatmapCard days={heatmapDays} label={filterLabel} /><TopExpensesCard records={topExpenses} label={filterLabel} /></section>
             <section className="grid gap-6 xl:grid-cols-2">
               <Card><h2 className="text-xl font-bold">Daily Income vs Expense</h2><p className="mt-1 text-sm text-slate-500">Current range: {filterLabel}</p><div className="mt-4 h-64">{dailyData.length ? <ResponsiveContainer width="100%" height="100%"><BarChart data={dailyData}><CartesianGrid strokeDasharray="3 3" /><XAxis dataKey="day" /><YAxis /><Tooltip formatter={(v) => money(v)} /><Legend /><Bar dataKey="income" name="Income" fill="#22c55e" /><Bar dataKey="expense" name="Expense" fill="#ef4444" /></BarChart></ResponsiveContainer> : <div className="flex h-full items-center justify-center text-slate-500">No data.</div>}</div><div className="mt-5 rounded-2xl bg-slate-50 p-3 ring-1 ring-slate-200"><div className="mb-2 flex justify-between gap-2"><p className="text-sm font-bold text-slate-700">消费趋势图</p><select value={trendCategory} onChange={(e) => setTrendCategory(e.target.value)} className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-semibold"><option value="all">全部分类</option>{EXPENSE_CATEGORIES.map((c) => <option key={c}>{c}</option>)}</select></div><div className="h-36">{trendData.length ? <ResponsiveContainer width="100%" height="100%"><LineChart data={trendData}><CartesianGrid strokeDasharray="3 3" /><XAxis dataKey="day" /><YAxis /><Tooltip content={<TrendTooltip records={filteredRecords} category={trendCategory} />} /><Legend /><Line type="monotone" dataKey="expense" name="Expense" stroke="#3b82f6" strokeWidth={3} dot={{ r: 4 }} /></LineChart></ResponsiveContainer> : <div className="flex h-full items-center justify-center text-slate-500">No expense trend data.</div>}</div><div className="mt-4 border-t border-slate-200 pt-3"><p className="mb-2 text-sm font-bold text-slate-700">Filtered Balance Trend</p><div className="h-36">{trendData.length ? <ResponsiveContainer width="100%" height="100%"><LineChart data={trendData}><CartesianGrid strokeDasharray="3 3" /><XAxis dataKey="day" /><YAxis /><Tooltip formatter={(v) => money(v)} /><Legend /><Line connectNulls type="monotone" dataKey="balanceGreen" name="Balance > RM1500" stroke="#22c55e" strokeWidth={3} dot={{ r: 4 }} /><Line connectNulls type="monotone" dataKey="balanceRed" name="Balance ≤ RM1500" stroke="#ef4444" strokeWidth={3} dot={{ r: 4 }} /></LineChart></ResponsiveContainer> : <div className="flex h-full items-center justify-center text-slate-500">No balance trend data.</div>}</div></div></div></Card>
@@ -481,7 +664,7 @@ export default function FinanceVisualizerApp() {
           <div className="mt-5 overflow-x-auto"><table className="w-full min-w-[920px] border-collapse text-left text-sm"><thead><tr className="border-b border-slate-200"><th className="pb-3 pr-4 text-xs font-semibold uppercase tracking-wide text-slate-400">Date</th><th className="pb-3 pr-4 text-xs font-semibold uppercase tracking-wide text-slate-400">Type</th><th className="pb-3 pr-4 text-xs font-semibold uppercase tracking-wide text-slate-400">Category</th><th className="pb-3 pr-4 text-xs font-semibold uppercase tracking-wide text-slate-400">Method</th><th className="pb-3 pr-4 text-xs font-semibold uppercase tracking-wide text-slate-400">Amount</th><th className="pb-3 pr-4 text-xs font-semibold uppercase tracking-wide text-slate-400">Note</th><th className="pb-3 text-xs font-semibold uppercase tracking-wide text-slate-400">Actions</th></tr></thead><tbody className="divide-y divide-slate-100">{filteredRecords.length === 0 && <tr><td colSpan={7} className="py-10 text-center text-slate-400">No records found.</td></tr>}{filteredRecords.map((record) => <tr key={record.id} className="group hover:bg-slate-50"><td className="py-3 pr-4 font-mono text-xs text-slate-600"><EditableCell value={record.date} field="date" recordType={record.type} onSave={(v) => updateRecord(record.id, "date", v)} /></td><td className="py-3 pr-4"><span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold ${record.type === "income" ? "bg-green-100 text-green-700" : "bg-red-100 text-red-700"}`}>{record.type === "income" ? "▲ Income" : "▼ Expense"}</span></td><td className="py-3 pr-4 font-medium text-slate-800"><EditableCell value={record.category} field="category" recordType={record.type} onSave={(v) => updateRecord(record.id, "category", v)} /></td><td className="py-3 pr-4 text-slate-600"><EditableCell value={recordMethod(record)} field="method" recordType={record.type} onSave={(v) => updateRecord(record.id, "method", v)} /></td><td className={`py-3 pr-4 font-bold ${record.type === "income" ? "text-green-600" : "text-red-600"}`}><EditableCell value={record.amount} field="amount" recordType={record.type} onSave={(v) => updateRecord(record.id, "amount", v)} /></td><td className="py-3 pr-4 text-slate-500"><EditableCell value={record.note || ""} field="note" recordType={record.type} onSave={(v) => updateRecord(record.id, "note", v)} /></td><td className="py-3">{deleteConfirm === record.id ? <span className="flex items-center gap-1"><button onClick={() => deleteRecord(record.id)} className="rounded-lg bg-red-600 px-2 py-1 text-xs font-bold text-white">Confirm</button><button onClick={() => setDeleteConfirm(null)} className="rounded-lg bg-slate-200 px-2 py-1 text-xs font-bold text-slate-700">Cancel</button></span> : <button onClick={() => setDeleteConfirm(record.id)} className="rounded-lg px-2 py-1 text-xs font-bold text-slate-400 opacity-0 transition hover:bg-red-50 hover:text-red-600 group-hover:opacity-100">Delete</button>}</td></tr>)}</tbody>{filteredRecords.length > 0 && <tfoot><tr className="border-t-2 border-slate-200 bg-slate-50"><td colSpan={4} className="py-3 pr-4 text-xs font-semibold text-slate-500">Total ({filteredRecords.length} records)</td><td className="py-3 pr-4"><span className="block text-xs font-bold text-green-600">+{money(filteredIncome)}</span><span className="block text-xs font-bold text-red-600">-{money(filteredExpense)}</span><span className={`block text-xs font-bold ${filteredIncome - filteredExpense >= 0 ? "text-slate-900" : "text-red-700"}`}>= {money(filteredIncome - filteredExpense)}</span></td><td colSpan={2} /></tr></tfoot>}</table></div>
         </Card>
 
-        <footer className="pb-6 text-center text-xs text-slate-400">记账可视化软件 · Data stored locally in your browser · {records.length} total records</footer>
+        <footer className="pb-6 text-center text-xs text-slate-400">记账可视化软件 · Data synced with Supabase cloud · {records.length} total records</footer>
       </div>
     </div>
   );
