@@ -1,0 +1,488 @@
+import React, { useEffect, useMemo, useState } from "react";
+import {
+  BarChart, Bar, PieChart, Pie, Cell, XAxis, YAxis, Tooltip,
+  ResponsiveContainer, CartesianGrid, Legend, LineChart, Line,
+} from "recharts";
+
+const RECORDS_KEY = "finance-records-v3";
+const BUDGET_KEY = "finance-category-budget-v3";
+const SOUND_KEY = "finance-sound-v3";
+
+const EXPENSE_CATEGORIES = ["饮食", "教育", "住房", "日用", "交通", "娱乐", "运动", "医疗", "美容"];
+const INCOME_CATEGORIES = ["Salary", "Allowance", "Part-time", "Gift", "Others"];
+const EXPENSE_METHODS = ["TNG", "CASH", "DEBIT CARD", "ONLINE BANK IN", "GRAB PAY"];
+const INCOME_METHODS = ["TNG", "CASH", "BANK IN", "GRAB PAY"];
+const DEFAULT_BUDGETS = { 饮食: "600", 教育: "", 住房: "", 日用: "", 交通: "300", 娱乐: "200", 运动: "", 医疗: "", 美容: "150" };
+const COLORS = ["#6366f1", "#22c55e", "#f97316", "#ef4444", "#06b6d4", "#a855f7", "#eab308", "#64748b", "#ec4899"];
+
+const today = () => new Date().toISOString().slice(0, 10);
+const monthNow = () => new Date().toISOString().slice(0, 7);
+const yearNow = () => String(new Date().getFullYear());
+const makeId = () => (crypto?.randomUUID ? crypto.randomUUID() : `${Date.now()}-${Math.random()}`);
+const pad = (n) => String(n).padStart(2, "0");
+const money = (v) => new Intl.NumberFormat("en-MY", { style: "currency", currency: "MYR" }).format(Number(v || 0));
+const categoriesFor = (t) => (t === "expense" ? EXPENSE_CATEGORIES : INCOME_CATEGORIES);
+const methodsFor = (t) => (t === "expense" ? EXPENSE_METHODS : INCOME_METHODS);
+const recordMethod = (r) => r.method || methodsFor(r.type)[0];
+
+function daysInMonth(ym) {
+  const [y, m] = ym.split("-").map(Number);
+  return new Date(y, m, 0).getDate();
+}
+
+function addDays(dateString, amount) {
+  const d = new Date(dateString);
+  d.setDate(d.getDate() + amount);
+  return d.toISOString().slice(0, 10);
+}
+
+function dateRange(start, count) {
+  return Array.from({ length: count }, (_, i) => addDays(start, i));
+}
+
+function recentStart(days) {
+  const d = new Date();
+  d.setDate(d.getDate() - (days - 1));
+  return d.toISOString().slice(0, 10);
+}
+
+function sumType(records, type) {
+  return records.filter((r) => r.type === type).reduce((s, r) => s + Number(r.amount || 0), 0);
+}
+
+function group(records, keyFn) {
+  const out = {};
+  records.forEach((r) => {
+    const key = keyFn(r);
+    out[key] = (out[key] || 0) + Number(r.amount || 0);
+  });
+  return Object.entries(out).map(([name, value]) => ({ name, value }));
+}
+
+function calculate(text) {
+  const expression = String(text || "")
+    .replaceAll("×", "*").replaceAll("x", "*").replaceAll("X", "*")
+    .replaceAll("÷", "/").replaceAll("，", "+").replaceAll("、", "+")
+    .replaceAll(",", "+").replaceAll(" ", "").replace(/[\t\n\r]/g, "");
+  if (!expression || !Array.from(expression).every((c) => "0123456789+-*/().".includes(c))) throw new Error("Invalid");
+  const value = Function(`"use strict"; return (${expression});`)();
+  if (!Number.isFinite(value) || value < 0) throw new Error("Invalid");
+  return Math.round(value * 100) / 100;
+}
+
+function filterRecords(records, mode, month, year, keyword) {
+  const q = String(keyword || "").toLowerCase();
+  const now = today();
+  const starts = { recent30: recentStart(30), recent7: recentStart(7), recent3: recentStart(3) };
+  return records
+    .filter((r) => {
+      if (!r?.date) return false;
+      if (mode === "all") return true;
+      if (mode === "month") return r.date.startsWith(month);
+      if (mode === "year") return r.date.startsWith(year);
+      if (mode in starts) return r.date >= starts[mode] && r.date <= now;
+      return true;
+    })
+    .filter((r) => `${r.category || ""} ${r.note || ""} ${r.type || ""} ${recordMethod(r)}`.toLowerCase().includes(q))
+    .sort((a, b) => new Date(b.date) - new Date(a.date));
+}
+
+function Card({ children, className = "" }) {
+  return <div className={`rounded-2xl bg-white p-5 shadow-sm ring-1 ring-slate-200 ${className}`}>{children}</div>;
+}
+
+function StatCard({ title, value, icon, desc }) {
+  return (
+    <Card>
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <p className="text-sm font-medium text-slate-500">{title}</p>
+          <p className="mt-2 text-2xl font-bold text-slate-900">{value}</p>
+          <p className="mt-1 text-sm text-slate-500">{desc}</p>
+        </div>
+        <div className="rounded-2xl bg-slate-100 px-3 py-2 text-xl">{icon}</div>
+      </div>
+    </Card>
+  );
+}
+
+function BalanceCard({ title, value, desc }) {
+  const low = value < 1500;
+  return (
+    <Card className={low ? "bg-red-50 ring-red-300" : ""}>
+      <p className={`text-sm font-medium ${low ? "text-red-700" : "text-slate-500"}`}>{title}</p>
+      <p className={`mt-2 text-2xl font-bold ${low ? "text-red-700" : "text-slate-900"}`}>{money(value)}</p>
+      <p className={`mt-1 text-sm ${low ? "text-red-700" : "text-slate-500"}`}>{low ? "⚠ Balance below RM1500" : desc}</p>
+    </Card>
+  );
+}
+
+function DateInput({ value, onChange }) {
+  return <input type="date" value={value} onChange={(e) => onChange(e.target.value)} className="w-full cursor-pointer rounded-2xl border border-slate-200 bg-white px-4 py-3 outline-none" />;
+}
+
+function BudgetCard({ totalBudget, used, budgets, setBudgets, spentMap }) {
+  const [open, setOpen] = useState(false);
+  const warning = used >= 75;
+  return (
+    <Card className={`relative ${warning ? "bg-red-50 ring-red-300" : ""}`}>
+      <div className="flex items-start justify-between gap-3">
+        <p className={`text-sm font-medium ${warning ? "text-red-700" : "text-slate-500"}`}>Total Budget</p>
+        <button type="button" onClick={() => setOpen((v) => !v)} className={`rounded-xl px-3 py-1 text-xs font-bold ${warning ? "bg-red-100 text-red-700" : "bg-slate-100 text-slate-600"}`}>Category Budget</button>
+      </div>
+      <div className="mt-2 flex items-center gap-2">
+        <span className={`text-sm font-semibold ${warning ? "text-red-700" : "text-slate-500"}`}>RM</span>
+        <div className={`w-full rounded-xl border bg-slate-50 px-3 py-2 text-lg font-bold ${warning ? "border-red-300 text-red-700" : "border-slate-200 text-slate-900"}`}>{totalBudget.toFixed(2)}</div>
+      </div>
+      <div className={`mt-3 h-3 overflow-hidden rounded-full ${warning ? "bg-red-200" : "bg-slate-100"}`}>
+        <div className={`h-full rounded-full ${warning ? "bg-red-600" : "bg-slate-900"}`} style={{ width: `${Math.min(used, 100)}%` }} />
+      </div>
+      <p className={`mt-1 text-sm font-medium ${warning ? "text-red-700" : "text-slate-500"}`}>Used {used.toFixed(0)}%</p>
+      {open && (
+        <div className="absolute right-0 top-full z-50 mt-3 max-h-[70vh] w-[760px] max-w-[90vw] overflow-y-auto rounded-2xl bg-white p-4 shadow-xl ring-1 ring-slate-200">
+          <div className="mb-3 flex items-center justify-between gap-3">
+            <div><p className="text-base font-bold text-slate-900">Category Budget / 分类预算</p><p className="text-xs text-slate-500">Calculated from current filtered expense.</p></div>
+            <button type="button" onClick={() => setOpen(false)} className="rounded-xl bg-slate-100 px-3 py-2 text-sm font-bold text-slate-600">×</button>
+          </div>
+          <div className="grid gap-3 md:grid-cols-2">
+            {EXPENSE_CATEGORIES.map((category) => {
+              const budget = Number(budgets[category] || 0);
+              const spent = Number(spentMap[category] || 0);
+              const categoryUsed = budget > 0 ? (spent / budget) * 100 : 0;
+              const warn = categoryUsed >= 75;
+              return (
+                <div key={category} className={`rounded-2xl p-3 ring-1 ${warn ? "bg-red-50 ring-red-200" : "bg-slate-50 ring-slate-200"}`}>
+                  <div className="flex items-center justify-between gap-3"><p className={`font-bold ${warn ? "text-red-700" : "text-slate-800"}`}>{category}</p><p className={`text-sm font-bold ${warn ? "text-red-700" : "text-slate-500"}`}>Used {categoryUsed.toFixed(0)}%</p></div>
+                  <div className="mt-2 flex items-center gap-2"><span className="text-xs font-bold text-slate-500">RM</span><input value={budgets[category] || ""} onChange={(e) => setBudgets((p) => ({ ...p, [category]: e.target.value }))} type="number" min="0" placeholder="Budget" className="w-full rounded-xl border bg-white px-3 py-2 text-sm font-bold outline-none" /></div>
+                  <div className={`mt-2 h-2 overflow-hidden rounded-full ${warn ? "bg-red-200" : "bg-slate-200"}`}><div className={`h-full rounded-full ${warn ? "bg-red-600" : "bg-slate-900"}`} style={{ width: `${Math.min(categoryUsed, 100)}%` }} /></div>
+                  <div className="mt-2 flex justify-between text-xs font-semibold text-slate-500"><span>Spent {money(spent)}</span><span>{budget > 0 ? money(budget) : "Not set"}</span></div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+    </Card>
+  );
+}
+
+function MiniPie({ data, emptyText, onClick, selectedName }) {
+  if (!data.length) return <div className="flex h-full items-center justify-center rounded-2xl bg-slate-50 text-slate-500">{emptyText}</div>;
+  return (
+    <ResponsiveContainer width="100%" height="100%">
+      <PieChart margin={{ top: 24, right: 42, bottom: 24, left: 42 }}>
+        <Pie data={data} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={60} labelLine={false} label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`} onClick={onClick}>
+          {data.map((entry, index) => <Cell key={entry.name} fill={COLORS[index % COLORS.length]} opacity={!selectedName || selectedName === entry.name ? 1 : 0.35} />)}
+        </Pie>
+        <Tooltip formatter={(value) => money(value)} />
+      </PieChart>
+    </ResponsiveContainer>
+  );
+}
+
+function ForecastCard({ stats, data, month }) {
+  return (
+    <Card>
+      <h2 className="text-xl font-bold">Cash Flow Forecast</h2>
+      <p className="mt-1 text-sm text-slate-500">Projected Balance Trend · {month}</p>
+      <div className="mt-4 grid grid-cols-2 gap-3 text-sm">
+        <div className="rounded-2xl bg-slate-50 p-3 ring-1 ring-slate-100"><p className="text-slate-500">Current balance</p><p className="mt-1 font-bold text-slate-900">{money(stats.currentBalance)}</p></div>
+        <div className="rounded-2xl bg-slate-50 p-3 ring-1 ring-slate-100"><p className="text-slate-500">Avg daily expense</p><p className="mt-1 font-bold text-slate-900">{money(stats.avgDailyExpense)}</p></div>
+        <div className="rounded-2xl bg-slate-50 p-3 ring-1 ring-slate-100"><p className="text-slate-500">Days left</p><p className="mt-1 font-bold text-slate-900">{stats.daysLeft}</p></div>
+        <div className={`rounded-2xl p-3 ring-1 ${stats.predictedBalance < 1500 ? "bg-red-50 text-red-700 ring-red-200" : "bg-green-50 text-green-700 ring-green-200"}`}><p>Predicted balance</p><p className="mt-1 font-bold">{money(stats.predictedBalance)}</p></div>
+      </div>
+      <div className="mt-4 h-44">{data.length ? <ResponsiveContainer width="100%" height="100%"><LineChart data={data}><CartesianGrid strokeDasharray="3 3" /><XAxis dataKey="day" /><YAxis /><Tooltip formatter={(v) => money(v)} /><Line type="monotone" dataKey="balance" name="Projected Balance" stroke={stats.predictedBalance < 1500 ? "#ef4444" : "#22c55e"} strokeWidth={3} dot={{ r: 3 }} /></LineChart></ResponsiveContainer> : <div className="flex h-full items-center justify-center text-slate-500">No forecast data.</div>}</div>
+    </Card>
+  );
+}
+
+function HeatmapCard({ days, label }) {
+  const max = Math.max(1, ...days.map((d) => d.amount));
+  return (
+    <Card>
+      <h2 className="text-xl font-bold">Spending Heatmap / 消费热力图</h2>
+      <p className="mt-1 text-sm text-slate-500">颜色越深 = 那天花费越高 · {label}</p>
+      <div className="mt-4 grid grid-cols-7 gap-2">
+        {days.map((d) => {
+          const intensity = d.amount > 0 ? 0.18 + (d.amount / max) * 0.72 : 0.06;
+          return <div key={d.date} title={`${d.date}: ${money(d.amount)}`} className="rounded-xl p-2 text-center text-xs font-bold ring-1 ring-slate-100" style={{ backgroundColor: `rgba(239, 68, 68, ${intensity})`, color: d.amount > 0 ? "#7f1d1d" : "#64748b" }}><p>{d.date.slice(8)}</p><p className="mt-1 truncate">{d.amount > 0 ? money(d.amount).replace("MYR", "RM") : "-"}</p></div>;
+        })}
+      </div>
+    </Card>
+  );
+}
+
+function TopExpensesCard({ records, label }) {
+  return (
+    <Card>
+      <h2 className="text-xl font-bold">Top 5 Highest Expenses</h2>
+      <p className="mt-1 text-sm text-slate-500">最大消费排行 · {label}</p>
+      <div className="mt-4 space-y-2">
+        {records.length ? records.map((r, i) => (
+          <div key={r.id} className="flex items-start justify-between gap-3 rounded-2xl bg-slate-50 p-3 text-sm ring-1 ring-slate-100">
+            <div className="flex gap-3"><span className="flex h-7 w-7 items-center justify-center rounded-full bg-slate-900 text-xs font-bold text-white">{i + 1}</span><div><p className="font-bold text-slate-900">{r.category} · {recordMethod(r)}</p><p className="text-slate-500">{r.date} · {r.note || "No note"}</p></div></div>
+            <p className="whitespace-nowrap font-bold text-red-600">{money(r.amount)}</p>
+          </div>
+        )) : <div className="rounded-2xl bg-slate-50 p-6 text-center text-sm text-slate-500">No expense data.</div>}
+      </div>
+    </Card>
+  );
+}
+
+function EditableCell({ value, field, recordType, onSave }) {
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState(value ?? "");
+  useEffect(() => setDraft(value ?? ""), [value]);
+  function commit() {
+    setEditing(false);
+    if (String(draft) !== String(value ?? "")) onSave(draft);
+  }
+  if (!editing) return <span className="cursor-pointer rounded px-1 py-0.5 hover:bg-slate-100" onClick={() => setEditing(true)}>{value || <span className="italic text-slate-400">—</span>}</span>;
+  if (field === "category" || field === "method") {
+    const list = field === "category" ? categoriesFor(recordType) : methodsFor(recordType);
+    return <select autoFocus value={draft} onChange={(e) => setDraft(e.target.value)} onBlur={commit} className="rounded border border-slate-300 px-1 py-0.5 text-xs outline-none">{list.map((x) => <option key={x}>{x}</option>)}</select>;
+  }
+  return <input autoFocus type={field === "date" ? "date" : field === "amount" ? "number" : "text"} min="0" step="0.01" value={draft} onChange={(e) => setDraft(e.target.value)} onBlur={commit} onKeyDown={(e) => e.key === "Enter" && commit()} className="rounded border border-slate-300 px-1 py-0.5 text-xs outline-none" />;
+}
+
+function TrendTooltip({ active, payload, records, category }) {
+  if (!active || !payload || !payload.length) return null;
+  const date = payload[0].payload.dateKey;
+  const rows = records.filter((r) => r.type === "expense" && r.date === date).filter((r) => category === "all" || r.category === category);
+  const total = rows.reduce((s, r) => s + Number(r.amount || 0), 0);
+  return (
+    <div className="w-64 rounded-2xl bg-white p-3 text-sm shadow-xl ring-1 ring-slate-200">
+      <p className="font-bold text-slate-800">{date}</p>
+      <p className="text-xs font-bold text-blue-600">Expense: {money(total)}</p>
+      <div className="mt-2 max-h-44 space-y-2 overflow-y-auto">
+        {rows.length ? rows.map((r) => <div key={r.id} className="rounded-xl bg-slate-50 p-2 ring-1 ring-slate-100"><div className="flex justify-between gap-2"><div><p className="font-semibold text-slate-800">{r.category}</p><p className="text-xs text-slate-500">{recordMethod(r)} · {r.note || "No note"}</p></div><p className="font-bold text-blue-600">{money(r.amount)}</p></div></div>) : <p className="text-xs text-slate-500">No records.</p>}
+      </div>
+    </div>
+  );
+}
+
+export default function FinanceVisualizerApp() {
+  const demo = [
+    { id: makeId(), type: "expense", amount: 12.5, category: "饮食", method: "TNG", note: "午餐", date: today() },
+    { id: makeId(), type: "income", amount: 300, category: "Allowance", method: "BANK IN", note: "Monthly allowance", date: today() },
+  ];
+  const [records, setRecords] = useState(() => {
+    try { return JSON.parse(localStorage.getItem(RECORDS_KEY)) || demo; } catch { return demo; }
+  });
+  const [budgets, setBudgets] = useState(() => {
+    try { return { ...DEFAULT_BUDGETS, ...(JSON.parse(localStorage.getItem(BUDGET_KEY)) || {}) }; } catch { return DEFAULT_BUDGETS; }
+  });
+  const [form, setForm] = useState({ type: "expense", amount: "", category: "饮食", method: "TNG", note: "", date: today() });
+  const [calculationText, setCalculationText] = useState("");
+  const [calculationResult, setCalculationResult] = useState(null);
+  const [filterMode, setFilterMode] = useState("month");
+  const [selectedMonth, setSelectedMonth] = useState(monthNow());
+  const [selectedYear, setSelectedYear] = useState(yearNow());
+  const [keyword, setKeyword] = useState("");
+  const [selectedPieCategory, setSelectedPieCategory] = useState(null);
+  const [trendCategory, setTrendCategory] = useState("all");
+  const [soundEnabled, setSoundEnabled] = useState(() => localStorage.getItem(SOUND_KEY) !== "false");
+  const [deleteConfirm, setDeleteConfirm] = useState(null);
+
+  useEffect(() => localStorage.setItem(RECORDS_KEY, JSON.stringify(records)), [records]);
+  useEffect(() => localStorage.setItem(BUDGET_KEY, JSON.stringify(budgets)), [budgets]);
+  useEffect(() => localStorage.setItem(SOUND_KEY, String(soundEnabled)), [soundEnabled]);
+  useEffect(() => setForm((p) => ({ ...p, category: categoriesFor(p.type).includes(p.category) ? p.category : categoriesFor(p.type)[0], method: methodsFor(p.type).includes(p.method) ? p.method : methodsFor(p.type)[0] })), [form.type]);
+
+  const filteredRecords = useMemo(() => filterRecords(records, filterMode, selectedMonth, selectedYear, keyword), [records, filterMode, selectedMonth, selectedYear, keyword]);
+  const expenseRecords = filteredRecords.filter((r) => r.type === "expense");
+  const income = sumType(records, "income");
+  const expense = sumType(records, "expense");
+  const filteredIncome = sumType(filteredRecords, "income");
+  const filteredExpense = sumType(filteredRecords, "expense");
+  const totalBudget = useMemo(() => EXPENSE_CATEGORIES.reduce((s, c) => s + Number(budgets[c] || 0), 0), [budgets]);
+  const budgetUsed = totalBudget > 0 ? (filteredExpense / totalBudget) * 100 : 0;
+  const showBudget = filterMode === "month" || filterMode === "recent30";
+  const filterLabel = filterMode === "all" ? "全部" : filterMode === "month" ? selectedMonth : filterMode === "year" ? selectedYear : filterMode === "recent30" ? "最近 30 天" : filterMode === "recent7" ? "最近 7 天" : "最近 3 天";
+  const chartLabel = (d) => filterMode === "month" ? d.slice(8) : filterMode === "all" ? d : d.slice(5);
+  const categoryData = useMemo(() => group(expenseRecords, (r) => r.category), [expenseRecords]);
+  const methodData = useMemo(() => group(expenseRecords, (r) => recordMethod(r)), [expenseRecords]);
+  const spentMap = useMemo(() => {
+    const map = Object.fromEntries(EXPENSE_CATEGORIES.map((c) => [c, 0]));
+    expenseRecords.forEach((r) => { map[r.category] = (map[r.category] || 0) + Number(r.amount || 0); });
+    return map;
+  }, [expenseRecords]);
+  const selectedCategoryRecords = useMemo(() => selectedPieCategory ? expenseRecords.filter((r) => r.category === selectedPieCategory).sort((a, b) => new Date(a.date) - new Date(b.date)) : [], [expenseRecords, selectedPieCategory]);
+  useEffect(() => {
+    if (!categoryData.length) setSelectedPieCategory(null);
+    else if (!categoryData.some((x) => x.name === selectedPieCategory)) setSelectedPieCategory(categoryData[0].name);
+  }, [categoryData, selectedPieCategory]);
+
+  const dailyData = useMemo(() => {
+    const out = {};
+    filteredRecords.forEach((r) => {
+      if (!out[r.date]) out[r.date] = { dateKey: r.date, day: chartLabel(r.date), income: 0, expense: 0 };
+      out[r.date][r.type] += Number(r.amount || 0);
+    });
+    return Object.values(out).sort((a, b) => new Date(a.dateKey) - new Date(b.dateKey));
+  }, [filteredRecords, filterMode]);
+
+  const trendData = useMemo(() => {
+    const out = {};
+    filteredRecords.forEach((r) => {
+      if (!out[r.date]) out[r.date] = { dateKey: r.date, day: chartLabel(r.date), expense: 0, dailyBalance: 0 };
+      out[r.date].dailyBalance += r.type === "income" ? Number(r.amount || 0) : -Number(r.amount || 0);
+    });
+    expenseRecords.filter((r) => trendCategory === "all" || r.category === trendCategory).forEach((r) => {
+      if (!out[r.date]) out[r.date] = { dateKey: r.date, day: chartLabel(r.date), expense: 0, dailyBalance: 0 };
+      out[r.date].expense += Number(r.amount || 0);
+    });
+    let balance = 0;
+    return Object.values(out).sort((a, b) => new Date(a.dateKey) - new Date(b.dateKey)).map((row) => {
+      balance += row.dailyBalance;
+      return { ...row, balanceGreen: balance > 1500 ? balance : null, balanceRed: balance <= 1500 ? balance : null };
+    });
+  }, [filteredRecords, expenseRecords, trendCategory, filterMode]);
+
+  const forecastMonth = filterMode === "month" ? selectedMonth : monthNow();
+  const forecast = useMemo(() => {
+    const totalDays = daysInMonth(forecastMonth);
+    const currentDay = forecastMonth === monthNow() ? Number(today().slice(8)) : totalDays;
+    const monthRecords = records.filter((r) => r.date.startsWith(forecastMonth) && Number(r.date.slice(8)) <= currentDay);
+    const currentBalance = sumType(monthRecords, "income") - sumType(monthRecords, "expense");
+    const avgDailyExpense = sumType(monthRecords, "expense") / Math.max(currentDay, 1);
+    const daysLeft = Math.max(totalDays - currentDay, 0);
+    const predictedBalance = currentBalance - avgDailyExpense * daysLeft;
+    const data = Array.from({ length: daysLeft + 1 }, (_, i) => ({ day: pad(currentDay + i), balance: Math.round((currentBalance - avgDailyExpense * i) * 100) / 100 }));
+    return { stats: { currentBalance, avgDailyExpense, daysLeft, predictedBalance }, data };
+  }, [records, forecastMonth]);
+
+  const heatmapDays = useMemo(() => {
+    const amounts = {};
+    expenseRecords.forEach((r) => { amounts[r.date] = (amounts[r.date] || 0) + Number(r.amount || 0); });
+    let dates = [];
+    if (filterMode === "month") dates = dateRange(`${selectedMonth}-01`, daysInMonth(selectedMonth));
+    else if (filterMode === "recent30") dates = dateRange(recentStart(30), 30);
+    else if (filterMode === "recent7") dates = dateRange(recentStart(7), 7);
+    else if (filterMode === "recent3") dates = dateRange(recentStart(3), 3);
+    else dates = Array.from(new Set(filteredRecords.map((r) => r.date))).sort((a, b) => new Date(a) - new Date(b)).slice(-35);
+    return dates.map((date) => ({ date, amount: Number(amounts[date] || 0) }));
+  }, [expenseRecords, filteredRecords, filterMode, selectedMonth]);
+
+  const topExpenses = useMemo(() => expenseRecords.slice().sort((a, b) => Number(b.amount || 0) - Number(a.amount || 0)).slice(0, 5), [expenseRecords]);
+
+  function playSound() {
+    if (!soundEnabled) return;
+    try {
+      const Ctx = window.AudioContext || window.webkitAudioContext;
+      const a = new Ctx();
+      const o = a.createOscillator();
+      const g = a.createGain();
+      o.frequency.setValueAtTime(520, a.currentTime);
+      g.gain.setValueAtTime(0.04, a.currentTime);
+      g.gain.exponentialRampToValueAtTime(0.001, a.currentTime + 0.08);
+      o.connect(g); g.connect(a.destination); o.start(); o.stop(a.currentTime + 0.08); o.onended = () => a.close();
+    } catch {}
+  }
+
+  function addRecord(e) {
+    e.preventDefault();
+    const amount = Number(form.amount);
+    if (!amount || amount <= 0) return alert("Please enter a valid amount.");
+    setRecords((p) => [{ id: makeId(), ...form, amount, note: form.note.trim() }, ...p]);
+    setForm((p) => ({ ...p, amount: "", note: "" }));
+  }
+
+  function fillCalculation() {
+    try {
+      const total = calculate(calculationText);
+      setCalculationResult(total);
+      setForm((p) => ({ ...p, amount: total.toFixed(2) }));
+    } catch { alert("Invalid calculation. Example: 3.50 + 12.90 + 2*5.40"); }
+  }
+
+  function updateRecord(recordId, field, value) {
+    setRecords((p) => p.map((r) => {
+      if (r.id !== recordId) return r;
+      if (field === "type") return { ...r, type: value, category: categoriesFor(value)[0], method: methodsFor(value)[0] };
+      return { ...r, [field]: field === "amount" ? Number(value) : value };
+    }));
+  }
+
+  function deleteRecord(recordId) {
+    setRecords((p) => p.filter((r) => r.id !== recordId));
+    setDeleteConfirm(null);
+  }
+
+  function exportCsv() {
+    const q = String.fromCharCode(34);
+    const rows = records.map((r) => [r.date, r.type, r.category, recordMethod(r), r.amount, q + String(r.note || "").replaceAll(q, q + q) + q].join(","));
+    const blob = new Blob([["Date,Type,Category,Method,Amount,Note", ...rows].join(String.fromCharCode(10))], { type: "text/csv;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url; a.download = `finance-records-${today()}.csv`; a.click(); URL.revokeObjectURL(url);
+  }
+
+  function importCsv(event) {
+    const file = event.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      try {
+        const lines = String(e.target.result || "").split("\n").slice(1).filter(Boolean);
+        const imported = lines.map((line) => {
+          const match = line.match(/^([^,]*),([^,]*),([^,]*),([^,]*),([^,]*),(.*)$/);
+          if (!match) return null;
+          const [, date, type, category, method, amount, note] = match;
+          return { id: makeId(), date: date.trim(), type: type.trim(), category: category.trim(), method: method.trim(), amount: Number(amount), note: note.replace(/^"|"$/g, "").trim() };
+        }).filter(Boolean);
+        if (!imported.length) return alert("No valid records found in CSV.");
+        setRecords((p) => [...imported, ...p]);
+        alert(`Imported ${imported.length} records.`);
+      } catch { alert("Failed to parse CSV."); }
+    };
+    reader.readAsText(file);
+    event.target.value = "";
+  }
+
+  return (
+    <div onClickCapture={(e) => e.target.closest("button,select") && playSound()} className="min-h-screen bg-slate-50 p-4 text-slate-900 md:p-8">
+      <div className="mx-auto max-w-7xl space-y-6">
+        <header className="flex flex-col gap-4 rounded-3xl bg-slate-900 p-6 text-white md:flex-row md:items-center md:justify-between">
+          <div><p className="text-sm font-medium text-slate-300">Personal Finance Dashboard</p><h1 className="mt-2 text-3xl font-bold md:text-4xl">记账可视化软件</h1><p className="mt-2 text-sm text-slate-300">记录收入与支出，自动生成统计、分类比例、每日趋势和预算使用情况。</p></div>
+          <div className="flex flex-wrap gap-3"><button onClick={() => setSoundEnabled((v) => !v)} className="rounded-2xl bg-slate-800 px-4 py-3 text-sm font-semibold text-white ring-1 ring-slate-600">{soundEnabled ? "🔊" : "🔇"} Sound</button><button onClick={exportCsv} className="rounded-2xl bg-white px-4 py-3 text-sm font-semibold text-slate-900">⬇ Export CSV</button><label className="cursor-pointer rounded-2xl bg-slate-700 px-4 py-3 text-sm font-semibold text-white ring-1 ring-slate-600">⬆ Import CSV<input type="file" accept=".csv" className="hidden" onChange={importCsv} /></label></div>
+        </header>
+
+        <section className="grid gap-4 md:grid-cols-3"><StatCard title="Total Income" value={money(income)} icon="📈" desc="Overall records" /><StatCard title="Total Expense" value={money(expense)} icon="📉" desc="Overall records" /><BalanceCard title="Balance" value={income - expense} desc="Overall cash flow" /></section>
+
+        <section className="grid gap-6 lg:grid-cols-[380px_1fr]">
+          <Card>
+            <h2 className="text-xl font-bold">＋ Add Record</h2>
+            <form onSubmit={addRecord} className="mt-5 space-y-4">
+              <div className="grid grid-cols-2 gap-3 rounded-2xl bg-slate-100 p-1"><button type="button" onClick={() => setForm((p) => ({ ...p, type: "expense" }))} className={`rounded-xl px-3 py-2 text-sm font-semibold ${form.type === "expense" ? "bg-white shadow-sm" : "text-slate-500"}`}>Expense</button><button type="button" onClick={() => setForm((p) => ({ ...p, type: "income" }))} className={`rounded-xl px-3 py-2 text-sm font-semibold ${form.type === "income" ? "bg-white shadow-sm" : "text-slate-500"}`}>Income</button></div>
+              <label className="block"><span className="text-sm font-medium text-slate-600">Amount</span><input value={form.amount} onChange={(e) => setForm((p) => ({ ...p, amount: e.target.value }))} type="number" min="0" step="0.01" className="mt-1 w-full rounded-2xl border border-slate-200 px-4 py-3 outline-none" /></label>
+              <div className="rounded-2xl bg-slate-50 p-4 ring-1 ring-slate-200"><p className="text-sm font-bold text-slate-700">小计算器</p><textarea value={calculationText} onChange={(e) => setCalculationText(e.target.value)} rows={3} placeholder="3.50 + 12.90 + 2*5.40" className="mt-3 w-full rounded-2xl border border-slate-200 px-4 py-3 text-sm outline-none" /><div className="mt-3 flex items-center justify-between gap-2"><span className="text-sm text-slate-600">{calculationResult !== null ? `Total: ${money(calculationResult)}` : "支持 + - * / 和括号"}</span><button type="button" onClick={fillCalculation} className="rounded-xl bg-slate-900 px-3 py-2 text-xs font-bold text-white">Calculate & Fill</button></div></div>
+              <label className="block"><span className="text-sm font-medium text-slate-600">Category</span><select value={form.category} onChange={(e) => setForm((p) => ({ ...p, category: e.target.value }))} className="mt-1 w-full rounded-2xl border border-slate-200 px-4 py-3 outline-none">{categoriesFor(form.type).map((c) => <option key={c}>{c}</option>)}</select></label>
+              <label className="block"><span className="text-sm font-medium text-slate-600">Method</span><select value={form.method} onChange={(e) => setForm((p) => ({ ...p, method: e.target.value }))} className="mt-1 w-full rounded-2xl border border-slate-200 px-4 py-3 outline-none">{methodsFor(form.type).map((m) => <option key={m}>{m}</option>)}</select></label>
+              <label className="block"><span className="text-sm font-medium text-slate-600">Date</span><DateInput value={form.date} onChange={(date) => setForm((p) => ({ ...p, date }))} /></label>
+              <label className="block"><span className="text-sm font-medium text-slate-600">Note</span><input value={form.note} onChange={(e) => setForm((p) => ({ ...p, note: e.target.value }))} className="mt-1 w-full rounded-2xl border border-slate-200 px-4 py-3 outline-none" /></label>
+              <button className="w-full rounded-2xl bg-slate-900 px-4 py-3 text-sm font-bold text-white">Add Record</button>
+            </form>
+          </Card>
+
+          <div className="space-y-6">
+            <Card><div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between"><h2 className="text-xl font-bold">Filters</h2><div className="flex flex-col gap-3 md:flex-row md:flex-wrap md:justify-end"><select value={filterMode} onChange={(e) => setFilterMode(e.target.value)} className="rounded-2xl border border-slate-200 px-4 py-3 outline-none"><option value="all">全部</option><option value="month">按月份</option><option value="year">按年份</option><option value="recent30">最近 30 天</option><option value="recent7">最近 7 天</option><option value="recent3">最近 3 天</option></select>{filterMode === "month" && <input type="month" value={selectedMonth} onChange={(e) => setSelectedMonth(e.target.value)} className="rounded-2xl border border-slate-200 px-4 py-3 outline-none" />}{filterMode === "year" && <input type="number" value={selectedYear} onChange={(e) => setSelectedYear(e.target.value)} className="rounded-2xl border border-slate-200 px-4 py-3 outline-none" />}<input value={keyword} onChange={(e) => setKeyword(e.target.value)} placeholder="Search category, method or note" className="rounded-2xl border border-slate-200 px-4 py-3 outline-none" /></div></div></Card>
+            <section className={`grid gap-4 ${showBudget ? "md:grid-cols-4" : "md:grid-cols-3"}`}><StatCard title="Filtered Income" value={money(filteredIncome)} icon="📈" desc={`Current filter: ${filterLabel}`} /><StatCard title="Filtered Expense" value={money(filteredExpense)} icon="📉" desc={`Current filter: ${filterLabel}`} /><BalanceCard title="Filtered Balance" value={filteredIncome - filteredExpense} desc={`Current filter: ${filterLabel}`} />{showBudget && <BudgetCard totalBudget={totalBudget} used={budgetUsed} budgets={budgets} setBudgets={setBudgets} spentMap={spentMap} />}</section>
+            <section className="grid gap-6 xl:grid-cols-3"><ForecastCard stats={forecast.stats} data={forecast.data} month={forecastMonth} /><HeatmapCard days={heatmapDays} label={filterLabel} /><TopExpensesCard records={topExpenses} label={filterLabel} /></section>
+            <section className="grid gap-6 xl:grid-cols-2">
+              <Card><h2 className="text-xl font-bold">Daily Income vs Expense</h2><p className="mt-1 text-sm text-slate-500">Current range: {filterLabel}</p><div className="mt-4 h-64">{dailyData.length ? <ResponsiveContainer width="100%" height="100%"><BarChart data={dailyData}><CartesianGrid strokeDasharray="3 3" /><XAxis dataKey="day" /><YAxis /><Tooltip formatter={(v) => money(v)} /><Legend /><Bar dataKey="income" name="Income" fill="#22c55e" /><Bar dataKey="expense" name="Expense" fill="#ef4444" /></BarChart></ResponsiveContainer> : <div className="flex h-full items-center justify-center text-slate-500">No data.</div>}</div><div className="mt-5 rounded-2xl bg-slate-50 p-3 ring-1 ring-slate-200"><div className="mb-2 flex justify-between gap-2"><p className="text-sm font-bold text-slate-700">消费趋势图</p><select value={trendCategory} onChange={(e) => setTrendCategory(e.target.value)} className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-semibold"><option value="all">全部分类</option>{EXPENSE_CATEGORIES.map((c) => <option key={c}>{c}</option>)}</select></div><div className="h-36">{trendData.length ? <ResponsiveContainer width="100%" height="100%"><LineChart data={trendData}><CartesianGrid strokeDasharray="3 3" /><XAxis dataKey="day" /><YAxis /><Tooltip content={<TrendTooltip records={filteredRecords} category={trendCategory} />} /><Legend /><Line type="monotone" dataKey="expense" name="Expense" stroke="#3b82f6" strokeWidth={3} dot={{ r: 4 }} /></LineChart></ResponsiveContainer> : <div className="flex h-full items-center justify-center text-slate-500">No expense trend data.</div>}</div><div className="mt-4 border-t border-slate-200 pt-3"><p className="mb-2 text-sm font-bold text-slate-700">Filtered Balance Trend</p><div className="h-36">{trendData.length ? <ResponsiveContainer width="100%" height="100%"><LineChart data={trendData}><CartesianGrid strokeDasharray="3 3" /><XAxis dataKey="day" /><YAxis /><Tooltip formatter={(v) => money(v)} /><Legend /><Line connectNulls type="monotone" dataKey="balanceGreen" name="Balance > RM1500" stroke="#22c55e" strokeWidth={3} dot={{ r: 4 }} /><Line connectNulls type="monotone" dataKey="balanceRed" name="Balance ≤ RM1500" stroke="#ef4444" strokeWidth={3} dot={{ r: 4 }} /></LineChart></ResponsiveContainer> : <div className="flex h-full items-center justify-center text-slate-500">No balance trend data.</div>}</div></div></div></Card>
+              <Card><h2 className="text-xl font-bold">Expense by Category</h2><p className="mt-1 text-sm text-slate-500">点击分类查看记录；Method Ratio 显示全部支出方式比例。</p><div className="mt-4 h-60"><MiniPie data={categoryData} emptyText="No expense data." onClick={(entry) => setSelectedPieCategory(entry.name)} selectedName={selectedPieCategory} /></div><div className="mt-4 rounded-2xl bg-slate-50 p-3 ring-1 ring-slate-200"><p className="text-sm font-bold text-slate-700">{selectedPieCategory ? `${selectedPieCategory} records` : "Category records"}</p><div className="mt-2 max-h-40 space-y-2 overflow-y-auto">{selectedCategoryRecords.length ? selectedCategoryRecords.map((r) => <div key={r.id} className="flex justify-between gap-3 rounded-xl bg-white p-3 text-sm ring-1 ring-slate-100"><div><p className="font-semibold">{r.date}</p><p className="text-slate-500">{recordMethod(r)} · {r.note || "No note"}</p></div><p className="font-bold text-red-600">{money(r.amount)}</p></div>) : <div className="rounded-xl bg-white p-4 text-center text-sm text-slate-500">点击 pie chart 的某个分类后，这里会显示对应记录。</div>}</div></div><div className="mt-4 rounded-2xl bg-slate-50 p-3 ring-1 ring-slate-200"><div className="mb-2 flex justify-between"><p className="text-sm font-bold text-slate-700">Method Ratio</p><p className="text-xs text-slate-500">所有支出方式比例</p></div><div className="h-60"><MiniPie data={methodData} emptyText="No method data." /></div></div></Card>
+            </section>
+          </div>
+        </section>
+
+        <Card>
+          <div className="flex flex-col gap-2 md:flex-row md:items-end md:justify-between"><div><h2 className="text-xl font-bold">Transaction Records</h2><p className="mt-1 text-sm text-slate-500">Showing {filteredRecords.length} records for {filterLabel} · Click any cell to edit inline</p></div>{totalBudget > 0 && filteredExpense > totalBudget && <div className="rounded-2xl bg-red-50 px-4 py-3 text-sm font-semibold text-red-700">⚠ Expense exceeded budget by {money(filteredExpense - totalBudget)}.</div>}</div>
+          <div className="mt-5 overflow-x-auto"><table className="w-full min-w-[920px] border-collapse text-left text-sm"><thead><tr className="border-b border-slate-200"><th className="pb-3 pr-4 text-xs font-semibold uppercase tracking-wide text-slate-400">Date</th><th className="pb-3 pr-4 text-xs font-semibold uppercase tracking-wide text-slate-400">Type</th><th className="pb-3 pr-4 text-xs font-semibold uppercase tracking-wide text-slate-400">Category</th><th className="pb-3 pr-4 text-xs font-semibold uppercase tracking-wide text-slate-400">Method</th><th className="pb-3 pr-4 text-xs font-semibold uppercase tracking-wide text-slate-400">Amount</th><th className="pb-3 pr-4 text-xs font-semibold uppercase tracking-wide text-slate-400">Note</th><th className="pb-3 text-xs font-semibold uppercase tracking-wide text-slate-400">Actions</th></tr></thead><tbody className="divide-y divide-slate-100">{filteredRecords.length === 0 && <tr><td colSpan={7} className="py-10 text-center text-slate-400">No records found.</td></tr>}{filteredRecords.map((record) => <tr key={record.id} className="group hover:bg-slate-50"><td className="py-3 pr-4 font-mono text-xs text-slate-600"><EditableCell value={record.date} field="date" recordType={record.type} onSave={(v) => updateRecord(record.id, "date", v)} /></td><td className="py-3 pr-4"><span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold ${record.type === "income" ? "bg-green-100 text-green-700" : "bg-red-100 text-red-700"}`}>{record.type === "income" ? "▲ Income" : "▼ Expense"}</span></td><td className="py-3 pr-4 font-medium text-slate-800"><EditableCell value={record.category} field="category" recordType={record.type} onSave={(v) => updateRecord(record.id, "category", v)} /></td><td className="py-3 pr-4 text-slate-600"><EditableCell value={recordMethod(record)} field="method" recordType={record.type} onSave={(v) => updateRecord(record.id, "method", v)} /></td><td className={`py-3 pr-4 font-bold ${record.type === "income" ? "text-green-600" : "text-red-600"}`}><EditableCell value={record.amount} field="amount" recordType={record.type} onSave={(v) => updateRecord(record.id, "amount", v)} /></td><td className="py-3 pr-4 text-slate-500"><EditableCell value={record.note || ""} field="note" recordType={record.type} onSave={(v) => updateRecord(record.id, "note", v)} /></td><td className="py-3">{deleteConfirm === record.id ? <span className="flex items-center gap-1"><button onClick={() => deleteRecord(record.id)} className="rounded-lg bg-red-600 px-2 py-1 text-xs font-bold text-white">Confirm</button><button onClick={() => setDeleteConfirm(null)} className="rounded-lg bg-slate-200 px-2 py-1 text-xs font-bold text-slate-700">Cancel</button></span> : <button onClick={() => setDeleteConfirm(record.id)} className="rounded-lg px-2 py-1 text-xs font-bold text-slate-400 opacity-0 transition hover:bg-red-50 hover:text-red-600 group-hover:opacity-100">Delete</button>}</td></tr>)}</tbody>{filteredRecords.length > 0 && <tfoot><tr className="border-t-2 border-slate-200 bg-slate-50"><td colSpan={4} className="py-3 pr-4 text-xs font-semibold text-slate-500">Total ({filteredRecords.length} records)</td><td className="py-3 pr-4"><span className="block text-xs font-bold text-green-600">+{money(filteredIncome)}</span><span className="block text-xs font-bold text-red-600">-{money(filteredExpense)}</span><span className={`block text-xs font-bold ${filteredIncome - filteredExpense >= 0 ? "text-slate-900" : "text-red-700"}`}>= {money(filteredIncome - filteredExpense)}</span></td><td colSpan={2} /></tr></tfoot>}</table></div>
+        </Card>
+
+        <footer className="pb-6 text-center text-xs text-slate-400">记账可视化软件 · Data stored locally in your browser · {records.length} total records</footer>
+      </div>
+    </div>
+  );
+}
