@@ -569,8 +569,20 @@ export default function FinanceVisualizerApp() {
   }
 
   async function deleteRecord(recordId) {
-    setRecords((p) => p.filter((r) => r.id !== recordId));
-    setDeleteConfirm(null);
+  const { error } = await supabase
+    .from("records")
+    .delete()
+    .eq("id", recordId);
+
+  if (error) {
+    alert(error.message);
+    return;
+  }
+
+  setRecords((p) => p.filter((r) => r.id !== recordId));
+  setDeleteConfirm(null);
+  setSyncStatus("Record deleted from cloud");
+}
   }
 
   function exportCsv() {
