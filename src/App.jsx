@@ -218,18 +218,48 @@ function HeatmapCard({ days, label }) {
   );
 }
 
-function TopExpensesCard({ records, label }) {
+function TopExpensesCard({ records, label, category, setCategory }) {
   return (
     <Card>
-      <h2 className="text-xl font-bold">Top 5 Highest Expenses</h2>
-      <p className="mt-1 text-sm text-slate-500">最大消费排行 · {label}</p>
+      <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
+        <div>
+          <h2 className="text-xl font-bold">Top 5 Highest Expenses</h2>
+          <p className="mt-1 text-sm text-slate-500">
+            最大消费排行 · {label}{category !== "all" ? ` · ${category}` : ""}
+          </p>
+        </div>
+
+        <select
+          value={category}
+          onChange={(event) => setCategory(event.target.value)}
+          className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-semibold outline-none"
+        >
+          <option value="all">全部分类</option>
+          {EXPENSE_CATEGORIES.map((item) => (
+            <option key={item} value={item}>{item}</option>
+          ))}
+        </select>
+      </div>
+
       <div className="mt-4 space-y-2">
-        {records.length ? records.map((r, i) => (
-          <div key={r.id} className="flex items-start justify-between gap-3 rounded-2xl bg-slate-50 p-3 text-sm ring-1 ring-slate-100">
-            <div className="flex gap-3"><span className="flex h-7 w-7 items-center justify-center rounded-full bg-slate-900 text-xs font-bold text-white">{i + 1}</span><div><p className="font-bold text-slate-900">{r.category} · {recordMethod(r)}</p><p className="text-slate-500">{r.date} · {r.note || "No note"}</p></div></div>
-            <p className="whitespace-nowrap font-bold text-red-600">{money(r.amount)}</p>
+        {records.length ? records.map((record, index) => (
+          <div key={record.id} className="flex items-start justify-between gap-3 rounded-2xl bg-slate-50 p-3 text-sm ring-1 ring-slate-100">
+            <div className="flex gap-3">
+              <span className="flex h-7 w-7 items-center justify-center rounded-full bg-slate-900 text-xs font-bold text-white">
+                {index + 1}
+              </span>
+              <div>
+                <p className="font-bold text-slate-900">{record.category} · {recordMethod(record)}</p>
+                <p className="text-slate-500">{record.date} · {record.note || "No note"}</p>
+              </div>
+            </div>
+            <p className="whitespace-nowrap font-bold text-red-600">{money(record.amount)}</p>
           </div>
-        )) : <div className="rounded-2xl bg-slate-50 p-6 text-center text-sm text-slate-500">No expense data.</div>}
+        )) : (
+          <div className="rounded-2xl bg-slate-50 p-6 text-center text-sm text-slate-500">
+            No expense data for this category.
+          </div>
+        )}
       </div>
     </Card>
   );
@@ -369,6 +399,7 @@ export default function FinanceVisualizerApp() {
   const [keyword, setKeyword] = useState("");
   const [selectedPieCategory, setSelectedPieCategory] = useState(null);
   const [trendCategory, setTrendCategory] = useState("all");
+  const [topExpenseCategory, setTopExpenseCategory] = useState("all");
   const [soundEnabled, setSoundEnabled] = useState(() => localStorage.getItem(SOUND_KEY) !== "false");
   const [deleteConfirm, setDeleteConfirm] = useState(null);
   const [openDates, setOpenDates] = useState({});
@@ -533,7 +564,16 @@ return { ...row, balanceGreen: balance > limit ? balance : null, balanceRed: bal
     return dates.map((date) => ({ date, amount: Number(amounts[date] || 0) }));
   }, [expenseRecords, filteredRecords, filterMode, selectedMonth]);
 
-  const topExpenses = useMemo(() => expenseRecords.slice().sort((a, b) => Number(b.amount || 0) - Number(a.amount || 0)).slice(0, 5), [expenseRecords]);
+  const topExpenses = useMemo(() => {
+  const source = topExpenseCategory === "all"
+    ? expenseRecords
+    : expenseRecords.filter((record) => record.category === topExpenseCategory);
+
+  return source
+    .slice()
+    .sort((a, b) => Number(b.amount || 0) - Number(a.amount || 0))
+    .slice(0, 5);
+}, [expenseRecords, topExpenseCategory]);
   const groupedTransactionRecords = useMemo(() => {
   const grouped = {};
 
@@ -723,7 +763,12 @@ function toggleDateGroup(date) {
           <div className="space-y-6">
             <Card><div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between"><h2 className="text-xl font-bold">Filters</h2><div className="flex flex-col gap-3 md:flex-row md:flex-wrap md:justify-end"><select value={filterMode} onChange={(e) => setFilterMode(e.target.value)} className="rounded-2xl border border-slate-200 px-4 py-3 outline-none"><option value="all">全部</option><option value="month">按月份</option><option value="year">按年份</option><option value="recent30">最近 30 天</option><option value="recent7">最近 7 天</option><option value="recent3">最近 3 天</option></select>{filterMode === "month" && <input type="month" value={selectedMonth} onChange={(e) => setSelectedMonth(e.target.value)} className="rounded-2xl border border-slate-200 px-4 py-3 outline-none" />}{filterMode === "year" && <input type="number" value={selectedYear} onChange={(e) => setSelectedYear(e.target.value)} className="rounded-2xl border border-slate-200 px-4 py-3 outline-none" />}<input value={keyword} onChange={(e) => setKeyword(e.target.value)} placeholder="Search category, method or note" className="rounded-2xl border border-slate-200 px-4 py-3 outline-none" /></div></div></Card>
             <section className={`grid gap-4 ${showBudget ? "md:grid-cols-4" : "md:grid-cols-3"}`}><StatCard title="Filtered Income" value={money(filteredIncome)} icon="📈" desc={`Current filter: ${filterLabel}`} /><StatCard title="Filtered Expense" value={money(filteredExpense)} icon="📉" desc={`Current filter: ${filterLabel}`} /><BalanceCard title="Filtered Balance" value={filteredIncome - filteredExpense} desc={`Current filter: ${filterLabel}`} limit={balanceLimit} />{showBudget && <BudgetCard totalBudget={totalBudget} used={budgetUsed} budgets={budgets} setBudgets={updateBudgets} spentMap={spentMap} />}</section>
-            <section className="grid gap-6 xl:grid-cols-3"><ForecastCard stats={forecast.stats} data={forecast.data} month={forecastMonth} /><HeatmapCard days={heatmapDays} label={filterLabel} /><TopExpensesCard records={topExpenses} label={filterLabel} /></section>
+            <section className="grid gap-6 xl:grid-cols-3"><ForecastCard stats={forecast.stats} data={forecast.data} month={forecastMonth} /><HeatmapCard days={heatmapDays} label={filterLabel} /><TopExpensesCard
+  records={topExpenses}
+  label={filterLabel}
+  category={topExpenseCategory}
+  setCategory={setTopExpenseCategory}
+/></section>
             <section className="grid gap-6 xl:grid-cols-2">
               <Card><h2 className="text-xl font-bold">Daily Income vs Expense</h2><p className="mt-1 text-sm text-slate-500">Current range: {filterLabel}</p><div className="mt-4 h-64">{dailyData.length ? <ResponsiveContainer width="100%" height="100%"><BarChart data={dailyData}><CartesianGrid strokeDasharray="3 3" /><XAxis dataKey="day" /><YAxis /><Tooltip formatter={(v) => money(v)} /><Legend /><Bar dataKey="income" name="Income" fill="#22c55e" /><Bar dataKey="expense" name="Expense" fill="#ef4444" /></BarChart></ResponsiveContainer> : <div className="flex h-full items-center justify-center text-slate-500">No data.</div>}</div><div className="mt-5 rounded-2xl bg-slate-50 p-3 ring-1 ring-slate-200"><div className="mb-2 flex justify-between gap-2"><p className="text-sm font-bold text-slate-700">消费趋势图</p><select value={trendCategory} onChange={(e) => setTrendCategory(e.target.value)} className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-semibold"><option value="all">全部分类</option>{EXPENSE_CATEGORIES.map((c) => <option key={c}>{c}</option>)}</select></div><div className="h-36">{trendData.length ? <ResponsiveContainer width="100%" height="100%"><LineChart data={trendData}><CartesianGrid strokeDasharray="3 3" /><XAxis dataKey="day" /><YAxis /><Tooltip content={<TrendTooltip records={filteredRecords} category={trendCategory} />} /><Legend /><Line type="monotone" dataKey="expense" name="Expense" stroke="#3b82f6" strokeWidth={3} dot={{ r: 4 }} /></LineChart></ResponsiveContainer> : <div className="flex h-full items-center justify-center text-slate-500">No expense trend data.</div>}</div><div className="mt-4 border-t border-slate-200 pt-3"><p className="mb-2 text-sm font-bold text-slate-700">Filtered Balance Trend</p><div className="h-36">{trendData.length ? <ResponsiveContainer width="100%" height="100%"><LineChart data={trendData}><CartesianGrid strokeDasharray="3 3" /><XAxis dataKey="day" /><YAxis /><Tooltip formatter={(v) => money(v)} /><Legend /><Line connectNulls type="monotone" dataKey="balanceGreen" name="Balance > RM1500" stroke="#22c55e" strokeWidth={3} dot={{ r: 4 }} /><Line connectNulls type="monotone" dataKey="balanceRed" name="Balance ≤ RM1500" stroke="#ef4444" strokeWidth={3} dot={{ r: 4 }} /></LineChart></ResponsiveContainer> : <div className="flex h-full items-center justify-center text-slate-500">No balance trend data.</div>}</div></div></div></Card>
               <Card><h2 className="text-xl font-bold">Expense by Category</h2><p className="mt-1 text-sm text-slate-500">点击分类查看记录；Method Ratio 显示全部支出方式比例。</p><div className="mt-4 h-60"><MiniPie data={categoryData} emptyText="No expense data." onClick={(entry) => setSelectedPieCategory(entry.name)} selectedName={selectedPieCategory} /></div><div className="mt-4 rounded-2xl bg-slate-50 p-3 ring-1 ring-slate-200"><p className="text-sm font-bold text-slate-700">{selectedPieCategory ? `${selectedPieCategory} records` : "Category records"}</p><div className="mt-2 max-h-40 space-y-2 overflow-y-auto">{selectedCategoryRecords.length ? selectedCategoryRecords.map((r) => <div key={r.id} className="flex justify-between gap-3 rounded-xl bg-white p-3 text-sm ring-1 ring-slate-100"><div><p className="font-semibold">{r.date}</p><p className="text-slate-500">{recordMethod(r)} · {r.note || "No note"}</p></div><p className="font-bold text-red-600">{money(r.amount)}</p></div>) : <div className="rounded-xl bg-white p-4 text-center text-sm text-slate-500">点击 pie chart 的某个分类后，这里会显示对应记录。</div>}</div></div><div className="mt-4 rounded-2xl bg-slate-50 p-3 ring-1 ring-slate-200"><div className="mb-2 flex justify-between"><p className="text-sm font-bold text-slate-700">Method Ratio</p><p className="text-xs text-slate-500">所有支出方式比例</p></div><div className="h-60"><MiniPie data={methodData} emptyText="No method data." /></div></div></Card>
