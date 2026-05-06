@@ -9,6 +9,8 @@ const RECORDS_KEY = "finance-records-v3";
 const BUDGET_KEY = "finance-category-budget-v3";
 const SOUND_KEY = "finance-sound-v3";
 const BALANCE_LIMIT_KEY = "finance-balance-limit-v3";
+const CUSTOM_CARD_TEXT_KEY = "finance-custom-card-text-v3";
+const CUSTOM_CARD_IMAGE_KEY = "finance-custom-card-image-v3";
 
 const EXPENSE_CATEGORIES = ["饮食", "教育", "住房", "日用", "交通", "娱乐", "运动", "医疗", "美容"];
 const INCOME_CATEGORIES = ["Salary", "Allowance", "Part-time", "Gift", "Others"];
@@ -264,6 +266,105 @@ function TopExpensesCard({ records, label, category, setCategory }) {
     </Card>
   );
 }
+
+function TodaySummaryCard({ stats }) {
+  const balance = stats.income - stats.expense;
+
+  return (
+    <Card>
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <h2 className="text-xl font-bold">Today Summary</h2>
+          <p className="mt-1 text-sm text-slate-500">今日摘要 · {today()}</p>
+        </div>
+        <div className="rounded-2xl bg-slate-100 px-3 py-2 text-xl">📅</div>
+      </div>
+
+      <div className="mt-4 grid grid-cols-2 gap-3 text-sm">
+        <div className="rounded-2xl bg-green-50 p-3 ring-1 ring-green-100">
+          <p className="text-xs font-semibold text-green-700">Today Income</p>
+          <p className="mt-1 font-bold text-green-700">{money(stats.income)}</p>
+        </div>
+
+        <div className="rounded-2xl bg-red-50 p-3 ring-1 ring-red-100">
+          <p className="text-xs font-semibold text-red-700">Today Expense</p>
+          <p className="mt-1 font-bold text-red-700">{money(stats.expense)}</p>
+        </div>
+
+        <div className={`rounded-2xl p-3 ring-1 ${balance >= 0 ? "bg-slate-50 text-slate-800 ring-slate-100" : "bg-red-50 text-red-700 ring-red-100"}`}>
+          <p className="text-xs font-semibold">Today Balance</p>
+          <p className="mt-1 font-bold">{money(balance)}</p>
+        </div>
+
+        <div className="rounded-2xl bg-slate-50 p-3 ring-1 ring-slate-100">
+          <p className="text-xs font-semibold text-slate-500">Records</p>
+          <p className="mt-1 font-bold text-slate-900">{stats.count}</p>
+        </div>
+      </div>
+
+      <div className="mt-3 rounded-2xl bg-slate-50 p-3 text-sm ring-1 ring-slate-100">
+        <p className="text-xs font-semibold text-slate-500">Top Category</p>
+        <p className="mt-1 font-bold text-slate-900">{stats.topCategory || "No expense today"}</p>
+      </div>
+    </Card>
+  );
+}
+
+function CustomPersonalCard({ text, setText, image, setImage }) {
+  function handleImageUpload(event) {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = () => {
+      setImage(reader.result);
+    };
+    reader.readAsDataURL(file);
+    event.target.value = "";
+  }
+
+  return (
+    <Card>
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <h2 className="text-xl font-bold">Custom Card</h2>
+          <p className="mt-1 text-sm text-slate-500">Write notes and place your own image.</p>
+        </div>
+        <div className="rounded-2xl bg-slate-100 px-3 py-2 text-xl">🖼️</div>
+      </div>
+
+      <textarea
+        value={text}
+        onChange={(event) => setText(event.target.value)}
+        rows={4}
+        placeholder="Write anything here..."
+        className="mt-4 w-full resize-none rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm outline-none focus:bg-white"
+      />
+
+      <div className="mt-4 rounded-2xl border border-dashed border-slate-300 bg-slate-50 p-3">
+        {image ? (
+          <div className="space-y-3">
+            <img src={image} alt="Custom card upload" className="h-48 w-full rounded-2xl object-cover ring-1 ring-slate-200" />
+            <div className="flex gap-2">
+              <label className="flex-1 cursor-pointer rounded-xl bg-slate-900 px-3 py-2 text-center text-xs font-bold text-white">
+                Change Image
+                <input type="file" accept="image/*" className="hidden" onChange={handleImageUpload} />
+              </label>
+              <button
+                type="button"
+                onClick={() => setImage("")}
+                className="rounded-xl bg-red-50 px-3 py-2 text-xs font-bold text-red-700 ring-1 ring-red-100"
+              >
+                Remove
+              </button>
+            </div>
+          </div>
+        ) : (
+          <label className="flex h-48 cursor-pointer flex-col items-center justify-center rounded-2xl bg-white text-center text-sm text-slate-500 ring-1 ring-slate-100">
+            <span className="text-3xl">＋</span>
+            <span className="mt-2 font-semibold">Upload your image</span>
+            <span className="mt-1 text-xs">PNG / JPG / WebP</span>
+            <input type="file" accept="image/*" class
 
 function EditableCell({ value, field, recordType, onSave }) {
   const [editing, setEditing] = useState(false);
