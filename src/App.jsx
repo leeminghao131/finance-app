@@ -526,6 +526,13 @@ export default function FinanceVisualizerApp() {
   const [soundEnabled, setSoundEnabled] = useState(() => localStorage.getItem(SOUND_KEY) !== "false");
   const [deleteConfirm, setDeleteConfirm] = useState(null);
   const [openDates, setOpenDates] = useState({});
+  const [customCardText, setCustomCardText] = useState(() => {
+  return localStorage.getItem(CUSTOM_CARD_TEXT_KEY) || "";
+});
+
+const [customCardImage, setCustomCardImage] = useState(() => {
+  return localStorage.getItem(CUSTOM_CARD_IMAGE_KEY) || "";
+});
   const [balanceLimit, setBalanceLimit] = useState(() => {
   const saved = localStorage.getItem(BALANCE_LIMIT_KEY);
   return saved || "1500";
@@ -560,6 +567,13 @@ export default function FinanceVisualizerApp() {
   useEffect(() => {
   localStorage.setItem(BALANCE_LIMIT_KEY, String(balanceLimit || "1500"));
 }, [balanceLimit]);
+  useEffect(() => {
+  localStorage.setItem(CUSTOM_CARD_TEXT_KEY, customCardText);
+}, [customCardText]);
+
+useEffect(() => {
+  localStorage.setItem(CUSTOM_CARD_IMAGE_KEY, customCardImage);
+}, [customCardImage]);
   useEffect(() => setForm((p) => ({ ...p, category: categoriesFor(p.type).includes(p.category) ? p.category : categoriesFor(p.type)[0], method: methodsFor(p.type).includes(p.method) ? p.method : methodsFor(p.type)[0] })), [form.type]);
 
 
@@ -697,6 +711,25 @@ return { ...row, balanceGreen: balance > limit ? balance : null, balanceRed: bal
     .sort((a, b) => Number(b.amount || 0) - Number(a.amount || 0))
     .slice(0, 5);
 }, [expenseRecords, topExpenseCategory]);
+  const todaySummaryStats = useMemo(() => {
+  const todayRecords = records.filter((record) => record.date === today());
+  const todayExpenseRecords = todayRecords.filter((record) => record.type === "expense");
+
+  const categoryTotals = {};
+  todayExpenseRecords.forEach((record) => {
+    categoryTotals[record.category] = (categoryTotals[record.category] || 0) + Number(record.amount || 0);
+  });
+
+  const topCategory = Object.entries(categoryTotals)
+    .sort((a, b) => b[1] - a[1])[0]?.[0] || "";
+
+  return {
+    income: sumType(todayRecords, "income"),
+    expense: sumType(todayRecords, "expense"),
+    count: todayRecords.length,
+    topCategory,
+  };
+}, [records]);
   const groupedTransactionRecords = useMemo(() => {
   const grouped = {};
 
@@ -868,8 +901,9 @@ function toggleDateGroup(date) {
 
         <section className="grid gap-4 md:grid-cols-3"><StatCard title="Total Income" value={money(income)} icon="📈" desc="Overall records" /><StatCard title="Total Expense" value={money(expense)} icon="📉" desc="Overall records" /><BalanceCard title="Balance" value={income - expense} desc="Overall cash flow" limit={balanceLimit} /></section>
 
-        <section className="grid gap-6 lg:grid-cols-[380px_1fr]">
-          <Card>
+<section className="grid gap-6 lg:grid-cols-[380px_1fr]">
+  <div className="space-y-6">
+    <Card>
             <h2 className="text-xl font-bold">＋ Add Record</h2>
             <form onSubmit={addRecord} className="mt-5 space-y-4">
               <div className="grid grid-cols-2 gap-3 rounded-2xl bg-slate-100 p-1"><button type="button" onClick={() => setForm((p) => ({ ...p, type: "expense" }))} className={`rounded-xl px-3 py-2 text-sm font-semibold ${form.type === "expense" ? "bg-white shadow-sm" : "text-slate-500"}`}>Expense</button><button type="button" onClick={() => setForm((p) => ({ ...p, type: "income" }))} className={`rounded-xl px-3 py-2 text-sm font-semibold ${form.type === "income" ? "bg-white shadow-sm" : "text-slate-500"}`}>Income</button></div>
@@ -880,10 +914,20 @@ function toggleDateGroup(date) {
               <label className="block"><span className="text-sm font-medium text-slate-600">Date</span><DateInput value={form.date} onChange={(date) => setForm((p) => ({ ...p, date }))} /></label>
               <label className="block"><span className="text-sm font-medium text-slate-600">Note</span><input value={form.note} onChange={(e) => setForm((p) => ({ ...p, note: e.target.value }))} className="mt-1 w-full rounded-2xl border border-slate-200 px-4 py-3 outline-none" /></label>
               <button className="w-full rounded-2xl bg-slate-900 px-4 py-3 text-sm font-bold text-white">Add Record</button>
-            </form>
-          </Card>
+    </form>
+    </Card>
 
-          <div className="space-y-6">
+    <TodaySummaryCard stats={todaySummaryStats} />
+
+    <CustomPersonalCard
+      text={customCardText}
+      setText={setCustomCardText}
+      image={customCardImage}
+      setImage={setCustomCardImage}
+    />
+  </div>
+
+  <div className="space-y-6">
             <Card><div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between"><h2 className="text-xl font-bold">Filters</h2><div className="flex flex-col gap-3 md:flex-row md:flex-wrap md:justify-end"><select value={filterMode} onChange={(e) => setFilterMode(e.target.value)} className="rounded-2xl border border-slate-200 px-4 py-3 outline-none"><option value="all">全部</option><option value="month">按月份</option><option value="year">按年份</option><option value="recent30">最近 30 天</option><option value="recent7">最近 7 天</option><option value="recent3">最近 3 天</option></select>{filterMode === "month" && <input type="month" value={selectedMonth} onChange={(e) => setSelectedMonth(e.target.value)} className="rounded-2xl border border-slate-200 px-4 py-3 outline-none" />}{filterMode === "year" && <input type="number" value={selectedYear} onChange={(e) => setSelectedYear(e.target.value)} className="rounded-2xl border border-slate-200 px-4 py-3 outline-none" />}<input value={keyword} onChange={(e) => setKeyword(e.target.value)} placeholder="Search category, method or note" className="rounded-2xl border border-slate-200 px-4 py-3 outline-none" /></div></div></Card>
             <section className={`grid gap-4 ${showBudget ? "md:grid-cols-4" : "md:grid-cols-3"}`}><StatCard title="Filtered Income" value={money(filteredIncome)} icon="📈" desc={`Current filter: ${filterLabel}`} /><StatCard title="Filtered Expense" value={money(filteredExpense)} icon="📉" desc={`Current filter: ${filterLabel}`} /><BalanceCard title="Filtered Balance" value={filteredIncome - filteredExpense} desc={`Current filter: ${filterLabel}`} limit={balanceLimit} />{showBudget && <BudgetCard totalBudget={totalBudget} used={budgetUsed} budgets={budgets} setBudgets={updateBudgets} spentMap={spentMap} />}</section>
             <section className="grid gap-6 xl:grid-cols-3"><ForecastCard stats={forecast.stats} data={forecast.data} month={forecastMonth} /><HeatmapCard days={heatmapDays} label={filterLabel} /><TopExpensesCard
