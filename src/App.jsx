@@ -530,21 +530,64 @@ function CustomPersonalCard({ text, setText, image, setImage }) {
   );
 }
 
+function EditableCell({ value, field, recordType, onSave }) {
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState(value ?? "");
-  useEffect(() => setDraft(value ?? ""), [value]);
+
+  useEffect(() => {
+    setDraft(value ?? "");
+  }, [value]);
+
   function commit() {
     setEditing(false);
-    if (String(draft) !== String(value ?? "")) onSave(draft);
+    if (String(draft) !== String(value ?? "")) {
+      onSave(draft);
+    }
   }
-  if (!editing) return <span className="cursor-pointer rounded px-1 py-0.5 hover:bg-slate-100" onClick={() => setEditing(true)}>{value || <span className="italic text-slate-400">—</span>}</span>;
+
+  if (!editing) {
+    return (
+      <span
+        className="cursor-pointer rounded px-1 py-0.5 hover:bg-slate-100"
+        onClick={() => setEditing(true)}
+      >
+        {value || <span className="italic text-slate-400">—</span>}
+      </span>
+    );
+  }
+
   if (field === "category" || field === "method") {
     const list = field === "category" ? categoriesFor(recordType) : methodsFor(recordType);
-    return <select autoFocus value={draft} onChange={(e) => setDraft(e.target.value)} onBlur={commit} className="rounded border border-slate-300 px-1 py-0.5 text-xs outline-none">{list.map((x) => <option key={x}>{x}</option>)}</select>;
-  }
-  return <input autoFocus type={field === "date" ? "date" : field === "amount" ? "number" : "text"} min="0" step="0.01" value={draft} onChange={(e) => setDraft(e.target.value)} onBlur={commit} onKeyDown={(e) => e.key === "Enter" && commit()} className="rounded border border-slate-300 px-1 py-0.5 text-xs outline-none" />;
-}
 
+    return (
+      <select
+        autoFocus
+        value={draft}
+        onChange={(e) => setDraft(e.target.value)}
+        onBlur={commit}
+        className="rounded border border-slate-300 px-1 py-0.5 text-xs outline-none"
+      >
+        {list.map((x) => (
+          <option key={x}>{x}</option>
+        ))}
+      </select>
+    );
+  }
+
+  return (
+    <input
+      autoFocus
+      type={field === "date" ? "date" : field === "amount" ? "number" : "text"}
+      min="0"
+      step="0.01"
+      value={draft}
+      onChange={(e) => setDraft(e.target.value)}
+      onBlur={commit}
+      onKeyDown={(e) => e.key === "Enter" && commit()}
+      className="rounded border border-slate-300 px-1 py-0.5 text-xs outline-none"
+    />
+  );
+}
 function TrendTooltip({ active, payload, records, category }) {
   if (!active || !payload || !payload.length) return null;
   const date = payload[0].payload.dateKey;
