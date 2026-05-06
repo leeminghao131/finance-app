@@ -780,7 +780,17 @@ const [customCardImage, setCustomCardImage] = useState(() => {
 }, [customCardText]);
 
 useEffect(() => {
-  localStorage.setItem(CUSTOM_CARD_IMAGE_KEY, customCardImage);
+  try {
+    if (customCardImage) {
+      localStorage.setItem(CUSTOM_CARD_IMAGE_KEY, customCardImage);
+    } else {
+      localStorage.removeItem(CUSTOM_CARD_IMAGE_KEY);
+    }
+  } catch {
+    localStorage.removeItem(CUSTOM_CARD_IMAGE_KEY);
+    setCustomCardImage("");
+    alert("Image is too large to save. Please upload a smaller image.");
+  }
 }, [customCardImage]);
   useEffect(() => setForm((p) => ({ ...p, category: categoriesFor(p.type).includes(p.category) ? p.category : categoriesFor(p.type)[0], method: methodsFor(p.type).includes(p.method) ? p.method : methodsFor(p.type)[0] })), [form.type]);
 
