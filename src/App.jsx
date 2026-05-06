@@ -502,7 +502,6 @@ export default function FinanceVisualizerApp() {
     let balance = 0;
     return Object.values(out).sort((a, b) => new Date(a.dateKey) - new Date(b.dateKey)).map((row) => {
       balance += row.dailyBalance;
-      const limit = Number(balanceLimit || 1500);
 const limit = Number(balanceLimit || 1500);
 return { ...row, balanceGreen: balance > limit ? balance : null, balanceRed: balance <= limit ? balance : null };
     });
