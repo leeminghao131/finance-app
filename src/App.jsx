@@ -396,7 +396,6 @@ function TodaySummaryCard({ stats }) {
     </Card>
   );
 }
-
 function CustomPersonalCard({ text, setText, image, setImage }) {
   const [imageError, setImageError] = useState("");
 
@@ -530,72 +529,7 @@ function CustomPersonalCard({ text, setText, image, setImage }) {
     </Card>
   );
 }
-  return (
-    <Card>
-      <div className="flex items-start justify-between gap-3">
-        <div>
-          <h2 className="text-xl font-bold">Custom Card</h2>
-          <p className="mt-1 text-sm text-slate-500">Write notes and place your own image.</p>
-        </div>
-        <div className="rounded-2xl bg-slate-100 px-3 py-2 text-xl">🖼️</div>
-      </div>
 
-      <textarea
-        value={text}
-        onChange={(event) => setText(event.target.value)}
-        rows={4}
-        placeholder="Write anything here..."
-        className="mt-4 w-full resize-none rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm outline-none focus:bg-white"
-      />
-
-      <div className="mt-4 rounded-2xl border border-dashed border-slate-300 bg-slate-50 p-3">
-        {image ? (
-          <div className="space-y-3">
-            <img
-              src={image}
-              alt="Custom card upload"
-              className="h-48 w-full rounded-2xl object-cover ring-1 ring-slate-200"
-            />
-
-            <div className="flex gap-2">
-              <label className="flex-1 cursor-pointer rounded-xl bg-slate-900 px-3 py-2 text-center text-xs font-bold text-white">
-                Change Image
-                <input
-                  type="file"
-                  accept="image/*"
-                  className="hidden"
-                  onChange={handleImageUpload}
-                />
-              </label>
-
-              <button
-                type="button"
-                onClick={() => setImage("")}
-                className="rounded-xl bg-red-50 px-3 py-2 text-xs font-bold text-red-700 ring-1 ring-red-100"
-              >
-                Remove
-              </button>
-            </div>
-          </div>
-        ) : (
-          <label className="flex h-48 cursor-pointer flex-col items-center justify-center rounded-2xl bg-white text-center text-sm text-slate-500 ring-1 ring-slate-100">
-            <span className="text-3xl">＋</span>
-            <span className="mt-2 font-semibold">Upload your image</span>
-            <span className="mt-1 text-xs">PNG / JPG / WebP</span>
-            <input
-              type="file"
-              accept="image/*"
-              className="hidden"
-              onChange={handleImageUpload}
-            />
-          </label>
-        )}
-      </div>
-    </Card>
-  );
-}
-
-function EditableCell({ value, field, recordType, onSave }) {
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState(value ?? "");
   useEffect(() => setDraft(value ?? ""), [value]);
