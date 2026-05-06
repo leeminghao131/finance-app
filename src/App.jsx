@@ -310,7 +310,7 @@ function IncomeCoinSpinEffect({ trigger }) {
               transform: rotateY(0deg) rotateZ(0deg);
             }
             100% {
-              transform: rotateY(1080deg) rotateZ(10deg);
+              transform: rotateY(3600deg) rotateZ(10deg);
             }
           }
 
