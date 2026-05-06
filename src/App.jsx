@@ -94,6 +94,93 @@ function filterRecords(records, mode, month, year, keyword) {
 function Card({ children, className = "" }) {
   return <div className={`rounded-2xl bg-white p-5 shadow-sm ring-1 ring-slate-200 ${className}`}>{children}</div>;
 }
+function CoinRainEffect({ trigger }) {
+  const [coins, setCoins] = useState([]);
+
+  useEffect(() => {
+    if (!trigger) return;
+
+    const symbols = ["RM", "$", "€", "¥", "£", "₿"];
+    const newCoins = Array.from({ length: 46 }, (_, index) => ({
+      id: `${trigger}-${index}`,
+      symbol: symbols[index % symbols.length],
+      left: Math.random() * 100,
+      delay: Math.random() * 0.45,
+      duration: 1.6 + Math.random() * 1.4,
+      size: 22 + Math.random() * 18,
+      rotate: Math.random() * 360,
+      drift: -70 + Math.random() * 140,
+    }));
+
+    setCoins(newCoins);
+
+    const timer = setTimeout(() => {
+      setCoins([]);
+    }, 3600);
+
+    return () => clearTimeout(timer);
+  }, [trigger]);
+
+  if (!coins.length) return null;
+
+  return (
+    <div className="pointer-events-none fixed inset-0 z-[9999] overflow-hidden">
+      <style>
+        {`
+          @keyframes antiqueCoinFall {
+            0% {
+              transform: translate3d(0, -90px, 0) rotateX(0deg) rotateZ(0deg) scale(0.85);
+              opacity: 0;
+            }
+            10% {
+              opacity: 1;
+            }
+            72% {
+              opacity: 1;
+            }
+            100% {
+              transform: translate3d(var(--drift), 108vh, 0) rotateX(720deg) rotateZ(540deg) scale(1);
+              opacity: 0;
+            }
+          }
+
+          @keyframes antiqueCoinShine {
+            0%, 100% {
+              filter: brightness(1) drop-shadow(0 0 8px rgba(245, 158, 11, 0.35));
+            }
+            50% {
+              filter: brightness(1.45) drop-shadow(0 0 14px rgba(251, 191, 36, 0.75));
+            }
+          }
+        `}
+      </style>
+
+      {coins.map((coin) => (
+        <div
+          key={coin.id}
+          className="absolute top-0 flex items-center justify-center rounded-full border border-amber-700/80 bg-gradient-to-br from-yellow-200 via-amber-500 to-yellow-800 font-black text-yellow-950 shadow-[inset_0_2px_6px_rgba(255,255,255,0.55),inset_0_-4px_8px_rgba(92,46,0,0.55),0_8px_20px_rgba(0,0,0,0.35)]"
+          style={{
+            left: `${coin.left}%`,
+            width: `${coin.size}px`,
+            height: `${coin.size}px`,
+            fontSize: `${coin.size * 0.34}px`,
+            animation: `antiqueCoinFall ${coin.duration}s cubic-bezier(.2,.7,.25,1) ${coin.delay}s forwards, antiqueCoinShine 0.55s ease-in-out ${coin.delay}s infinite`,
+            "--drift": `${coin.drift}px`,
+          }}
+        >
+          <span
+            style={{
+              transform: `rotate(${coin.rotate}deg)`,
+              textShadow: "0 1px 0 rgba(255,255,255,0.45)",
+            }}
+          >
+            {coin.symbol}
+          </span>
+        </div>
+      ))}
+    </div>
+  );
+}
 function IncomeCoinSpinEffect({ trigger }) {
   const [visible, setVisible] = useState(false);
 
@@ -1160,7 +1247,8 @@ async function addRecord(e) {
 
 return (
   <div onClickCapture={(e) => e.target.closest("button,select") && playSound()} className="min-h-screen bg-slate-50 p-4 text-slate-900 md:p-8">
-    <IncomeCoinSpinEffect trigger={incomeCoinTrigger} />
+<CoinRainEffect trigger={coinRainTrigger} />
+<IncomeCoinSpinEffect trigger={incomeCoinTrigger} />
       <div className="mx-auto max-w-7xl space-y-6">
         <header className="flex flex-col gap-4 rounded-3xl bg-slate-900 p-6 text-white md:flex-row md:items-center md:justify-between">
           <div><p className="text-sm font-medium text-slate-300">Personal Finance Dashboard</p><h1 className="mt-2 text-3xl font-bold md:text-4xl">记账可视化软件</h1><p className="mt-2 text-sm text-slate-300">记录收入与支出，自动生成统计、分类比例、每日趋势和预算使用情况。</p></div>
