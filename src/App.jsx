@@ -398,18 +398,138 @@ function TodaySummaryCard({ stats }) {
 }
 
 function CustomPersonalCard({ text, setText, image, setImage }) {
-  function handleImageUpload(event) {
+  const [imageError, setImageError] = useState("");
+
+  function resizeImageToDataUrl(file, maxWidth = 900, quality = 0.72) {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+
+      reader.onload = () => {
+        const img = new Image();
+
+        img.onload = () => {
+          const scale = Math.min(1, maxWidth / img.width);
+          const canvas = document.createElement("canvas");
+          canvas.width = Math.round(img.width * scale);
+          canvas.height = Math.round(img.height * scale);
+
+          const ctx = canvas.getContext("2d");
+          ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+
+          const compressedDataUrl = canvas.toDataURL("image/jpeg", quality);
+          resolve(compressedDataUrl);
+        };
+
+        img.onerror = reject;
+        img.src = reader.result;
+      };
+
+      reader.onerror = reject;
+      reader.readAsDataURL(file);
+    });
+  }
+
+  async function handleImageUpload(event) {
     const file = event.target.files?.[0];
     if (!file) return;
 
-    const reader = new FileReader();
-    reader.onload = () => {
-      setImage(reader.result);
-    };
-    reader.readAsDataURL(file);
+    setImageError("");
+
+    if (!file.type.startsWith("image/")) {
+      setImageError("Please upload an image file.");
+      event.target.value = "";
+      return;
+    }
+
+    if (file.size > 8 * 1024 * 1024) {
+      setImageError("Image is too large. Please choose an image below 8MB.");
+      event.target.value = "";
+      return;
+    }
+
+    try {
+      const compressedImage = await resizeImageToDataUrl(file);
+      setImage(compressedImage);
+    } catch {
+      setImageError("Failed to process image. Please try another image.");
+    }
+
     event.target.value = "";
   }
 
+  return (
+    <Card>
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <h2 className="text-xl font-bold">Custom Card</h2>
+          <p className="mt-1 text-sm text-slate-500">Write notes and place your own image.</p>
+        </div>
+        <div className="rounded-2xl bg-slate-100 px-3 py-2 text-xl">🖼️</div>
+      </div>
+
+      <textarea
+        value={text}
+        onChange={(event) => setText(event.target.value)}
+        rows={6}
+        placeholder="Write anything here..."
+        className="mt-4 min-h-[150px] w-full resize-none rounded-2xl border border-slate-200 bg-slate-50 px-5 py-8 text-center text-lg font-semibold leading-relaxed text-slate-800 outline-none focus:bg-white"
+      />
+
+      <div className="mt-4 rounded-2xl border border-dashed border-slate-300 bg-slate-50 p-3">
+        {image ? (
+          <div className="space-y-3">
+            <img
+              src={image}
+              alt="Custom card upload"
+              className="h-56 w-full rounded-2xl object-cover ring-1 ring-slate-200"
+            />
+
+            <div className="flex gap-2">
+              <label className="flex-1 cursor-pointer rounded-xl bg-slate-900 px-3 py-2 text-center text-xs font-bold text-white">
+                Change Image
+                <input
+                  type="file"
+                  accept="image/*"
+                  className="hidden"
+                  onChange={handleImageUpload}
+                />
+              </label>
+
+              <button
+                type="button"
+                onClick={() => {
+                  setImage("");
+                  setImageError("");
+                }}
+                className="rounded-xl bg-red-50 px-3 py-2 text-xs font-bold text-red-700 ring-1 ring-red-100"
+              >
+                Remove
+              </button>
+            </div>
+          </div>
+        ) : (
+          <label className="flex h-56 cursor-pointer flex-col items-center justify-center rounded-2xl bg-white text-center text-sm text-slate-500 ring-1 ring-slate-100">
+            <span className="text-3xl">＋</span>
+            <span className="mt-2 font-semibold">Upload your image</span>
+            <span className="mt-1 text-xs">PNG / JPG / WebP · will be compressed</span>
+            <input
+              type="file"
+              accept="image/*"
+              className="hidden"
+              onChange={handleImageUpload}
+            />
+          </label>
+        )}
+      </div>
+
+      {imageError && (
+        <p className="mt-3 rounded-xl bg-red-50 px-3 py-2 text-xs font-bold text-red-700 ring-1 ring-red-100">
+          {imageError}
+        </p>
+      )}
+    </Card>
+  );
+}
   return (
     <Card>
       <div className="flex items-start justify-between gap-3">
