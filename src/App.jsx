@@ -344,12 +344,23 @@ function CustomPersonalCard({ text, setText, image, setImage }) {
       <div className="mt-4 rounded-2xl border border-dashed border-slate-300 bg-slate-50 p-3">
         {image ? (
           <div className="space-y-3">
-            <img src={image} alt="Custom card upload" className="h-48 w-full rounded-2xl object-cover ring-1 ring-slate-200" />
+            <img
+              src={image}
+              alt="Custom card upload"
+              className="h-48 w-full rounded-2xl object-cover ring-1 ring-slate-200"
+            />
+
             <div className="flex gap-2">
               <label className="flex-1 cursor-pointer rounded-xl bg-slate-900 px-3 py-2 text-center text-xs font-bold text-white">
                 Change Image
-                <input type="file" accept="image/*" className="hidden" onChange={handleImageUpload} />
+                <input
+                  type="file"
+                  accept="image/*"
+                  className="hidden"
+                  onChange={handleImageUpload}
+                />
               </label>
+
               <button
                 type="button"
                 onClick={() => setImage("")}
@@ -364,7 +375,18 @@ function CustomPersonalCard({ text, setText, image, setImage }) {
             <span className="text-3xl">＋</span>
             <span className="mt-2 font-semibold">Upload your image</span>
             <span className="mt-1 text-xs">PNG / JPG / WebP</span>
-            <input type="file" accept="image/*" class
+            <input
+              type="file"
+              accept="image/*"
+              className="hidden"
+              onChange={handleImageUpload}
+            />
+          </label>
+        )}
+      </div>
+    </Card>
+  );
+}
 
 function EditableCell({ value, field, recordType, onSave }) {
   const [editing, setEditing] = useState(false);
