@@ -1069,10 +1069,10 @@ async function addRecord(e) {
   if (insertedRecord.type === "expense") {
     playCoinClinkSound();
     setCoinRainTrigger(Date.now());
-  } else if (insertedRecord.type === "income") {
-    playIncomeCoinSound();
-    setIncomeCoinTrigger(Date.now());
-  }
+} else if (insertedRecord.type === "income") {
+  playCoinClinkSound();
+  setIncomeCoinTrigger(Date.now());
+}
 }
   function fillCalculation() {
     try {
@@ -1160,7 +1160,6 @@ async function addRecord(e) {
 
 return (
   <div onClickCapture={(e) => e.target.closest("button,select") && playSound()} className="min-h-screen bg-slate-50 p-4 text-slate-900 md:p-8">
-    <CoinRainEffect trigger={coinRainTrigger} />
     <IncomeCoinSpinEffect trigger={incomeCoinTrigger} />
       <div className="mx-auto max-w-7xl space-y-6">
         <header className="flex flex-col gap-4 rounded-3xl bg-slate-900 p-6 text-white md:flex-row md:items-center md:justify-between">
