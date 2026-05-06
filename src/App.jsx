@@ -19,7 +19,11 @@ const INCOME_METHODS = ["TNG", "CASH", "BANK IN", "GRAB PAY"];
 const DEFAULT_BUDGETS = { 饮食: "600", 教育: "", 住房: "", 日用: "", 交通: "300", 娱乐: "200", 运动: "", 医疗: "", 美容: "150" };
 const COLORS = ["#6366f1", "#22c55e", "#f97316", "#ef4444", "#06b6d4", "#a855f7", "#eab308", "#64748b", "#ec4899"];
 
-const today = () => new Date().toISOString().slice(0, 10);
+const today = () => {
+  const date = new Date();
+  const localDate = new Date(date.getTime() - date.getTimezoneOffset() * 60000);
+  return localDate.toISOString().slice(0, 10);
+};
 const monthNow = () => new Date().toISOString().slice(0, 7);
 const yearNow = () => String(new Date().getFullYear());
 const makeId = () => (crypto?.randomUUID ? crypto.randomUUID() : `${Date.now()}-${Math.random()}`);
@@ -1233,7 +1237,7 @@ async function addRecord(e) {
   const insertedRecord = normalizeRecord(data);
 
   setRecords((p) => [insertedRecord, ...p]);
-  setForm((p) => ({ ...p, amount: "", note: "" }));
+  setForm((p) => ({ ...p, amount: "", note: "", date: today() }));
   setSyncStatus("Record added to cloud");
 
 if (insertedRecord.type === "expense") {
