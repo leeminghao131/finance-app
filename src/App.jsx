@@ -1191,53 +1191,23 @@ function toggleDateGroup(date) {
       o.connect(g); g.connect(a.destination); o.start(); o.stop(a.currentTime + 0.08); o.onended = () => a.close();
     } catch {}
   }
-  function playCoinClinkSound() {
+ function playAudioEffect(src, volume = 0.75) {
   if (!soundEnabled) return;
 
   try {
-    const AudioContextClass = window.AudioContext || window.webkitAudioContext;
-    if (!AudioContextClass) return;
-
-    const audio = new AudioContextClass();
-    const master = audio.createGain();
-    master.gain.setValueAtTime(0.16, audio.currentTime);
-    master.gain.exponentialRampToValueAtTime(0.001, audio.currentTime + 1.25);
-    master.connect(audio.destination);
-
-    const playClink = (time, frequency, volume) => {
-      const oscillator = audio.createOscillator();
-      const gain = audio.createGain();
-
-      oscillator.type = "triangle";
-      oscillator.frequency.setValueAtTime(frequency, time);
-      oscillator.frequency.exponentialRampToValueAtTime(frequency * 1.45, time + 0.035);
-
-      gain.gain.setValueAtTime(volume, time);
-      gain.gain.exponentialRampToValueAtTime(0.001, time + 0.22);
-
-      oscillator.connect(gain);
-      gain.connect(master);
-      oscillator.start(time);
-      oscillator.stop(time + 0.24);
-    };
-
-    const now = audio.currentTime;
-    const clinks = [
-      [0.00, 1180, 0.08],
-      [0.05, 1620, 0.055],
-      [0.11, 910, 0.06],
-      [0.19, 1350, 0.045],
-      [0.31, 1880, 0.04],
-      [0.43, 1120, 0.035],
-      [0.58, 1540, 0.03],
-    ];
-
-    clinks.forEach(([delay, frequency, volume]) => {
-      playClink(now + delay, frequency, volume);
-    });
-
-    setTimeout(() => audio.close(), 1500);
+    const audio = new Audio(src);
+    audio.volume = volume;
+    audio.currentTime = 0;
+    audio.play().catch(() => {});
   } catch {}
+}
+
+function playCoinRainSound() {
+  playAudioEffect("/coin-rain.mp3", 0.75);
+}
+
+function playIncomeCoinSound() {
+  playAudioEffect("/coin-spin.mp3", 0.85);
 }
 
 async function addRecord(e) {
@@ -1266,11 +1236,11 @@ async function addRecord(e) {
   setForm((p) => ({ ...p, amount: "", note: "" }));
   setSyncStatus("Record added to cloud");
 
-  if (insertedRecord.type === "expense") {
-    playCoinClinkSound();
-    setCoinRainTrigger(Date.now());
+if (insertedRecord.type === "expense") {
+  playCoinRainSound();
+  setCoinRainTrigger(Date.now());
 } else if (insertedRecord.type === "income") {
-  playCoinClinkSound();
+  playIncomeCoinSound();
   setIncomeCoinTrigger(Date.now());
 }
 }
