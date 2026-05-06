@@ -371,6 +371,7 @@ export default function FinanceVisualizerApp() {
   const [trendCategory, setTrendCategory] = useState("all");
   const [soundEnabled, setSoundEnabled] = useState(() => localStorage.getItem(SOUND_KEY) !== "false");
   const [deleteConfirm, setDeleteConfirm] = useState(null);
+  const [openDates, setOpenDates] = useState({});
   const [balanceLimit, setBalanceLimit] = useState(() => {
   const saved = localStorage.getItem(BALANCE_LIMIT_KEY);
   return saved || "1500";
@@ -533,6 +534,37 @@ return { ...row, balanceGreen: balance > limit ? balance : null, balanceRed: bal
   }, [expenseRecords, filteredRecords, filterMode, selectedMonth]);
 
   const topExpenses = useMemo(() => expenseRecords.slice().sort((a, b) => Number(b.amount || 0) - Number(a.amount || 0)).slice(0, 5), [expenseRecords]);
+  const groupedTransactionRecords = useMemo(() => {
+  const grouped = {};
+
+  filteredRecords.forEach((record) => {
+    if (!grouped[record.date]) {
+      grouped[record.date] = {
+        date: record.date,
+        records: [],
+        income: 0,
+        expense: 0,
+      };
+    }
+
+    grouped[record.date].records.push(record);
+
+    if (record.type === "income") {
+      grouped[record.date].income += Number(record.amount || 0);
+    } else {
+      grouped[record.date].expense += Number(record.amount || 0);
+    }
+  });
+
+  return Object.values(grouped).sort((a, b) => new Date(b.date) - new Date(a.date));
+}, [filteredRecords]);
+
+function toggleDateGroup(date) {
+  setOpenDates((previous) => ({
+    ...previous,
+    [date]: !previous[date],
+  }));
+}
 
   function playSound() {
     if (!soundEnabled) return;
@@ -699,10 +731,149 @@ return { ...row, balanceGreen: balance > limit ? balance : null, balanceRed: bal
           </div>
         </section>
 
-        <Card>
-          <div className="flex flex-col gap-2 md:flex-row md:items-end md:justify-between"><div><h2 className="text-xl font-bold">Transaction Records</h2><p className="mt-1 text-sm text-slate-500">Showing {filteredRecords.length} records for {filterLabel} · Click any cell to edit inline</p></div>{totalBudget > 0 && filteredExpense > totalBudget && <div className="rounded-2xl bg-red-50 px-4 py-3 text-sm font-semibold text-red-700">⚠ Expense exceeded budget by {money(filteredExpense - totalBudget)}.</div>}</div>
-          <div className="mt-5 overflow-x-auto"><table className="w-full min-w-[920px] border-collapse text-left text-sm"><thead><tr className="border-b border-slate-200"><th className="pb-3 pr-4 text-xs font-semibold uppercase tracking-wide text-slate-400">Date</th><th className="pb-3 pr-4 text-xs font-semibold uppercase tracking-wide text-slate-400">Type</th><th className="pb-3 pr-4 text-xs font-semibold uppercase tracking-wide text-slate-400">Category</th><th className="pb-3 pr-4 text-xs font-semibold uppercase tracking-wide text-slate-400">Method</th><th className="pb-3 pr-4 text-xs font-semibold uppercase tracking-wide text-slate-400">Amount</th><th className="pb-3 pr-4 text-xs font-semibold uppercase tracking-wide text-slate-400">Note</th><th className="pb-3 text-xs font-semibold uppercase tracking-wide text-slate-400">Actions</th></tr></thead><tbody className="divide-y divide-slate-100">{filteredRecords.length === 0 && <tr><td colSpan={7} className="py-10 text-center text-slate-400">No records found.</td></tr>}{filteredRecords.map((record) => <tr key={record.id} className="group hover:bg-slate-50"><td className="py-3 pr-4 font-mono text-xs text-slate-600"><EditableCell value={record.date} field="date" recordType={record.type} onSave={(v) => updateRecord(record.id, "date", v)} /></td><td className="py-3 pr-4"><span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold ${record.type === "income" ? "bg-green-100 text-green-700" : "bg-red-100 text-red-700"}`}>{record.type === "income" ? "▲ Income" : "▼ Expense"}</span></td><td className="py-3 pr-4 font-medium text-slate-800"><EditableCell value={record.category} field="category" recordType={record.type} onSave={(v) => updateRecord(record.id, "category", v)} /></td><td className="py-3 pr-4 text-slate-600"><EditableCell value={recordMethod(record)} field="method" recordType={record.type} onSave={(v) => updateRecord(record.id, "method", v)} /></td><td className={`py-3 pr-4 font-bold ${record.type === "income" ? "text-green-600" : "text-red-600"}`}><EditableCell value={record.amount} field="amount" recordType={record.type} onSave={(v) => updateRecord(record.id, "amount", v)} /></td><td className="py-3 pr-4 text-slate-500"><EditableCell value={record.note || ""} field="note" recordType={record.type} onSave={(v) => updateRecord(record.id, "note", v)} /></td><td className="py-3">{deleteConfirm === record.id ? <span className="flex items-center gap-1"><button onClick={() => deleteRecord(record.id)} className="rounded-lg bg-red-600 px-2 py-1 text-xs font-bold text-white">Confirm</button><button onClick={() => setDeleteConfirm(null)} className="rounded-lg bg-slate-200 px-2 py-1 text-xs font-bold text-slate-700">Cancel</button></span> : <button onClick={() => setDeleteConfirm(record.id)} className="rounded-lg px-2 py-1 text-xs font-bold text-slate-400 opacity-0 transition hover:bg-red-50 hover:text-red-600 group-hover:opacity-100">Delete</button>}</td></tr>)}</tbody>{filteredRecords.length > 0 && <tfoot><tr className="border-t-2 border-slate-200 bg-slate-50"><td colSpan={4} className="py-3 pr-4 text-xs font-semibold text-slate-500">Total ({filteredRecords.length} records)</td><td className="py-3 pr-4"><span className="block text-xs font-bold text-green-600">+{money(filteredIncome)}</span><span className="block text-xs font-bold text-red-600">-{money(filteredExpense)}</span><span className={`block text-xs font-bold ${filteredIncome - filteredExpense >= 0 ? "text-slate-900" : "text-red-700"}`}>= {money(filteredIncome - filteredExpense)}</span></td><td colSpan={2} /></tr></tfoot>}</table></div>
-        </Card>
+       <Card>
+  <div className="flex flex-col gap-2 md:flex-row md:items-end md:justify-between">
+    <div>
+      <h2 className="text-xl font-bold">Transaction Records</h2>
+      <p className="mt-1 text-sm text-slate-500">
+        Showing {filteredRecords.length} records for {filterLabel} · Click a date to expand records
+      </p>
+    </div>
+    {totalBudget > 0 && filteredExpense > totalBudget && (
+      <div className="rounded-2xl bg-red-50 px-4 py-3 text-sm font-semibold text-red-700">
+        ⚠ Expense exceeded budget by {money(filteredExpense - totalBudget)}.
+      </div>
+    )}
+  </div>
+
+  <div className="mt-5 space-y-3">
+    {groupedTransactionRecords.length === 0 && (
+      <div className="rounded-2xl bg-slate-50 p-8 text-center text-sm text-slate-400 ring-1 ring-slate-100">
+        No records found.
+      </div>
+    )}
+
+    {groupedTransactionRecords.map((group) => {
+      const isOpen = openDates[group.date] ?? false;
+      const dayBalance = group.income - group.expense;
+
+      return (
+        <div key={group.date} className="overflow-hidden rounded-2xl bg-white ring-1 ring-slate-200">
+          <button
+            type="button"
+            onClick={() => toggleDateGroup(group.date)}
+            className="flex w-full flex-col gap-3 bg-slate-50 px-4 py-4 text-left transition hover:bg-slate-100 md:flex-row md:items-center md:justify-between"
+          >
+            <div className="flex items-center gap-3">
+              <span className="flex h-9 w-9 items-center justify-center rounded-full bg-slate-900 text-sm font-bold text-white">
+                {isOpen ? "−" : "+"}
+              </span>
+              <div>
+                <p className="font-mono text-sm font-bold text-slate-900">{group.date}</p>
+                <p className="text-xs text-slate-500">
+                  {group.records.length} record{group.records.length > 1 ? "s" : ""}
+                </p>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-3 gap-2 text-xs md:min-w-[360px]">
+              <div className="rounded-xl bg-green-50 px-3 py-2 text-right font-bold text-green-700">
+                +{money(group.income)}
+              </div>
+              <div className="rounded-xl bg-red-50 px-3 py-2 text-right font-bold text-red-700">
+                -{money(group.expense)}
+              </div>
+              <div className={`rounded-xl px-3 py-2 text-right font-bold ${dayBalance >= 0 ? "bg-slate-100 text-slate-900" : "bg-red-100 text-red-700"}`}>
+                {money(dayBalance)}
+              </div>
+            </div>
+          </button>
+
+          {isOpen && (
+            <div className="overflow-x-auto px-4 pb-4">
+              <table className="mt-3 w-full min-w-[920px] border-collapse text-left text-sm">
+                <thead>
+                  <tr className="border-b border-slate-200">
+                    <th className="pb-3 pr-4 text-xs font-semibold uppercase tracking-wide text-slate-400">Date</th>
+                    <th className="pb-3 pr-4 text-xs font-semibold uppercase tracking-wide text-slate-400">Type</th>
+                    <th className="pb-3 pr-4 text-xs font-semibold uppercase tracking-wide text-slate-400">Category</th>
+                    <th className="pb-3 pr-4 text-xs font-semibold uppercase tracking-wide text-slate-400">Method</th>
+                    <th className="pb-3 pr-4 text-xs font-semibold uppercase tracking-wide text-slate-400">Amount</th>
+                    <th className="pb-3 pr-4 text-xs font-semibold uppercase tracking-wide text-slate-400">Note</th>
+                    <th className="pb-3 text-xs font-semibold uppercase tracking-wide text-slate-400">Actions</th>
+                  </tr>
+                </thead>
+
+                <tbody className="divide-y divide-slate-100">
+                  {group.records.map((record) => (
+                    <tr key={record.id} className="group hover:bg-slate-50">
+                      <td className="py-3 pr-4 font-mono text-xs text-slate-600">
+                        <EditableCell value={record.date} field="date" recordType={record.type} onSave={(v) => updateRecord(record.id, "date", v)} />
+                      </td>
+
+                      <td className="py-3 pr-4">
+                        <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold ${record.type === "income" ? "bg-green-100 text-green-700" : "bg-red-100 text-red-700"}`}>
+                          {record.type === "income" ? "▲ Income" : "▼ Expense"}
+                        </span>
+                      </td>
+
+                      <td className="py-3 pr-4 font-medium text-slate-800">
+                        <EditableCell value={record.category} field="category" recordType={record.type} onSave={(v) => updateRecord(record.id, "category", v)} />
+                      </td>
+
+                      <td className="py-3 pr-4 text-slate-600">
+                        <EditableCell value={recordMethod(record)} field="method" recordType={record.type} onSave={(v) => updateRecord(record.id, "method", v)} />
+                      </td>
+
+                      <td className={`py-3 pr-4 font-bold ${record.type === "income" ? "text-green-600" : "text-red-600"}`}>
+                        <EditableCell value={record.amount} field="amount" recordType={record.type} onSave={(v) => updateRecord(record.id, "amount", v)} />
+                      </td>
+
+                      <td className="py-3 pr-4 text-slate-500">
+                        <EditableCell value={record.note || ""} field="note" recordType={record.type} onSave={(v) => updateRecord(record.id, "note", v)} />
+                      </td>
+
+                      <td className="py-3">
+                        {deleteConfirm === record.id ? (
+                          <span className="flex items-center gap-1">
+                            <button onClick={() => deleteRecord(record.id)} className="rounded-lg bg-red-600 px-2 py-1 text-xs font-bold text-white">Confirm</button>
+                            <button onClick={() => setDeleteConfirm(null)} className="rounded-lg bg-slate-200 px-2 py-1 text-xs font-bold text-slate-700">Cancel</button>
+                          </span>
+                        ) : (
+                          <button
+                            onClick={() => setDeleteConfirm(record.id)}
+                            className="rounded-lg px-2 py-1 text-xs font-bold text-slate-400 opacity-0 transition hover:bg-red-50 hover:text-red-600 group-hover:opacity-100"
+                          >
+                            Delete
+                          </button>
+                        )}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+      );
+    })}
+  </div>
+
+  {filteredRecords.length > 0 && (
+    <div className="mt-5 rounded-2xl bg-slate-50 p-4 text-sm ring-1 ring-slate-100">
+      <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
+        <p className="font-semibold text-slate-500">Total ({filteredRecords.length} records)</p>
+        <div className="flex flex-wrap gap-2">
+          <span className="rounded-xl bg-green-50 px-3 py-2 text-xs font-bold text-green-600">+{money(filteredIncome)}</span>
+          <span className="rounded-xl bg-red-50 px-3 py-2 text-xs font-bold text-red-600">-{money(filteredExpense)}</span>
+          <span className={`rounded-xl px-3 py-2 text-xs font-bold ${filteredIncome - filteredExpense >= 0 ? "bg-white text-slate-900" : "bg-red-100 text-red-700"}`}>
+            = {money(filteredIncome - filteredExpense)}
+          </span>
+        </div>
+      </div>
+    </div>
+  )}
+</Card>
 
         <footer className="pb-6 text-center text-xs text-slate-400">记账可视化软件 · Data synced with Supabase cloud · {records.length} total records</footer>
       </div>
