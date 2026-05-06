@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { supabase, hasSupabaseEnv } from "./supabaseClient";
 import {
   BarChart, Bar, PieChart, Pie, Cell, XAxis, YAxis, Tooltip,
@@ -93,6 +93,93 @@ function filterRecords(records, mode, month, year, keyword) {
 
 function Card({ children, className = "" }) {
   return <div className={`rounded-2xl bg-white p-5 shadow-sm ring-1 ring-slate-200 ${className}`}>{children}</div>;
+}
+function CoinRainEffect({ trigger }) {
+  const [coins, setCoins] = useState([]);
+
+  useEffect(() => {
+    if (!trigger) return;
+
+    const symbols = ["RM", "$", "€", "¥", "£", "₿"];
+    const newCoins = Array.from({ length: 46 }, (_, index) => ({
+      id: `${trigger}-${index}`,
+      symbol: symbols[index % symbols.length],
+      left: Math.random() * 100,
+      delay: Math.random() * 0.45,
+      duration: 1.6 + Math.random() * 1.4,
+      size: 22 + Math.random() * 18,
+      rotate: Math.random() * 360,
+      drift: -70 + Math.random() * 140,
+    }));
+
+    setCoins(newCoins);
+
+    const timer = setTimeout(() => {
+      setCoins([]);
+    }, 3600);
+
+    return () => clearTimeout(timer);
+  }, [trigger]);
+
+  if (!coins.length) return null;
+
+  return (
+    <div className="pointer-events-none fixed inset-0 z-[9999] overflow-hidden">
+      <style>
+        {`
+          @keyframes antiqueCoinFall {
+            0% {
+              transform: translate3d(0, -90px, 0) rotateX(0deg) rotateZ(0deg) scale(0.85);
+              opacity: 0;
+            }
+            10% {
+              opacity: 1;
+            }
+            72% {
+              opacity: 1;
+            }
+            100% {
+              transform: translate3d(var(--drift), 108vh, 0) rotateX(720deg) rotateZ(540deg) scale(1);
+              opacity: 0;
+            }
+          }
+
+          @keyframes antiqueCoinShine {
+            0%, 100% {
+              filter: brightness(1) drop-shadow(0 0 8px rgba(245, 158, 11, 0.35));
+            }
+            50% {
+              filter: brightness(1.45) drop-shadow(0 0 14px rgba(251, 191, 36, 0.75));
+            }
+          }
+        `}
+      </style>
+
+      {coins.map((coin) => (
+        <div
+          key={coin.id}
+          className="absolute top-0 flex items-center justify-center rounded-full border border-amber-700/80 bg-gradient-to-br from-yellow-200 via-amber-500 to-yellow-800 font-black text-yellow-950 shadow-[inset_0_2px_6px_rgba(255,255,255,0.55),inset_0_-4px_8px_rgba(92,46,0,0.55),0_8px_20px_rgba(0,0,0,0.35)]"
+          style={{
+            left: `${coin.left}%`,
+            width: `${coin.size}px`,
+            height: `${coin.size}px`,
+            fontSize: `${coin.size * 0.34}px`,
+            animation: `antiqueCoinFall ${coin.duration}s cubic-bezier(.2,.7,.25,1) ${coin.delay}s forwards, antiqueCoinShine 0.55s ease-in-out ${coin.delay}s infinite`,
+            "--drift": `${coin.drift}px`,
+          }}
+        >
+          <span
+            style={{
+              transform: `rotate(${coin.rotate}deg)`,
+              textShadow: "0 1px 0 rgba(255,255,255,0.45)",
+            }}
+          >
+            {coin.symbol}
+          </span>
+        </div>
+      ))}
+    </div>
+  );
 }
 
 function StatCard({ title, value, icon, desc }) {
@@ -525,6 +612,7 @@ export default function FinanceVisualizerApp() {
   const [topExpenseCategory, setTopExpenseCategory] = useState("all");
   const [soundEnabled, setSoundEnabled] = useState(() => localStorage.getItem(SOUND_KEY) !== "false");
   const [deleteConfirm, setDeleteConfirm] = useState(null);
+  const [coinRainTrigger, setCoinRainTrigger] = useState(0);
   const [openDates, setOpenDates] = useState({});
   const [customCardText, setCustomCardText] = useState(() => {
   return localStorage.getItem(CUSTOM_CARD_TEXT_KEY) || "";
@@ -775,19 +863,77 @@ function toggleDateGroup(date) {
       o.connect(g); g.connect(a.destination); o.start(); o.stop(a.currentTime + 0.08); o.onended = () => a.close();
     } catch {}
   }
+  function playCoinClinkSound() {
+  if (!soundEnabled) return;
 
-  async function addRecord(e) {
-    e.preventDefault();
-    if (!user) return alert("Please sign in first.");
-    const amount = Number(form.amount);
-    if (!amount || amount <= 0) return alert("Please enter a valid amount.");
-    const payload = toRecordPayload({ ...form, amount, note: form.note.trim() }, user.id);
-    const { data, error } = await supabase.from("records").insert(payload).select("id,type,amount,category,method,note,date,created_at").single();
-    if (error) return alert(error.message);
-    setRecords((p) => [normalizeRecord(data), ...p]);
-    setForm((p) => ({ ...p, amount: "", note: "" }));
-    setSyncStatus("Record added to cloud");
-  }
+  try {
+    const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+    if (!AudioContextClass) return;
+
+    const audio = new AudioContextClass();
+    const master = audio.createGain();
+    master.gain.setValueAtTime(0.16, audio.currentTime);
+    master.gain.exponentialRampToValueAtTime(0.001, audio.currentTime + 1.25);
+    master.connect(audio.destination);
+
+    const playClink = (time, frequency, volume) => {
+      const oscillator = audio.createOscillator();
+      const gain = audio.createGain();
+
+      oscillator.type = "triangle";
+      oscillator.frequency.setValueAtTime(frequency, time);
+      oscillator.frequency.exponentialRampToValueAtTime(frequency * 1.45, time + 0.035);
+
+      gain.gain.setValueAtTime(volume, time);
+      gain.gain.exponentialRampToValueAtTime(0.001, time + 0.22);
+
+      oscillator.connect(gain);
+      gain.connect(master);
+      oscillator.start(time);
+      oscillator.stop(time + 0.24);
+    };
+
+    const now = audio.currentTime;
+    const clinks = [
+      [0.00, 1180, 0.08],
+      [0.05, 1620, 0.055],
+      [0.11, 910, 0.06],
+      [0.19, 1350, 0.045],
+      [0.31, 1880, 0.04],
+      [0.43, 1120, 0.035],
+      [0.58, 1540, 0.03],
+    ];
+
+    clinks.forEach(([delay, frequency, volume]) => {
+      playClink(now + delay, frequency, volume);
+    });
+
+    setTimeout(() => audio.close(), 1500);
+  } catch {}
+}
+
+async function addRecord(e) {
+  e.preventDefault();
+  if (!user) return alert("Please sign in first.");
+  const amount = Number(form.amount);
+  if (!amount || amount <= 0) return alert("Please enter a valid amount.");
+
+  const payload = toRecordPayload({ ...form, amount, note: form.note.trim() }, user.id);
+  const { data, error } = await supabase
+    .from("records")
+    .insert(payload)
+    .select("id,type,amount,category,method,note,date,created_at")
+    .single();
+
+  if (error) return alert(error.message);
+
+  setRecords((p) => [normalizeRecord(data), ...p]);
+  setForm((p) => ({ ...p, amount: "", note: "" }));
+  setSyncStatus("Record added to cloud");
+
+  playCoinClinkSound();
+  setCoinRainTrigger(Date.now());
+}
 
   function fillCalculation() {
     try {
@@ -873,8 +1019,9 @@ function toggleDateGroup(date) {
     return <AuthScreen />;
   }
 
-  return (
-    <div onClickCapture={(e) => e.target.closest("button,select") && playSound()} className="min-h-screen bg-slate-50 p-4 text-slate-900 md:p-8">
+return (
+  <div onClickCapture={(e) => e.target.closest("button,select") && playSound()} className="min-h-screen bg-slate-50 p-4 text-slate-900 md:p-8">
+    <CoinRainEffect trigger={coinRainTrigger} />
       <div className="mx-auto max-w-7xl space-y-6">
         <header className="flex flex-col gap-4 rounded-3xl bg-slate-900 p-6 text-white md:flex-row md:items-center md:justify-between">
           <div><p className="text-sm font-medium text-slate-300">Personal Finance Dashboard</p><h1 className="mt-2 text-3xl font-bold md:text-4xl">记账可视化软件</h1><p className="mt-2 text-sm text-slate-300">记录收入与支出，自动生成统计、分类比例、每日趋势和预算使用情况。</p></div>
