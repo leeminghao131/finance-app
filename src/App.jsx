@@ -106,7 +106,7 @@ function CoinRainEffect({ trigger }) {
       symbol: symbols[index % symbols.length],
       left: 4 + Math.random() * 92,
       delay: Math.random() * 0.45,
-      duration: 1.9 + Math.random() * 1.35,
+      duration: 4.5 + Math.random() * 0.5,
       size: 24 + Math.random() * 22,
       drift: -90 + Math.random() * 180,
       spin: 720 + Math.random() * 1080,
@@ -118,7 +118,7 @@ function CoinRainEffect({ trigger }) {
 
     const timer = setTimeout(() => {
       setCoins([]);
-    }, 4200);
+    }, 5500);
 
     return () => clearTimeout(timer);
   }, [trigger]);
@@ -264,7 +264,7 @@ function IncomeCoinSpinEffect({ trigger }) {
 
     const timer = setTimeout(() => {
       setVisible(false);
-    }, 2600);
+    }, 5200);
 
     return () => clearTimeout(timer);
   }, [trigger]);
@@ -341,14 +341,14 @@ function IncomeCoinSpinEffect({ trigger }) {
 
       <div
         className="absolute inset-0 bg-[radial-gradient(circle_at_center,rgba(255,215,120,0.22),rgba(15,23,42,0.68))]"
-        style={{ animation: "incomeCoinBackdrop 2.6s ease forwards" }}
+        style={{ animation: "incomeCoinBackdrop 5s ease forwards" }}
       />
       <div
         className="absolute rounded-full border border-amber-300/60"
         style={{
           width: "240px",
           height: "240px",
-          animation: "incomeCoinRing 1.8s ease-out forwards",
+          animation: "incomeCoinRing 5s ease-out forwards",
         }}
       />
       <div
@@ -362,7 +362,7 @@ function IncomeCoinSpinEffect({ trigger }) {
           style={{
             width: "220px",
             height: "220px",
-            animation: "incomeCoinSpin 1.65s cubic-bezier(.2,.7,.2,1) forwards",
+            animation: "incomeCoinSpin 5s cubic-bezier(.2,.7,.2,1) forwards",
             background: "radial-gradient(circle at 30% 28%, #fff4bf 0%, #f6d46d 18%, #d28f19 43%, #8a4f10 75%, #5b3106 100%)",
             border: "2px solid rgba(112, 65, 10, 0.95)",
             boxShadow:
