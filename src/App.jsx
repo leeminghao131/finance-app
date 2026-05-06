@@ -8,6 +8,7 @@ import {
 const RECORDS_KEY = "finance-records-v3";
 const BUDGET_KEY = "finance-category-budget-v3";
 const SOUND_KEY = "finance-sound-v3";
+const BALANCE_LIMIT_KEY = "finance-balance-limit-v3";
 
 const EXPENSE_CATEGORIES = ["饮食", "教育", "住房", "日用", "交通", "娱乐", "运动", "医疗", "美容"];
 const INCOME_CATEGORIES = ["Salary", "Allowance", "Part-time", "Gift", "Others"];
@@ -107,13 +108,17 @@ function StatCard({ title, value, icon, desc }) {
   );
 }
 
-function BalanceCard({ title, value, desc }) {
-  const low = value < 1500;
+function BalanceCard({ title, value, desc, limit }) {
+  const safeLimit = Number(limit || 0);
+  const low = value < safeLimit;
+
   return (
     <Card className={low ? "bg-red-50 ring-red-300" : ""}>
       <p className={`text-sm font-medium ${low ? "text-red-700" : "text-slate-500"}`}>{title}</p>
       <p className={`mt-2 text-2xl font-bold ${low ? "text-red-700" : "text-slate-900"}`}>{money(value)}</p>
-      <p className={`mt-1 text-sm ${low ? "text-red-700" : "text-slate-500"}`}>{low ? "⚠ Balance below RM1500" : desc}</p>
+      <p className={`mt-1 text-sm ${low ? "text-red-700" : "text-slate-500"}`}>
+        {low ? `⚠ Balance below ${money(safeLimit)}` : desc}
+      </p>
     </Card>
   );
 }
@@ -366,6 +371,10 @@ export default function FinanceVisualizerApp() {
   const [trendCategory, setTrendCategory] = useState("all");
   const [soundEnabled, setSoundEnabled] = useState(() => localStorage.getItem(SOUND_KEY) !== "false");
   const [deleteConfirm, setDeleteConfirm] = useState(null);
+  const [balanceLimit, setBalanceLimit] = useState(() => {
+  const saved = localStorage.getItem(BALANCE_LIMIT_KEY);
+  return saved || "1500";
+});
 
   useEffect(() => {
     if (!hasSupabaseEnv) {
@@ -393,6 +402,9 @@ export default function FinanceVisualizerApp() {
   }, [user?.id]);
 
   useEffect(() => localStorage.setItem(SOUND_KEY, String(soundEnabled)), [soundEnabled]);
+  useEffect(() => {
+  localStorage.setItem(BALANCE_LIMIT_KEY, String(balanceLimit || "1500"));
+}, [balanceLimit]);
   useEffect(() => setForm((p) => ({ ...p, category: categoriesFor(p.type).includes(p.category) ? p.category : categoriesFor(p.type)[0], method: methodsFor(p.type).includes(p.method) ? p.method : methodsFor(p.type)[0] })), [form.type]);
 
 
@@ -490,9 +502,11 @@ export default function FinanceVisualizerApp() {
     let balance = 0;
     return Object.values(out).sort((a, b) => new Date(a.dateKey) - new Date(b.dateKey)).map((row) => {
       balance += row.dailyBalance;
-      return { ...row, balanceGreen: balance > 1500 ? balance : null, balanceRed: balance <= 1500 ? balance : null };
+      const limit = Number(balanceLimit || 1500);
+const limit = Number(balanceLimit || 1500);
+return { ...row, balanceGreen: balance > limit ? balance : null, balanceRed: balance <= limit ? balance : null };
     });
-  }, [filteredRecords, expenseRecords, trendCategory, filterMode]);
+}, [filteredRecords, expenseRecords, trendCategory, filterMode, balanceLimit]);
 
   const forecastMonth = filterMode === "month" ? selectedMonth : monthNow();
   const forecast = useMemo(() => {
@@ -640,8 +654,25 @@ export default function FinanceVisualizerApp() {
           <div className="flex flex-wrap gap-3"><button onClick={() => setSoundEnabled((v) => !v)} className="rounded-2xl bg-slate-800 px-4 py-3 text-sm font-semibold text-white ring-1 ring-slate-600">{soundEnabled ? "🔊" : "🔇"} Sound</button><button onClick={exportCsv} className="rounded-2xl bg-white px-4 py-3 text-sm font-semibold text-slate-900">⬇ Export CSV</button><label className="cursor-pointer rounded-2xl bg-slate-700 px-4 py-3 text-sm font-semibold text-white ring-1 ring-slate-600">⬆ Import CSV<input type="file" accept=".csv" className="hidden" onChange={importCsv} /></label><button onClick={signOut} className="rounded-2xl bg-white px-4 py-3 text-sm font-semibold text-slate-900">Sign out</button></div>
         </header>
         <div className="rounded-2xl bg-white px-4 py-3 text-sm text-slate-600 ring-1 ring-slate-200">Signed in as <b>{user?.email}</b> · {dataLoading ? "Syncing..." : syncStatus || "Cloud ready"}</div>
+        <div className="flex flex-col gap-2 rounded-2xl bg-white px-4 py-3 text-sm text-slate-600 ring-1 ring-slate-200 md:flex-row md:items-center md:justify-between">
+  <div>
+    <p className="font-bold text-slate-800">Balance Alert Limit</p>
+    <p className="text-xs text-slate-500">Total Balance and Filtered Balance will turn red below this value.</p>
+  </div>
+  <div className="flex items-center gap-2">
+    <span className="text-xs font-bold text-slate-500">RM</span>
+    <input
+      type="number"
+      min="0"
+      step="100"
+      value={balanceLimit}
+      onChange={(e) => setBalanceLimit(e.target.value)}
+      className="w-36 rounded-xl border border-slate-200 px-3 py-2 text-right font-bold outline-none"
+    />
+  </div>
+</div>
 
-        <section className="grid gap-4 md:grid-cols-3"><StatCard title="Total Income" value={money(income)} icon="📈" desc="Overall records" /><StatCard title="Total Expense" value={money(expense)} icon="📉" desc="Overall records" /><BalanceCard title="Balance" value={income - expense} desc="Overall cash flow" /></section>
+        <section className="grid gap-4 md:grid-cols-3"><StatCard title="Total Income" value={money(income)} icon="📈" desc="Overall records" /><StatCard title="Total Expense" value={money(expense)} icon="📉" desc="Overall records" /><BalanceCard title="Balance" value={income - expense} desc="Overall cash flow" limit={balanceLimit} /></section>
 
         <section className="grid gap-6 lg:grid-cols-[380px_1fr]">
           <Card>
@@ -660,7 +691,7 @@ export default function FinanceVisualizerApp() {
 
           <div className="space-y-6">
             <Card><div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between"><h2 className="text-xl font-bold">Filters</h2><div className="flex flex-col gap-3 md:flex-row md:flex-wrap md:justify-end"><select value={filterMode} onChange={(e) => setFilterMode(e.target.value)} className="rounded-2xl border border-slate-200 px-4 py-3 outline-none"><option value="all">全部</option><option value="month">按月份</option><option value="year">按年份</option><option value="recent30">最近 30 天</option><option value="recent7">最近 7 天</option><option value="recent3">最近 3 天</option></select>{filterMode === "month" && <input type="month" value={selectedMonth} onChange={(e) => setSelectedMonth(e.target.value)} className="rounded-2xl border border-slate-200 px-4 py-3 outline-none" />}{filterMode === "year" && <input type="number" value={selectedYear} onChange={(e) => setSelectedYear(e.target.value)} className="rounded-2xl border border-slate-200 px-4 py-3 outline-none" />}<input value={keyword} onChange={(e) => setKeyword(e.target.value)} placeholder="Search category, method or note" className="rounded-2xl border border-slate-200 px-4 py-3 outline-none" /></div></div></Card>
-            <section className={`grid gap-4 ${showBudget ? "md:grid-cols-4" : "md:grid-cols-3"}`}><StatCard title="Filtered Income" value={money(filteredIncome)} icon="📈" desc={`Current filter: ${filterLabel}`} /><StatCard title="Filtered Expense" value={money(filteredExpense)} icon="📉" desc={`Current filter: ${filterLabel}`} /><BalanceCard title="Filtered Balance" value={filteredIncome - filteredExpense} desc={`Current filter: ${filterLabel}`} />{showBudget && <BudgetCard totalBudget={totalBudget} used={budgetUsed} budgets={budgets} setBudgets={updateBudgets} spentMap={spentMap} />}</section>
+            <section className={`grid gap-4 ${showBudget ? "md:grid-cols-4" : "md:grid-cols-3"}`}><StatCard title="Filtered Income" value={money(filteredIncome)} icon="📈" desc={`Current filter: ${filterLabel}`} /><StatCard title="Filtered Expense" value={money(filteredExpense)} icon="📉" desc={`Current filter: ${filterLabel}`} /><BalanceCard title="Filtered Balance" value={filteredIncome - filteredExpense} desc={`Current filter: ${filterLabel}`} limit={balanceLimit} />{showBudget && <BudgetCard totalBudget={totalBudget} used={budgetUsed} budgets={budgets} setBudgets={updateBudgets} spentMap={spentMap} />}</section>
             <section className="grid gap-6 xl:grid-cols-3"><ForecastCard stats={forecast.stats} data={forecast.data} month={forecastMonth} /><HeatmapCard days={heatmapDays} label={filterLabel} /><TopExpensesCard records={topExpenses} label={filterLabel} /></section>
             <section className="grid gap-6 xl:grid-cols-2">
               <Card><h2 className="text-xl font-bold">Daily Income vs Expense</h2><p className="mt-1 text-sm text-slate-500">Current range: {filterLabel}</p><div className="mt-4 h-64">{dailyData.length ? <ResponsiveContainer width="100%" height="100%"><BarChart data={dailyData}><CartesianGrid strokeDasharray="3 3" /><XAxis dataKey="day" /><YAxis /><Tooltip formatter={(v) => money(v)} /><Legend /><Bar dataKey="income" name="Income" fill="#22c55e" /><Bar dataKey="expense" name="Expense" fill="#ef4444" /></BarChart></ResponsiveContainer> : <div className="flex h-full items-center justify-center text-slate-500">No data.</div>}</div><div className="mt-5 rounded-2xl bg-slate-50 p-3 ring-1 ring-slate-200"><div className="mb-2 flex justify-between gap-2"><p className="text-sm font-bold text-slate-700">消费趋势图</p><select value={trendCategory} onChange={(e) => setTrendCategory(e.target.value)} className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-semibold"><option value="all">全部分类</option>{EXPENSE_CATEGORIES.map((c) => <option key={c}>{c}</option>)}</select></div><div className="h-36">{trendData.length ? <ResponsiveContainer width="100%" height="100%"><LineChart data={trendData}><CartesianGrid strokeDasharray="3 3" /><XAxis dataKey="day" /><YAxis /><Tooltip content={<TrendTooltip records={filteredRecords} category={trendCategory} />} /><Legend /><Line type="monotone" dataKey="expense" name="Expense" stroke="#3b82f6" strokeWidth={3} dot={{ r: 4 }} /></LineChart></ResponsiveContainer> : <div className="flex h-full items-center justify-center text-slate-500">No expense trend data.</div>}</div><div className="mt-4 border-t border-slate-200 pt-3"><p className="mb-2 text-sm font-bold text-slate-700">Filtered Balance Trend</p><div className="h-36">{trendData.length ? <ResponsiveContainer width="100%" height="100%"><LineChart data={trendData}><CartesianGrid strokeDasharray="3 3" /><XAxis dataKey="day" /><YAxis /><Tooltip formatter={(v) => money(v)} /><Legend /><Line connectNulls type="monotone" dataKey="balanceGreen" name="Balance > RM1500" stroke="#22c55e" strokeWidth={3} dot={{ r: 4 }} /><Line connectNulls type="monotone" dataKey="balanceRed" name="Balance ≤ RM1500" stroke="#ef4444" strokeWidth={3} dot={{ r: 4 }} /></LineChart></ResponsiveContainer> : <div className="flex h-full items-center justify-center text-slate-500">No balance trend data.</div>}</div></div></div></Card>
