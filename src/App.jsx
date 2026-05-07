@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
+import * as XLSX from "xlsx";
 import { supabase, hasSupabaseEnv } from "./supabaseClient";
 import {
   BarChart, Bar, PieChart, Pie, Cell, XAxis, YAxis, Tooltip,
@@ -1321,15 +1322,59 @@ if (insertedRecord.type === "expense") {
   setSyncStatus("Record deleted from cloud");
 }
 
-  function exportCsv() {
-    const q = String.fromCharCode(34);
-    const rows = records.map((r) => [r.date, r.type, r.category, recordMethod(r), r.amount, q + String(r.note || "").replaceAll(q, q + q) + q].join(","));
-    const blob = new Blob([["Date,Type,Category,Method,Amount,Note", ...rows].join(String.fromCharCode(10))], { type: "text/csv;charset=utf-8" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url; a.download = `finance-records-${today()}.csv`; a.click(); URL.revokeObjectURL(url);
+  function toExcelDate(dateString) {
+  if (!dateString) return "";
+
+  const [year, month, day] = String(dateString).split("-").map(Number);
+  if (!year || !month || !day) return dateString;
+
+  return new Date(year, month - 1, day);
+}
+
+function exportExcel() {
+  const headers = ["Date", "Type", "Category", "Method", "Amount", "Note"];
+
+  const rows = records.map((record) => [
+    toExcelDate(record.date),
+    record.type,
+    record.category,
+    recordMethod(record),
+    Number(record.amount || 0),
+    record.note || "",
+  ]);
+
+  const worksheet = XLSX.utils.aoa_to_sheet([headers, ...rows], {
+    cellDates: true,
+  });
+
+  const range = XLSX.utils.decode_range(worksheet["!ref"]);
+
+  worksheet["!autofilter"] = {
+    ref: XLSX.utils.encode_range(range),
+  };
+
+  worksheet["!cols"] = [
+    { wch: 14 },
+    { wch: 12 },
+    { wch: 16 },
+    { wch: 18 },
+    { wch: 12 },
+    { wch: 40 },
+  ];
+
+  for (let row = 2; row <= rows.length + 1; row += 1) {
+    const dateCell = worksheet[`A${row}`];
+    if (dateCell) dateCell.z = "yyyy-mm-dd";
+
+    const amountCell = worksheet[`E${row}`];
+    if (amountCell) amountCell.z = "#,##0.00";
   }
 
+  const workbook = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(workbook, worksheet, "Finance Records");
+
+  XLSX.writeFile(workbook, `finance-records-${today()}.xlsx`);
+}
   function importCsv(event) {
     const file = event.target.files?.[0];
     if (!file || !user) return;
@@ -1397,7 +1442,7 @@ return (
       <div className="mx-auto max-w-7xl space-y-6">
         <header className="flex flex-col gap-4 rounded-3xl bg-slate-900 p-6 text-white md:flex-row md:items-center md:justify-between">
           <div><p className="text-sm font-medium text-slate-300">Personal Finance Dashboard</p><h1 className="mt-2 text-3xl font-bold md:text-4xl">记账可视化软件</h1><p className="mt-2 text-sm text-slate-300">记录收入与支出，自动生成统计、分类比例、每日趋势和预算使用情况。</p></div>
-          <div className="flex flex-wrap gap-3"><button onClick={() => setSoundEnabled((v) => !v)} className="rounded-2xl bg-slate-800 px-4 py-3 text-sm font-semibold text-white ring-1 ring-slate-600">{soundEnabled ? "🔊" : "🔇"} Sound</button><button onClick={exportCsv} className="rounded-2xl bg-white px-4 py-3 text-sm font-semibold text-slate-900">⬇ Export CSV</button><label className="cursor-pointer rounded-2xl bg-slate-700 px-4 py-3 text-sm font-semibold text-white ring-1 ring-slate-600">⬆ Import CSV<input type="file" accept=".csv" className="hidden" onChange={importCsv} /></label><button onClick={signOut} className="rounded-2xl bg-white px-4 py-3 text-sm font-semibold text-slate-900">Sign out</button></div>
+          <div className="flex flex-wrap gap-3"><button onClick={() => setSoundEnabled((v) => !v)} className="rounded-2xl bg-slate-800 px-4 py-3 text-sm font-semibold text-white ring-1 ring-slate-600">{soundEnabled ? "🔊" : "🔇"} Sound</button><button onClick={exportExcel} className="rounded-2xl bg-white px-4 py-3 text-sm font-semibold text-slate-900">⬇ Export Excel</button><label className="cursor-pointer rounded-2xl bg-slate-700 px-4 py-3 text-sm font-semibold text-white ring-1 ring-slate-600">⬆ Import CSV<input type="file" accept=".csv" className="hidden" onChange={importCsv} /></label><button onClick={signOut} className="rounded-2xl bg-white px-4 py-3 text-sm font-semibold text-slate-900">Sign out</button></div>
         </header>
         <div className="rounded-2xl bg-white px-4 py-3 text-sm text-slate-600 ring-1 ring-slate-200">Signed in as <b>{user?.email}</b> · {dataLoading ? "Syncing..." : syncStatus || "Cloud ready"}</div>
         <div className="flex flex-col gap-2 rounded-2xl bg-white px-4 py-3 text-sm text-slate-600 ring-1 ring-slate-200 md:flex-row md:items-center md:justify-between">
