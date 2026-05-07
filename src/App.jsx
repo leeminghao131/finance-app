@@ -32,6 +32,41 @@ const money = (v) => new Intl.NumberFormat("en-MY", { style: "currency", currenc
 const categoriesFor = (t) => (t === "expense" ? EXPENSE_CATEGORIES : INCOME_CATEGORIES);
 const methodsFor = (t) => (t === "expense" ? EXPENSE_METHODS : INCOME_METHODS);
 const recordMethod = (r) => r.method || methodsFor(r.type)[0];
+const CATEGORY_ICONS = {
+  饮食: "🍜",
+  教育: "📚",
+  住房: "🏠",
+  日用: "🧴",
+  交通: "🚗",
+  娱乐: "🎮",
+  运动: "🏃",
+  医疗: "💊",
+  美容: "💄",
+  Salary: "💼",
+  Allowance: "🎁",
+  "Part-time": "🧰",
+  Gift: "🎉",
+  Others: "✨",
+};
+
+const formatCategoryLabel = (category) => `${CATEGORY_ICONS[category] || "🏷️"} ${category}`;
+
+const recordTypeStyle = (type) =>
+  type === "income"
+    ? {
+        badge: "bg-green-100 text-green-700 ring-green-200",
+        row: "hover:bg-green-50/60",
+        amount: "text-green-700",
+        sign: "+",
+        label: "💚 Income",
+      }
+    : {
+        badge: "bg-red-100 text-red-700 ring-red-200",
+        row: "hover:bg-red-50/60",
+        amount: "text-red-700",
+        sign: "-",
+        label: "🔥 Expense",
+      };
 
 function daysInMonth(ym) {
   const [y, m] = ym.split("-").map(Number);
@@ -471,7 +506,7 @@ function BudgetCard({ totalBudget, used, budgets, setBudgets, spentMap }) {
               const warn = categoryUsed >= 75;
               return (
                 <div key={category} className={`rounded-2xl p-3 ring-1 ${warn ? "bg-red-50 ring-red-200" : "bg-slate-50 ring-slate-200"}`}>
-                  <div className="flex items-center justify-between gap-3"><p className={`font-bold ${warn ? "text-red-700" : "text-slate-800"}`}>{category}</p><p className={`text-sm font-bold ${warn ? "text-red-700" : "text-slate-500"}`}>Used {categoryUsed.toFixed(0)}%</p></div>
+                  <div className="flex items-center justify-between gap-3"><p className={`font-bold ${warn ? "text-red-700" : "text-slate-800"}`}>{formatCategoryLabel(category)}</p><p className={`text-sm font-bold ${warn ? "text-red-700" : "text-slate-500"}`}>Used {categoryUsed.toFixed(0)}%</p></div>
                   <div className="mt-2 flex items-center gap-2"><span className="text-xs font-bold text-slate-500">RM</span><input value={budgets[category] || ""} onChange={(e) => setBudgets((p) => ({ ...p, [category]: e.target.value }))} type="number" min="0" placeholder="Budget" className="w-full rounded-xl border bg-white px-3 py-2 text-sm font-bold outline-none" /></div>
                   <div className={`mt-2 h-2 overflow-hidden rounded-full ${warn ? "bg-red-200" : "bg-slate-200"}`}><div className={`h-full rounded-full ${warn ? "bg-red-600" : "bg-slate-900"}`} style={{ width: `${Math.min(categoryUsed, 100)}%` }} /></div>
                   <div className="mt-2 flex justify-between text-xs font-semibold text-slate-500"><span>Spent {money(spent)}</span><span>{budget > 0 ? money(budget) : "Not set"}</span></div>
@@ -549,7 +584,7 @@ function TopExpensesCard({ records, label, category, setCategory }) {
         >
           <option value="all">全部分类</option>
           {EXPENSE_CATEGORIES.map((item) => (
-            <option key={item} value={item}>{item}</option>
+            <option key={item} value={item}>{formatCategoryLabel(item)}</option>
           ))}
         </select>
       </div>
@@ -562,7 +597,7 @@ function TopExpensesCard({ records, label, category, setCategory }) {
                 {index + 1}
               </span>
               <div>
-                <p className="font-bold text-slate-900">{record.category} · {recordMethod(record)}</p>
+                <p className="font-bold text-slate-900">{formatCategoryLabel(record.category)} · {recordMethod(record)}</p>
                 <p className="text-slate-500">{record.date} · {record.note || "No note"}</p>
               </div>
             </div>
@@ -775,7 +810,7 @@ function EditableCell({ value, field, recordType, onSave }) {
         className="cursor-pointer rounded px-1 py-0.5 hover:bg-slate-100"
         onClick={() => setEditing(true)}
       >
-        {value || <span className="italic text-slate-400">—</span>}
+        {value ? (field === "category" ? formatCategoryLabel(value) : value) : <span className="italic text-slate-400">—</span>}
       </span>
     );
   }
@@ -791,9 +826,11 @@ function EditableCell({ value, field, recordType, onSave }) {
         onBlur={commit}
         className="rounded border border-slate-300 px-1 py-0.5 text-xs outline-none"
       >
-        {list.map((x) => (
-          <option key={x}>{x}</option>
-        ))}
+{list.map((x) => (
+  <option key={x} value={x}>
+    {field === "category" ? formatCategoryLabel(x) : x}
+  </option>
+))}
       </select>
     );
   }
@@ -1331,7 +1368,28 @@ if (insertedRecord.type === "expense") {
   if (!session) {
     return <AuthScreen />;
   }
-
+const addRecordTheme =
+  form.type === "income"
+    ? {
+        card: "bg-green-50/50 ring-green-200",
+        header: "from-green-600 to-emerald-600",
+        active: "bg-green-600 text-white shadow-sm",
+        inactive: "text-slate-500 hover:bg-green-50 hover:text-green-700",
+        button: "bg-green-600 hover:bg-green-700",
+        title: "＋ Add Income",
+        subtitle: "Recording money coming in",
+        icon: "💰",
+      }
+    : {
+        card: "bg-red-50/50 ring-red-200",
+        header: "from-red-600 to-orange-600",
+        active: "bg-red-600 text-white shadow-sm",
+        inactive: "text-slate-500 hover:bg-red-50 hover:text-red-700",
+        button: "bg-red-600 hover:bg-red-700",
+        title: "− Add Expense",
+        subtitle: "Recording money spent",
+        icon: "💸",
+      };
 return (
   <div onClickCapture={(e) => e.target.closest("button,select") && playSound()} className="min-h-screen bg-slate-50 p-4 text-slate-900 md:p-8">
 <CoinRainEffect trigger={coinRainTrigger} />
@@ -1364,17 +1422,45 @@ return (
 
 <section className="grid gap-6 lg:grid-cols-[380px_1fr]">
   <div className="space-y-6">
-    <Card>
-            <h2 className="text-xl font-bold">＋ Add Record</h2>
+<Card className={`overflow-hidden ${addRecordTheme.card}`}>
+  <div className={`-mx-5 -mt-5 mb-5 bg-gradient-to-r ${addRecordTheme.header} px-5 py-4 text-white`}>
+    <div className="flex items-center justify-between gap-3">
+      <div>
+        <h2 className="text-xl font-bold">{addRecordTheme.title}</h2>
+        <p className="mt-1 text-sm text-white/80">{addRecordTheme.subtitle}</p>
+      </div>
+      <div className="rounded-2xl bg-white/20 px-3 py-2 text-2xl">{addRecordTheme.icon}</div>
+    </div>
+  </div>
             <form onSubmit={addRecord} className="mt-5 space-y-4">
-              <div className="grid grid-cols-2 gap-3 rounded-2xl bg-slate-100 p-1"><button type="button" onClick={() => setForm((p) => ({ ...p, type: "expense" }))} className={`rounded-xl px-3 py-2 text-sm font-semibold ${form.type === "expense" ? "bg-white shadow-sm" : "text-slate-500"}`}>Expense</button><button type="button" onClick={() => setForm((p) => ({ ...p, type: "income" }))} className={`rounded-xl px-3 py-2 text-sm font-semibold ${form.type === "income" ? "bg-white shadow-sm" : "text-slate-500"}`}>Income</button></div>
+              <div className="grid grid-cols-2 gap-3 rounded-2xl bg-slate-100 p-1"><button
+  type="button"
+  onClick={() => setForm((p) => ({ ...p, type: "expense" }))}
+  className={`rounded-xl px-3 py-2 text-sm font-semibold transition ${form.type === "expense" ? "bg-red-600 text-white shadow-sm" : "text-slate-500 hover:bg-red-50 hover:text-red-700"}`}
+>
+  💸 Expense
+</button>
+
+<button
+  type="button"
+  onClick={() => setForm((p) => ({ ...p, type: "income" }))}
+  className={`rounded-xl px-3 py-2 text-sm font-semibold transition ${form.type === "income" ? "bg-green-600 text-white shadow-sm" : "text-slate-500 hover:bg-green-50 hover:text-green-700"}`}
+>
+  💰 Income
+</button></div>
               <label className="block"><span className="text-sm font-medium text-slate-600">Amount</span><input value={form.amount} onChange={(e) => setForm((p) => ({ ...p, amount: e.target.value }))} type="number" min="0" step="0.01" className="mt-1 w-full rounded-2xl border border-slate-200 px-4 py-3 outline-none" /></label>
               <div className="rounded-2xl bg-slate-50 p-4 ring-1 ring-slate-200"><p className="text-sm font-bold text-slate-700">小计算器</p><textarea value={calculationText} onChange={(e) => setCalculationText(e.target.value)} rows={3} placeholder="3.50 + 12.90 + 2*5.40" className="mt-3 w-full rounded-2xl border border-slate-200 px-4 py-3 text-sm outline-none" /><div className="mt-3 flex items-center justify-between gap-2"><span className="text-sm text-slate-600">{calculationResult !== null ? `Total: ${money(calculationResult)}` : "支持 + - * / 和括号"}</span><button type="button" onClick={fillCalculation} className="rounded-xl bg-slate-900 px-3 py-2 text-xs font-bold text-white">Calculate & Fill</button></div></div>
-              <label className="block"><span className="text-sm font-medium text-slate-600">Category</span><select value={form.category} onChange={(e) => setForm((p) => ({ ...p, category: e.target.value }))} className="mt-1 w-full rounded-2xl border border-slate-200 px-4 py-3 outline-none">{categoriesFor(form.type).map((c) => <option key={c}>{c}</option>)}</select></label>
+              <label className="block"><span className="text-sm font-medium text-slate-600">Category</span><select value={form.category} onChange={(e) => setForm((p) => ({ ...p, category: e.target.value }))} className="mt-1 w-full rounded-2xl border border-slate-200 px-4 py-3 outline-none">{categoriesFor(form.type).map((c) => (
+  <option key={c} value={c}>
+    {formatCategoryLabel(c)}
+  </option>
+))}</select></label>
               <label className="block"><span className="text-sm font-medium text-slate-600">Method</span><select value={form.method} onChange={(e) => setForm((p) => ({ ...p, method: e.target.value }))} className="mt-1 w-full rounded-2xl border border-slate-200 px-4 py-3 outline-none">{methodsFor(form.type).map((m) => <option key={m}>{m}</option>)}</select></label>
               <label className="block"><span className="text-sm font-medium text-slate-600">Date</span><DateInput value={form.date} onChange={(date) => setForm((p) => ({ ...p, date }))} /></label>
               <label className="block"><span className="text-sm font-medium text-slate-600">Note</span><input value={form.note} onChange={(e) => setForm((p) => ({ ...p, note: e.target.value }))} className="mt-1 w-full rounded-2xl border border-slate-200 px-4 py-3 outline-none" /></label>
-              <button className="w-full rounded-2xl bg-slate-900 px-4 py-3 text-sm font-bold text-white">Add Record</button>
+              <button className={`w-full rounded-2xl px-4 py-3 text-sm font-bold text-white transition ${addRecordTheme.button}`}>
+  {form.type === "income" ? "Add Income" : "Add Expense"}
+</button>
     </form>
     </Card>
 
@@ -1485,9 +1571,9 @@ return (
                       </td>
 
                       <td className="py-3 pr-4">
-                        <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold ${record.type === "income" ? "bg-green-100 text-green-700" : "bg-red-100 text-red-700"}`}>
-                          {record.type === "income" ? "▲ Income" : "▼ Expense"}
-                        </span>
+<span className={`inline-flex items-center rounded-full px-2.5 py-1 text-xs font-bold ring-1 ${recordTypeStyle(record.type).badge}`}>
+  {recordTypeStyle(record.type).label}
+</span>
                       </td>
 
                       <td className="py-3 pr-4 font-medium text-slate-800">
@@ -1498,9 +1584,9 @@ return (
                         <EditableCell value={recordMethod(record)} field="method" recordType={record.type} onSave={(v) => updateRecord(record.id, "method", v)} />
                       </td>
 
-                      <td className={`py-3 pr-4 font-bold ${record.type === "income" ? "text-green-600" : "text-red-600"}`}>
-                        <EditableCell value={record.amount} field="amount" recordType={record.type} onSave={(v) => updateRecord(record.id, "amount", v)} />
-                      </td>
+<td className={`py-3 pr-4 font-bold ${recordTypeStyle(record.type).amount}`}>
+  {recordTypeStyle(record.type).sign}{money(record.amount)}
+</td>
 
                       <td className="py-3 pr-4 text-slate-500">
                         <EditableCell value={record.note || ""} field="note" recordType={record.type} onSave={(v) => updateRecord(record.id, "note", v)} />
