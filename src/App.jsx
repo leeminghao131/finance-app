@@ -27,6 +27,8 @@ const DEFAULT_CUSTOM_OPTIONS = {
 
 const ADD_CATEGORY_VALUE = "__add_category__";
 const ADD_METHOD_VALUE = "__add_method__";
+const DELETE_CATEGORY_VALUE = "__delete_category__";
+const DELETE_METHOD_VALUE = "__delete_method__";
 const COLORS = ["#6366f1", "#22c55e", "#f97316", "#ef4444", "#06b6d4", "#a855f7", "#eab308", "#64748b", "#ec4899"];
 
 const today = () => {
@@ -973,6 +975,7 @@ export default function FinanceVisualizerApp() {
   const [budgets, setBudgets] = useState(DEFAULT_BUDGETS);
   const [customOptions, setCustomOptions] = useState(DEFAULT_CUSTOM_OPTIONS);
   const [form, setForm] = useState({ type: "expense", amount: "", category: "饮食", method: "TNG", note: "", date: today() });
+  const [deleteOptionPanel, setDeleteOptionPanel] = useState({ kind: "", type: "" });
   const [calculationText, setCalculationText] = useState("");
   const [calculationResult, setCalculationResult] = useState(null);
   const [filterMode, setFilterMode] = useState("month");
@@ -1126,10 +1129,10 @@ function addCustomOption(kind, type) {
 
   if (!newValue) return null;
 
-  if ([ADD_CATEGORY_VALUE, ADD_METHOD_VALUE].includes(newValue)) {
-    alert("This name is not allowed.");
-    return null;
-  }
+if ([ADD_CATEGORY_VALUE, ADD_METHOD_VALUE, DELETE_CATEGORY_VALUE, DELETE_METHOD_VALUE].includes(newValue)) {
+  alert("This name is not allowed.");
+  return null;
+}
 
   const key =
     type === "expense"
@@ -1164,6 +1167,105 @@ function addCustomOption(kind, type) {
   }
 
   return newValue;
+}
+  function customOptionKey(kind, type) {
+  const isCategory = kind === "category";
+
+  if (type === "expense") {
+    return isCategory ? "expenseCategories" : "expenseMethods";
+  }
+
+  return isCategory ? "incomeCategories" : "incomeMethods";
+}
+
+function deleteCustomOption(kind, type, value) {
+  const key = customOptionKey(kind, type);
+  const currentList = customOptions[key] || [];
+
+  const nextOptions = {
+    ...customOptions,
+    [key]: currentList.filter((item) => item !== value),
+  };
+
+  setCustomOptions(nextOptions);
+  saveCustomOptions(nextOptions);
+
+  if (kind === "category" && type === "expense") {
+    updateBudgets((previous) => {
+      const nextBudgets = { ...previous };
+      delete nextBudgets[value];
+      return nextBudgets;
+    });
+  }
+
+  setForm((previous) => {
+    if (previous.type !== type) return previous;
+
+    const baseList = kind === "category" ? categoriesFor(type) : methodsFor(type);
+    const nextList = uniqueOptions(baseList, nextOptions[key]);
+
+    if (kind === "category" && previous.category === value) {
+      return { ...previous, category: nextList[0] || "" };
+    }
+
+    if (kind === "method" && previous.method === value) {
+      return { ...previous, method: nextList[0] || "" };
+    }
+
+    return previous;
+  });
+
+  setSyncStatus(`${kind === "category" ? "Category" : "Method"} deleted`);
+}
+
+function renderDeleteCustomOptionPanel(kind, type) {
+  if (deleteOptionPanel.kind !== kind || deleteOptionPanel.type !== type) {
+    return null;
+  }
+
+  const key = customOptionKey(kind, type);
+  const list = customOptions[key] || [];
+  const label = kind === "category" ? "category" : "method";
+
+  return (
+    <div className="mt-2 rounded-2xl bg-slate-50 p-3 ring-1 ring-slate-200">
+      <div className="mb-2 flex items-center justify-between gap-2">
+        <p className="text-xs font-bold text-slate-600">
+          Delete custom {type} {label}
+        </p>
+        <button
+          type="button"
+          onClick={() => setDeleteOptionPanel({ kind: "", type: "" })}
+          className="rounded-lg bg-white px-2 py-1 text-xs font-bold text-slate-500 ring-1 ring-slate-200"
+        >
+          Close
+        </button>
+      </div>
+
+      {list.length ? (
+        <div className="flex flex-wrap gap-2">
+          {list.map((item) => (
+            <button
+              key={item}
+              type="button"
+              onClick={() => {
+                const confirmed = window.confirm(`Delete "${item}" from custom ${label} list? Existing records will not be deleted.`);
+                if (confirmed) deleteCustomOption(kind, type, item);
+              }}
+              className="inline-flex items-center gap-2 rounded-full bg-white px-3 py-1.5 text-xs font-bold text-slate-700 ring-1 ring-slate-200 hover:bg-red-50 hover:text-red-700 hover:ring-red-200"
+            >
+              <span>{kind === "category" ? formatCategoryLabel(item) : item}</span>
+              <span className="text-red-600">×</span>
+            </button>
+          ))}
+        </div>
+      ) : (
+        <p className="rounded-xl bg-white px-3 py-2 text-xs font-semibold text-slate-500 ring-1 ring-slate-100">
+          No custom {label} to delete.
+        </p>
+      )}
+    </div>
+  );
 }
   function updateBudgets(updater) {
     setBudgets((previous) => {
@@ -1615,7 +1717,8 @@ return (
 </button></div>
               <label className="block"><span className="text-sm font-medium text-slate-600">Amount</span><input value={form.amount} onChange={(e) => setForm((p) => ({ ...p, amount: e.target.value }))} type="number" min="0" step="0.01" className="mt-1 w-full rounded-2xl border border-slate-200 px-4 py-3 outline-none" /></label>
               <div className="rounded-2xl bg-slate-50 p-4 ring-1 ring-slate-200"><p className="text-sm font-bold text-slate-700">小计算器</p><textarea value={calculationText} onChange={(e) => setCalculationText(e.target.value)} rows={3} placeholder="3.50 + 12.90 + 2*5.40" className="mt-3 w-full rounded-2xl border border-slate-200 px-4 py-3 text-sm outline-none" /><div className="mt-3 flex items-center justify-between gap-2"><span className="text-sm text-slate-600">{calculationResult !== null ? `Total: ${money(calculationResult)}` : "支持 + - * / 和括号"}</span><button type="button" onClick={fillCalculation} className="rounded-xl bg-slate-900 px-3 py-2 text-xs font-bold text-white">Calculate & Fill</button></div></div>
-             <label className="block">
+           
+<label className="block">
   <span className="text-sm font-medium text-slate-600">Category</span>
   <select
     value={form.category}
@@ -1625,10 +1728,17 @@ return (
       if (value === ADD_CATEGORY_VALUE) {
         const added = addCustomOption("category", form.type);
         if (added) setForm((previous) => ({ ...previous, category: added }));
+        setDeleteOptionPanel({ kind: "", type: "" });
+        return;
+      }
+
+      if (value === DELETE_CATEGORY_VALUE) {
+        setDeleteOptionPanel({ kind: "category", type: form.type });
         return;
       }
 
       setForm((previous) => ({ ...previous, category: value }));
+      setDeleteOptionPanel({ kind: "", type: "" });
     }}
     className="mt-1 w-full rounded-2xl border border-slate-200 px-4 py-3 outline-none"
   >
@@ -1638,7 +1748,10 @@ return (
       </option>
     ))}
     <option value={ADD_CATEGORY_VALUE}>＋ Add new category...</option>
+    <option value={DELETE_CATEGORY_VALUE}>🗑 Delete custom category...</option>
   </select>
+
+  {renderDeleteCustomOptionPanel("category", form.type)}
 </label>
               <label className="block">
   <span className="text-sm font-medium text-slate-600">Method</span>
@@ -1650,10 +1763,17 @@ return (
       if (value === ADD_METHOD_VALUE) {
         const added = addCustomOption("method", form.type);
         if (added) setForm((previous) => ({ ...previous, method: added }));
+        setDeleteOptionPanel({ kind: "", type: "" });
+        return;
+      }
+
+      if (value === DELETE_METHOD_VALUE) {
+        setDeleteOptionPanel({ kind: "method", type: form.type });
         return;
       }
 
       setForm((previous) => ({ ...previous, method: value }));
+      setDeleteOptionPanel({ kind: "", type: "" });
     }}
     className="mt-1 w-full rounded-2xl border border-slate-200 px-4 py-3 outline-none"
   >
@@ -1663,7 +1783,10 @@ return (
       </option>
     ))}
     <option value={ADD_METHOD_VALUE}>＋ Add new method...</option>
+    <option value={DELETE_METHOD_VALUE}>🗑 Delete custom method...</option>
   </select>
+
+  {renderDeleteCustomOptionPanel("method", form.type)}
 </label>
               <label className="block"><span className="text-sm font-medium text-slate-600">Date</span><DateInput value={form.date} onChange={(date) => setForm((p) => ({ ...p, date }))} /></label>
               <label className="block"><span className="text-sm font-medium text-slate-600">Note</span><input value={form.note} onChange={(e) => setForm((p) => ({ ...p, note: e.target.value }))} className="mt-1 w-full rounded-2xl border border-slate-200 px-4 py-3 outline-none" /></label>
