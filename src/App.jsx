@@ -18,6 +18,15 @@ const INCOME_CATEGORIES = ["Salary", "Allowance", "Part-time", "Gift", "Others"]
 const EXPENSE_METHODS = ["TNG", "CASH", "DEBIT CARD", "ONLINE BANK IN", "GRAB PAY"];
 const INCOME_METHODS = ["TNG", "CASH", "BANK IN", "GRAB PAY"];
 const DEFAULT_BUDGETS = { 饮食: "600", 教育: "", 住房: "", 日用: "", 交通: "300", 娱乐: "200", 运动: "", 医疗: "", 美容: "150" };
+const DEFAULT_CUSTOM_OPTIONS = {
+  expenseCategories: [],
+  incomeCategories: [],
+  expenseMethods: [],
+  incomeMethods: [],
+};
+
+const ADD_CATEGORY_VALUE = "__add_category__";
+const ADD_METHOD_VALUE = "__add_method__";
 const COLORS = ["#6366f1", "#22c55e", "#f97316", "#ef4444", "#06b6d4", "#a855f7", "#eab308", "#64748b", "#ec4899"];
 
 const today = () => {
@@ -33,6 +42,9 @@ const money = (v) => new Intl.NumberFormat("en-MY", { style: "currency", currenc
 const categoriesFor = (t) => (t === "expense" ? EXPENSE_CATEGORIES : INCOME_CATEGORIES);
 const methodsFor = (t) => (t === "expense" ? EXPENSE_METHODS : INCOME_METHODS);
 const recordMethod = (r) => r.method || methodsFor(r.type)[0];
+function uniqueOptions(baseOptions, customOptions = []) {
+  return Array.from(new Set([...(baseOptions || []), ...(customOptions || [])].filter(Boolean)));
+}
 const CATEGORY_ICONS = {
   饮食: "🍜",
   教育: "📚",
@@ -476,7 +488,7 @@ function DateInput({ value, onChange }) {
   return <input type="date" value={value} onChange={(e) => onChange(e.target.value)} className="w-full cursor-pointer rounded-2xl border border-slate-200 bg-white px-4 py-3 outline-none" />;
 }
 
-function BudgetCard({ totalBudget, used, budgets, setBudgets, spentMap }) {
+function BudgetCard({ totalBudget, used, budgets, setBudgets, spentMap, expenseCategoryOptions }) {
   const [open, setOpen] = useState(false);
   const warning = used >= 75;
   return (
@@ -500,7 +512,7 @@ function BudgetCard({ totalBudget, used, budgets, setBudgets, spentMap }) {
             <button type="button" onClick={() => setOpen(false)} className="rounded-xl bg-slate-100 px-3 py-2 text-sm font-bold text-slate-600">×</button>
           </div>
           <div className="grid gap-3 md:grid-cols-2">
-            {EXPENSE_CATEGORIES.map((category) => {
+            {expenseCategoryOptions.map((category) => {
               const budget = Number(budgets[category] || 0);
               const spent = Number(spentMap[category] || 0);
               const categoryUsed = budget > 0 ? (spent / budget) * 100 : 0;
@@ -567,7 +579,7 @@ function HeatmapCard({ days, label }) {
   );
 }
 
-function TopExpensesCard({ records, label, category, setCategory }) {
+function TopExpensesCard({ records, label, category, setCategory, expenseCategoryOptions }) {
   return (
     <Card>
       <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
@@ -584,7 +596,7 @@ function TopExpensesCard({ records, label, category, setCategory }) {
           className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-semibold outline-none"
         >
           <option value="all">全部分类</option>
-          {EXPENSE_CATEGORIES.map((item) => (
+          {expenseCategoryOptions.map((item) => (
             <option key={item} value={item}>{formatCategoryLabel(item)}</option>
           ))}
         </select>
@@ -790,7 +802,7 @@ function CustomPersonalCard({ text, setText, image, setImage }) {
   );
 }
 
-function EditableCell({ value, field, recordType, onSave }) {
+function EditableCell({ value, field, recordType, onSave, categoryOptionsFor, methodOptionsFor }) {
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState(value ?? "");
 
@@ -817,7 +829,7 @@ function EditableCell({ value, field, recordType, onSave }) {
   }
 
   if (field === "category" || field === "method") {
-    const list = field === "category" ? categoriesFor(recordType) : methodsFor(recordType);
+    const list = field === "category" ? categoryOptionsFor(recordType) : methodOptionsFor(recordType);
 
     return (
       <select
@@ -959,6 +971,7 @@ export default function FinanceVisualizerApp() {
   const [syncStatus, setSyncStatus] = useState("");
   const [records, setRecords] = useState([]);
   const [budgets, setBudgets] = useState(DEFAULT_BUDGETS);
+  const [customOptions, setCustomOptions] = useState(DEFAULT_CUSTOM_OPTIONS);
   const [form, setForm] = useState({ type: "expense", amount: "", category: "饮食", method: "TNG", note: "", date: today() });
   const [calculationText, setCalculationText] = useState("");
   const [calculationResult, setCalculationResult] = useState(null);
@@ -1032,8 +1045,19 @@ useEffect(() => {
     alert("Image is too large to save. Please upload a smaller image.");
   }
 }, [customCardImage]);
-  useEffect(() => setForm((p) => ({ ...p, category: categoriesFor(p.type).includes(p.category) ? p.category : categoriesFor(p.type)[0], method: methodsFor(p.type).includes(p.method) ? p.method : methodsFor(p.type)[0] })), [form.type]);
 
+useEffect(() => {
+  setForm((previous) => {
+    const categoryList = categoryOptionsFor(previous.type);
+    const methodList = methodOptionsFor(previous.type);
+
+    return {
+      ...previous,
+      category: categoryList.includes(previous.category) ? previous.category : categoryList[0],
+      method: methodList.includes(previous.method) ? previous.method : methodList[0],
+    };
+  });
+}, [form.type, customOptions]);
 
   async function loadCloudData() {
     if (!user) return;
@@ -1052,7 +1076,7 @@ useEffect(() => {
     setRecords((recordRows || []).map(normalizeRecord));
     const { data: settingsRow, error: settingsError } = await supabase
       .from("user_settings")
-      .select("category_budgets")
+      .select("category_budgets,custom_options")
       .eq("user_id", user.id)
       .maybeSingle();
     if (settingsError) setSyncStatus(settingsError.message);
@@ -1062,6 +1086,11 @@ useEffect(() => {
       setBudgets(DEFAULT_BUDGETS);
       await saveBudgets(DEFAULT_BUDGETS);
     }
+    if (settingsRow?.custom_options) {
+  setCustomOptions({ ...DEFAULT_CUSTOM_OPTIONS, ...settingsRow.custom_options });
+} else {
+  setCustomOptions(DEFAULT_CUSTOM_OPTIONS);
+}
     setSyncStatus("Cloud synced");
     setDataLoading(false);
   }
@@ -1074,7 +1103,68 @@ useEffect(() => {
     if (error) setSyncStatus(error.message);
     else setSyncStatus("Budget synced");
   }
+  
+  async function saveCustomOptions(nextOptions) {
+  if (!user) return;
 
+  const { error } = await supabase
+    .from("user_settings")
+    .upsert({
+      user_id: user.id,
+      custom_options: nextOptions,
+      updated_at: new Date().toISOString(),
+    });
+
+  if (error) setSyncStatus(error.message);
+  else setSyncStatus("Custom options synced");
+}
+function addCustomOption(kind, type) {
+  const isCategory = kind === "category";
+  const label = isCategory ? "category" : "method";
+  const input = window.prompt(`Enter new ${type} ${label}:`);
+  const newValue = String(input || "").trim();
+
+  if (!newValue) return null;
+
+  if ([ADD_CATEGORY_VALUE, ADD_METHOD_VALUE].includes(newValue)) {
+    alert("This name is not allowed.");
+    return null;
+  }
+
+  const key =
+    type === "expense"
+      ? isCategory
+        ? "expenseCategories"
+        : "expenseMethods"
+      : isCategory
+        ? "incomeCategories"
+        : "incomeMethods";
+
+  const baseList = isCategory ? categoriesFor(type) : methodsFor(type);
+  const currentList = customOptions[key] || [];
+  const allList = uniqueOptions(baseList, currentList);
+
+  if (allList.includes(newValue)) {
+    return newValue;
+  }
+
+  const nextOptions = {
+    ...customOptions,
+    [key]: [...currentList, newValue],
+  };
+
+  setCustomOptions(nextOptions);
+  saveCustomOptions(nextOptions);
+
+  if (type === "expense" && isCategory) {
+    updateBudgets((previous) => ({
+      ...previous,
+      [newValue]: previous[newValue] || "",
+    }));
+  }
+
+  return newValue;
+}
   function updateBudgets(updater) {
     setBudgets((previous) => {
       const next = typeof updater === "function" ? updater(previous) : updater;
@@ -1082,14 +1172,38 @@ useEffect(() => {
       return next;
     });
   }
+const expenseCategoryOptions = useMemo(
+  () => uniqueOptions(EXPENSE_CATEGORIES, customOptions.expenseCategories),
+  [customOptions.expenseCategories]
+);
 
+const incomeCategoryOptions = useMemo(
+  () => uniqueOptions(INCOME_CATEGORIES, customOptions.incomeCategories),
+  [customOptions.incomeCategories]
+);
+
+const expenseMethodOptions = useMemo(
+  () => uniqueOptions(EXPENSE_METHODS, customOptions.expenseMethods),
+  [customOptions.expenseMethods]
+);
+
+const incomeMethodOptions = useMemo(
+  () => uniqueOptions(INCOME_METHODS, customOptions.incomeMethods),
+  [customOptions.incomeMethods]
+);
+
+const categoryOptionsFor = (type) => (type === "expense" ? expenseCategoryOptions : incomeCategoryOptions);
+const methodOptionsFor = (type) => (type === "expense" ? expenseMethodOptions : incomeMethodOptions);
   const filteredRecords = useMemo(() => filterRecords(records, filterMode, selectedMonth, selectedYear, keyword), [records, filterMode, selectedMonth, selectedYear, keyword]);
   const expenseRecords = filteredRecords.filter((r) => r.type === "expense");
   const income = sumType(records, "income");
   const expense = sumType(records, "expense");
   const filteredIncome = sumType(filteredRecords, "income");
   const filteredExpense = sumType(filteredRecords, "expense");
-  const totalBudget = useMemo(() => EXPENSE_CATEGORIES.reduce((s, c) => s + Number(budgets[c] || 0), 0), [budgets]);
+  const totalBudget = useMemo(
+  () => expenseCategoryOptions.reduce((s, c) => s + Number(budgets[c] || 0), 0),
+  [budgets, expenseCategoryOptions]
+);
   const budgetUsed = totalBudget > 0 ? (filteredExpense / totalBudget) * 100 : 0;
   const showBudget = filterMode === "month" || filterMode === "recent30";
   const filterLabel = filterMode === "all" ? "全部" : filterMode === "month" ? selectedMonth : filterMode === "year" ? selectedYear : filterMode === "recent30" ? "最近 30 天" : filterMode === "recent7" ? "最近 7 天" : "最近 3 天";
@@ -1097,10 +1211,12 @@ useEffect(() => {
   const categoryData = useMemo(() => group(expenseRecords, (r) => r.category), [expenseRecords]);
   const methodData = useMemo(() => group(expenseRecords, (r) => recordMethod(r)), [expenseRecords]);
   const spentMap = useMemo(() => {
-    const map = Object.fromEntries(EXPENSE_CATEGORIES.map((c) => [c, 0]));
-    expenseRecords.forEach((r) => { map[r.category] = (map[r.category] || 0) + Number(r.amount || 0); });
-    return map;
-  }, [expenseRecords]);
+  const map = Object.fromEntries(expenseCategoryOptions.map((c) => [c, 0]));
+  expenseRecords.forEach((r) => {
+    map[r.category] = (map[r.category] || 0) + Number(r.amount || 0);
+  });
+  return map;
+}, [expenseRecords, expenseCategoryOptions]);
   const selectedCategoryRecords = useMemo(() => selectedPieCategory ? expenseRecords.filter((r) => r.category === selectedPieCategory).sort((a, b) => new Date(a.date) - new Date(b.date)) : [], [expenseRecords, selectedPieCategory]);
   useEffect(() => {
     if (!categoryData.length) setSelectedPieCategory(null);
@@ -1297,9 +1413,13 @@ if (insertedRecord.type === "expense") {
   async function updateRecord(recordId, field, value) {
     const current = records.find((r) => r.id === recordId);
     if (!current) return;
-    const updates = field === "type"
-      ? { type: value, category: categoriesFor(value)[0], method: methodsFor(value)[0] }
-      : { [field]: field === "amount" ? Number(value) : value };
+const updates = field === "type"
+  ? {
+      type: value,
+      category: categoryOptionsFor(value)[0],
+      method: methodOptionsFor(value)[0],
+    }
+  : { [field]: field === "amount" ? Number(value) : value };
     const { error } = await supabase.from("records").update(updates).eq("id", recordId);
     if (error) return alert(error.message);
     setRecords((p) => p.map((r) => (r.id === recordId ? { ...r, ...updates } : r)));
@@ -1495,12 +1615,56 @@ return (
 </button></div>
               <label className="block"><span className="text-sm font-medium text-slate-600">Amount</span><input value={form.amount} onChange={(e) => setForm((p) => ({ ...p, amount: e.target.value }))} type="number" min="0" step="0.01" className="mt-1 w-full rounded-2xl border border-slate-200 px-4 py-3 outline-none" /></label>
               <div className="rounded-2xl bg-slate-50 p-4 ring-1 ring-slate-200"><p className="text-sm font-bold text-slate-700">小计算器</p><textarea value={calculationText} onChange={(e) => setCalculationText(e.target.value)} rows={3} placeholder="3.50 + 12.90 + 2*5.40" className="mt-3 w-full rounded-2xl border border-slate-200 px-4 py-3 text-sm outline-none" /><div className="mt-3 flex items-center justify-between gap-2"><span className="text-sm text-slate-600">{calculationResult !== null ? `Total: ${money(calculationResult)}` : "支持 + - * / 和括号"}</span><button type="button" onClick={fillCalculation} className="rounded-xl bg-slate-900 px-3 py-2 text-xs font-bold text-white">Calculate & Fill</button></div></div>
-              <label className="block"><span className="text-sm font-medium text-slate-600">Category</span><select value={form.category} onChange={(e) => setForm((p) => ({ ...p, category: e.target.value }))} className="mt-1 w-full rounded-2xl border border-slate-200 px-4 py-3 outline-none">{categoriesFor(form.type).map((c) => (
-  <option key={c} value={c}>
-    {formatCategoryLabel(c)}
-  </option>
-))}</select></label>
-              <label className="block"><span className="text-sm font-medium text-slate-600">Method</span><select value={form.method} onChange={(e) => setForm((p) => ({ ...p, method: e.target.value }))} className="mt-1 w-full rounded-2xl border border-slate-200 px-4 py-3 outline-none">{methodsFor(form.type).map((m) => <option key={m}>{m}</option>)}</select></label>
+             <label className="block">
+  <span className="text-sm font-medium text-slate-600">Category</span>
+  <select
+    value={form.category}
+    onChange={(event) => {
+      const value = event.target.value;
+
+      if (value === ADD_CATEGORY_VALUE) {
+        const added = addCustomOption("category", form.type);
+        if (added) setForm((previous) => ({ ...previous, category: added }));
+        return;
+      }
+
+      setForm((previous) => ({ ...previous, category: value }));
+    }}
+    className="mt-1 w-full rounded-2xl border border-slate-200 px-4 py-3 outline-none"
+  >
+    {categoryOptionsFor(form.type).map((category) => (
+      <option key={category} value={category}>
+        {formatCategoryLabel(category)}
+      </option>
+    ))}
+    <option value={ADD_CATEGORY_VALUE}>＋ Add new category...</option>
+  </select>
+</label>
+              <label className="block">
+  <span className="text-sm font-medium text-slate-600">Method</span>
+  <select
+    value={form.method}
+    onChange={(event) => {
+      const value = event.target.value;
+
+      if (value === ADD_METHOD_VALUE) {
+        const added = addCustomOption("method", form.type);
+        if (added) setForm((previous) => ({ ...previous, method: added }));
+        return;
+      }
+
+      setForm((previous) => ({ ...previous, method: value }));
+    }}
+    className="mt-1 w-full rounded-2xl border border-slate-200 px-4 py-3 outline-none"
+  >
+    {methodOptionsFor(form.type).map((method) => (
+      <option key={method} value={method}>
+        {method}
+      </option>
+    ))}
+    <option value={ADD_METHOD_VALUE}>＋ Add new method...</option>
+  </select>
+</label>
               <label className="block"><span className="text-sm font-medium text-slate-600">Date</span><DateInput value={form.date} onChange={(date) => setForm((p) => ({ ...p, date }))} /></label>
               <label className="block"><span className="text-sm font-medium text-slate-600">Note</span><input value={form.note} onChange={(e) => setForm((p) => ({ ...p, note: e.target.value }))} className="mt-1 w-full rounded-2xl border border-slate-200 px-4 py-3 outline-none" /></label>
               <button className={`w-full rounded-2xl px-4 py-3 text-sm font-bold text-white transition ${addRecordTheme.button}`}>
@@ -1521,15 +1685,34 @@ return (
 
   <div className="space-y-6">
             <Card><div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between"><h2 className="text-xl font-bold">Filters</h2><div className="flex flex-col gap-3 md:flex-row md:flex-wrap md:justify-end"><select value={filterMode} onChange={(e) => setFilterMode(e.target.value)} className="rounded-2xl border border-slate-200 px-4 py-3 outline-none"><option value="all">全部</option><option value="month">按月份</option><option value="year">按年份</option><option value="recent30">最近 30 天</option><option value="recent7">最近 7 天</option><option value="recent3">最近 3 天</option></select>{filterMode === "month" && <input type="month" value={selectedMonth} onChange={(e) => setSelectedMonth(e.target.value)} className="rounded-2xl border border-slate-200 px-4 py-3 outline-none" />}{filterMode === "year" && <input type="number" value={selectedYear} onChange={(e) => setSelectedYear(e.target.value)} className="rounded-2xl border border-slate-200 px-4 py-3 outline-none" />}<input value={keyword} onChange={(e) => setKeyword(e.target.value)} placeholder="Search category, method or note" className="rounded-2xl border border-slate-200 px-4 py-3 outline-none" /></div></div></Card>
-            <section className={`grid gap-4 ${showBudget ? "md:grid-cols-4" : "md:grid-cols-3"}`}><StatCard title="Filtered Income" value={money(filteredIncome)} icon="📈" desc={`Current filter: ${filterLabel}`} /><StatCard title="Filtered Expense" value={money(filteredExpense)} icon="📉" desc={`Current filter: ${filterLabel}`} /><BalanceCard title="Filtered Balance" value={filteredIncome - filteredExpense} desc={`Current filter: ${filterLabel}`} limit={balanceLimit} />{showBudget && <BudgetCard totalBudget={totalBudget} used={budgetUsed} budgets={budgets} setBudgets={updateBudgets} spentMap={spentMap} />}</section>
+            <section className={`grid gap-4 ${showBudget ? "md:grid-cols-4" : "md:grid-cols-3"}`}><StatCard title="Filtered Income" value={money(filteredIncome)} icon="📈" desc={`Current filter: ${filterLabel}`} /><StatCard title="Filtered Expense" value={money(filteredExpense)} icon="📉" desc={`Current filter: ${filterLabel}`} /><BalanceCard title="Filtered Balance" value={filteredIncome - filteredExpense} desc={`Current filter: ${filterLabel}`} limit={balanceLimit} />{showBudget && <BudgetCard
+  totalBudget={totalBudget}
+  used={budgetUsed}
+  budgets={budgets}
+  setBudgets={updateBudgets}
+  spentMap={spentMap}
+  expenseCategoryOptions={expenseCategoryOptions}
+/>}</section>
             <section className="grid gap-6 xl:grid-cols-3"><ForecastCard stats={forecast.stats} data={forecast.data} month={forecastMonth} /><HeatmapCard days={heatmapDays} label={filterLabel} /><TopExpensesCard
   records={topExpenses}
   label={filterLabel}
   category={topExpenseCategory}
   setCategory={setTopExpenseCategory}
+  expenseCategoryOptions={expenseCategoryOptions}
 /></section>
             <section className="grid gap-6 xl:grid-cols-2">
-              <Card><h2 className="text-xl font-bold">Daily Income vs Expense</h2><p className="mt-1 text-sm text-slate-500">Current range: {filterLabel}</p><div className="mt-4 h-64">{dailyData.length ? <ResponsiveContainer width="100%" height="100%"><BarChart data={dailyData}><CartesianGrid strokeDasharray="3 3" /><XAxis dataKey="day" /><YAxis /><Tooltip formatter={(v) => money(v)} /><Legend /><Bar dataKey="income" name="Income" fill="#22c55e" /><Bar dataKey="expense" name="Expense" fill="#ef4444" /></BarChart></ResponsiveContainer> : <div className="flex h-full items-center justify-center text-slate-500">No data.</div>}</div><div className="mt-5 rounded-2xl bg-slate-50 p-3 ring-1 ring-slate-200"><div className="mb-2 flex justify-between gap-2"><p className="text-sm font-bold text-slate-700">消费趋势图</p><select value={trendCategory} onChange={(e) => setTrendCategory(e.target.value)} className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-semibold"><option value="all">全部分类</option>{EXPENSE_CATEGORIES.map((c) => <option key={c}>{c}</option>)}</select></div><div className="h-36">{trendData.length ? <ResponsiveContainer width="100%" height="100%"><LineChart data={trendData}><CartesianGrid strokeDasharray="3 3" /><XAxis dataKey="day" /><YAxis /><Tooltip content={<TrendTooltip records={filteredRecords} category={trendCategory} />} /><Legend /><Line type="monotone" dataKey="expense" name="Expense" stroke="#3b82f6" strokeWidth={3} dot={{ r: 4 }} /></LineChart></ResponsiveContainer> : <div className="flex h-full items-center justify-center text-slate-500">No expense trend data.</div>}</div><div className="mt-4 border-t border-slate-200 pt-3"><p className="mb-2 text-sm font-bold text-slate-700">Filtered Balance Trend</p><div className="h-36">{trendData.length ? <ResponsiveContainer width="100%" height="100%"><LineChart data={trendData}><CartesianGrid strokeDasharray="3 3" /><XAxis dataKey="day" /><YAxis /><Tooltip formatter={(v) => money(v)} /><Legend /><Line connectNulls type="monotone" dataKey="balanceGreen" name="Balance > RM1500" stroke="#22c55e" strokeWidth={3} dot={{ r: 4 }} /><Line connectNulls type="monotone" dataKey="balanceRed" name="Balance ≤ RM1500" stroke="#ef4444" strokeWidth={3} dot={{ r: 4 }} /></LineChart></ResponsiveContainer> : <div className="flex h-full items-center justify-center text-slate-500">No balance trend data.</div>}</div></div></div></Card>
+              <Card><h2 className="text-xl font-bold">Daily Income vs Expense</h2><p className="mt-1 text-sm text-slate-500">Current range: {filterLabel}</p><div className="mt-4 h-64">{dailyData.length ? <ResponsiveContainer width="100%" height="100%"><BarChart data={dailyData}><CartesianGrid strokeDasharray="3 3" /><XAxis dataKey="day" /><YAxis /><Tooltip formatter={(v) => money(v)} /><Legend /><Bar dataKey="income" name="Income" fill="#22c55e" /><Bar dataKey="expense" name="Expense" fill="#ef4444" /></BarChart></ResponsiveContainer> : <div className="flex h-full items-center justify-center text-slate-500">No data.</div>}</div><div className="mt-5 rounded-2xl bg-slate-50 p-3 ring-1 ring-slate-200"><div className="mb-2 flex justify-between gap-2"><p className="text-sm font-bold text-slate-700">消费趋势图</p><select
+  value={trendCategory}
+  onChange={(e) => setTrendCategory(e.target.value)}
+  className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-semibold"
+>
+  <option value="all">全部分类</option>
+  {expenseCategoryOptions.map((category) => (
+    <option key={category} value={category}>
+      {formatCategoryLabel(category)}
+    </option>
+  ))}
+</select></div><div className="h-36">{trendData.length ? <ResponsiveContainer width="100%" height="100%"><LineChart data={trendData}><CartesianGrid strokeDasharray="3 3" /><XAxis dataKey="day" /><YAxis /><Tooltip content={<TrendTooltip records={filteredRecords} category={trendCategory} />} /><Legend /><Line type="monotone" dataKey="expense" name="Expense" stroke="#3b82f6" strokeWidth={3} dot={{ r: 4 }} /></LineChart></ResponsiveContainer> : <div className="flex h-full items-center justify-center text-slate-500">No expense trend data.</div>}</div><div className="mt-4 border-t border-slate-200 pt-3"><p className="mb-2 text-sm font-bold text-slate-700">Filtered Balance Trend</p><div className="h-36">{trendData.length ? <ResponsiveContainer width="100%" height="100%"><LineChart data={trendData}><CartesianGrid strokeDasharray="3 3" /><XAxis dataKey="day" /><YAxis /><Tooltip formatter={(v) => money(v)} /><Legend /><Line connectNulls type="monotone" dataKey="balanceGreen" name="Balance > RM1500" stroke="#22c55e" strokeWidth={3} dot={{ r: 4 }} /><Line connectNulls type="monotone" dataKey="balanceRed" name="Balance ≤ RM1500" stroke="#ef4444" strokeWidth={3} dot={{ r: 4 }} /></LineChart></ResponsiveContainer> : <div className="flex h-full items-center justify-center text-slate-500">No balance trend data.</div>}</div></div></div></Card>
               <Card><h2 className="text-xl font-bold">Expense by Category</h2><p className="mt-1 text-sm text-slate-500">点击分类查看记录；Method Ratio 显示全部支出方式比例。</p><div className="mt-4 h-60"><MiniPie data={categoryData} emptyText="No expense data." onClick={(entry) => setSelectedPieCategory(entry.name)} selectedName={selectedPieCategory} /></div><div className="mt-4 rounded-2xl bg-slate-50 p-3 ring-1 ring-slate-200"><p className="text-sm font-bold text-slate-700">{selectedPieCategory ? `${selectedPieCategory} records` : "Category records"}</p><div className="mt-2 max-h-40 space-y-2 overflow-y-auto">{selectedCategoryRecords.length ? selectedCategoryRecords.map((r) => <div key={r.id} className="flex justify-between gap-3 rounded-xl bg-white p-3 text-sm ring-1 ring-slate-100"><div><p className="font-semibold">{r.date}</p><p className="text-slate-500">{recordMethod(r)} · {r.note || "No note"}</p></div><p className="font-bold text-red-600">{money(r.amount)}</p></div>) : <div className="rounded-xl bg-white p-4 text-center text-sm text-slate-500">点击 pie chart 的某个分类后，这里会显示对应记录。</div>}</div></div><div className="mt-4 rounded-2xl bg-slate-50 p-3 ring-1 ring-slate-200"><div className="mb-2 flex justify-between"><p className="text-sm font-bold text-slate-700">Method Ratio</p><p className="text-xs text-slate-500">所有支出方式比例</p></div><div className="h-60"><MiniPie data={methodData} emptyText="No method data." /></div></div></Card>
             </section>
           </div>
@@ -1612,7 +1795,9 @@ return (
                   {group.records.map((record) => (
                     <tr key={record.id} className="group hover:bg-slate-50">
                       <td className="py-3 pr-4 font-mono text-xs text-slate-600">
-                        <EditableCell value={record.date} field="date" recordType={record.type} onSave={(v) => updateRecord(record.id, "date", v)} />
+                        <EditableCell value={record.date} field="date" recordType={record.type} onSave={(v) => updateRecord(record.id, "date", v)}
+categoryOptionsFor={categoryOptionsFor}
+  methodOptionsFor={methodOptionsFor} />
                       </td>
 
                       <td className="py-3 pr-4">
@@ -1622,11 +1807,15 @@ return (
                       </td>
 
                       <td className="py-3 pr-4 font-medium text-slate-800">
-                        <EditableCell value={record.category} field="category" recordType={record.type} onSave={(v) => updateRecord(record.id, "category", v)} />
+                        <EditableCell value={record.category} field="category" recordType={record.type} onSave={(v) => updateRecord(record.id, "category", v)}
+categoryOptionsFor={categoryOptionsFor}
+  methodOptionsFor={methodOptionsFor} />
                       </td>
 
                       <td className="py-3 pr-4 text-slate-600">
-                        <EditableCell value={recordMethod(record)} field="method" recordType={record.type} onSave={(v) => updateRecord(record.id, "method", v)} />
+                        <EditableCell value={recordMethod(record)} field="method" recordType={record.type} onSave={(v) => updateRecord(record.id, "method", v)}
+categoryOptionsFor={categoryOptionsFor}
+  methodOptionsFor={methodOptionsFor} />
                       </td>
 
 <td className={`py-3 pr-4 font-bold ${recordTypeStyle(record.type).amount}`}>
@@ -1634,7 +1823,8 @@ return (
 </td>
 
                       <td className="py-3 pr-4 text-slate-500">
-                        <EditableCell value={record.note || ""} field="note" recordType={record.type} onSave={(v) => updateRecord(record.id, "note", v)} />
+                        <EditableCell value={record.note || ""} field="note" recordType={record.type} onSave={(v) => updateRecord(record.id, "note", v)} categoryOptionsFor={categoryOptionsFor}
+  methodOptionsFor={methodOptionsFor} />
                       </td>
 
                       <td className="py-3">
