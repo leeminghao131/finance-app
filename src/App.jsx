@@ -116,14 +116,72 @@ function group(records, keyFn) {
   });
   return Object.entries(out).map(([name, value]) => ({ name, value }));
 }
+function parseMoneyInput(value) {
+  const raw = String(value ?? "").trim();
 
+  if (!raw) return 0;
+
+  if (raw.includes(".")) {
+    return Number(raw);
+  }
+
+  if (/^\d+$/.test(raw)) {
+    return Number(raw) / 100;
+  }
+
+  return Number(raw);
+}
+
+function normalizeMoneyNumbersInExpression(expression) {
+  return String(expression || "").replace(/\d+(\.\d+)?/g, (match) => {
+    if (match.includes(".")) return match;
+    return String(Number(match) / 100);
+  });
+}
+function formatMoneyTyping(value) {
+  const digits = String(value ?? "").replace(/\D/g, "");
+
+  if (!digits) return "0.00";
+
+  return (Number(digits) / 100).toFixed(2);
+}
+
+function formatCalculatorTyping(value) {
+  const text = String(value ?? "")
+    .replaceAll("×", "*")
+    .replaceAll("x", "*")
+    .replaceAll("X", "*")
+    .replaceAll("÷", "/")
+    .replaceAll("，", "+")
+    .replaceAll("、", "+")
+    .replaceAll(",", "+");
+
+  const parts = text.match(/(\d[\d.]*)|[+\-*/()]/g) || [];
+
+  if (!parts.length) return "0.00";
+
+  return parts
+    .map((part) => {
+      if (/^\d[\d.]*$/.test(part)) return formatMoneyTyping(part);
+      return ` ${part} `;
+    })
+    .join("")
+    .replace(/\s+/g, " ")
+    .trim();
+}
 function calculate(text) {
   const expression = String(text || "")
     .replaceAll("×", "*").replaceAll("x", "*").replaceAll("X", "*")
     .replaceAll("÷", "/").replaceAll("，", "+").replaceAll("、", "+")
     .replaceAll(",", "+").replaceAll(" ", "").replace(/[\t\n\r]/g, "");
-  if (!expression || !Array.from(expression).every((c) => "0123456789+-*/().".includes(c))) throw new Error("Invalid");
-  const value = Function(`"use strict"; return (${expression});`)();
+
+  if (!expression || !Array.from(expression).every((c) => "0123456789+-*/().".includes(c))) {
+    throw new Error("Invalid");
+  }
+
+  const moneyExpression = normalizeMoneyNumbersInExpression(expression);
+  const value = Function(`"use strict"; return (${moneyExpression});`)();
+
   if (!Number.isFinite(value) || value < 0) throw new Error("Invalid");
   return Math.round(value * 100) / 100;
 }
@@ -825,7 +883,15 @@ function EditableCell({ value, field, recordType, onSave, categoryOptionsFor, me
         className="cursor-pointer rounded px-1 py-0.5 hover:bg-slate-100"
         onClick={() => setEditing(true)}
       >
-        {value ? (field === "category" ? formatCategoryLabel(value) : value) : <span className="italic text-slate-400">—</span>}
+      {value ? (
+  field === "category"
+    ? formatCategoryLabel(value)
+    : field === "amount"
+      ? Number(value).toFixed(2)
+      : value
+) : (
+  <span className="italic text-slate-400">—</span>
+)}
       </span>
     );
   }
@@ -974,9 +1040,9 @@ export default function FinanceVisualizerApp() {
   const [records, setRecords] = useState([]);
   const [budgets, setBudgets] = useState(DEFAULT_BUDGETS);
   const [customOptions, setCustomOptions] = useState(DEFAULT_CUSTOM_OPTIONS);
-  const [form, setForm] = useState({ type: "expense", amount: "", category: "饮食", method: "TNG", note: "", date: today() });
+  const [form, setForm] = useState({ type: "expense", amount: "0.00", category: "饮食", method: "TNG", note: "", date: today() });
   const [deleteOptionPanel, setDeleteOptionPanel] = useState({ kind: "", type: "" });
-  const [calculationText, setCalculationText] = useState("");
+  const [calculationText, setCalculationText] = useState("0.00");
   const [calculationResult, setCalculationResult] = useState(null);
   const [filterMode, setFilterMode] = useState("month");
   const [selectedMonth, setSelectedMonth] = useState(monthNow());
@@ -1474,7 +1540,7 @@ async function addRecord(e) {
   e.preventDefault();
   if (!user) return alert("Please sign in first.");
 
-  const amount = Number(form.amount);
+ const amount = parseMoneyInput(form.amount);
   if (!amount || amount <= 0) return alert("Please enter a valid amount.");
 
   const payload = toRecordPayload(
@@ -1493,7 +1559,7 @@ async function addRecord(e) {
   const insertedRecord = normalizeRecord(data);
 
   setRecords((p) => [insertedRecord, ...p]);
-  setForm((p) => ({ ...p, amount: "", note: "", date: today() }));
+  setForm((p) => ({ ...p, amount: "0.00", note: "", date: today() }));
   setSyncStatus("Record added to cloud");
 
 if (insertedRecord.type === "expense") {
@@ -1521,7 +1587,7 @@ const updates = field === "type"
       category: categoryOptionsFor(value)[0],
       method: methodOptionsFor(value)[0],
     }
-  : { [field]: field === "amount" ? Number(value) : value };
+ : { [field]: field === "amount" ? parseMoneyInput(value) : value };
     const { error } = await supabase.from("records").update(updates).eq("id", recordId);
     if (error) return alert(error.message);
     setRecords((p) => p.map((r) => (r.id === recordId ? { ...r, ...updates } : r)));
@@ -1715,8 +1781,28 @@ return (
 >
   💰 Income
 </button></div>
-              <label className="block"><span className="text-sm font-medium text-slate-600">Amount</span><input value={form.amount} onChange={(e) => setForm((p) => ({ ...p, amount: e.target.value }))} type="number" min="0" step="0.01" className="mt-1 w-full rounded-2xl border border-slate-200 px-4 py-3 outline-none" /></label>
-              <div className="rounded-2xl bg-slate-50 p-4 ring-1 ring-slate-200"><p className="text-sm font-bold text-slate-700">小计算器</p><textarea value={calculationText} onChange={(e) => setCalculationText(e.target.value)} rows={3} placeholder="3.50 + 12.90 + 2*5.40" className="mt-3 w-full rounded-2xl border border-slate-200 px-4 py-3 text-sm outline-none" /><div className="mt-3 flex items-center justify-between gap-2"><span className="text-sm text-slate-600">{calculationResult !== null ? `Total: ${money(calculationResult)}` : "支持 + - * / 和括号"}</span><button type="button" onClick={fillCalculation} className="rounded-xl bg-slate-900 px-3 py-2 text-xs font-bold text-white">Calculate & Fill</button></div></div>
+<label className="block">
+  <span className="text-sm font-medium text-slate-600">Amount</span>
+  <input
+    value={form.amount}
+    onChange={(event) =>
+      setForm((previous) => ({
+        ...previous,
+        amount: formatMoneyTyping(event.target.value),
+      }))
+    }
+    type="text"
+    inputMode="numeric"
+    className="mt-1 w-full rounded-2xl border border-slate-200 px-4 py-3 outline-none"
+  />
+</label>
+              <div className="rounded-2xl bg-slate-50 p-4 ring-1 ring-slate-200"><p className="text-sm font-bold text-slate-700">小计算器</p><textarea
+  value={calculationText}
+  onChange={(event) => setCalculationText(formatCalculatorTyping(event.target.value))}
+  rows={3}
+  placeholder="350 + 1290 + 2450"
+  className="mt-3 w-full rounded-2xl border border-slate-200 px-4 py-3 text-sm outline-none"
+/><div className="mt-3 flex items-center justify-between gap-2"><span className="text-sm text-slate-600">{calculationResult !== null ? `Total: ${money(calculationResult)}` : "支持 + - * / 和括号"}</span><button type="button" onClick={fillCalculation} className="rounded-xl bg-slate-900 px-3 py-2 text-xs font-bold text-white">Calculate & Fill</button></div></div>
            
 <label className="block">
   <span className="text-sm font-medium text-slate-600">Category</span>
@@ -1942,7 +2028,15 @@ categoryOptionsFor={categoryOptionsFor}
                       </td>
 
 <td className={`py-3 pr-4 font-bold ${recordTypeStyle(record.type).amount}`}>
-  {recordTypeStyle(record.type).sign}{money(record.amount)}
+  <span className="mr-1">{recordTypeStyle(record.type).sign}</span>
+  <EditableCell
+    value={record.amount}
+    field="amount"
+    recordType={record.type}
+    onSave={(v) => updateRecord(record.id, "amount", v)}
+    categoryOptionsFor={categoryOptionsFor}
+    methodOptionsFor={methodOptionsFor}
+  />
 </td>
 
                       <td className="py-3 pr-4 text-slate-500">
