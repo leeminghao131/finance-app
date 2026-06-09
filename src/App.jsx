@@ -1319,22 +1319,16 @@ function deleteCustomOption(kind, type, value) {
   setSyncStatus("Category deleted");
 }
 
-    if (kind === "method" && previous.method === value) {
-      return { ...previous, method: nextList[0] || "" };
-    }
-
-    return previous;
-  });
-
-  setSyncStatus(`${kind === "category" ? "Category" : "Method"} deleted`);
-}
-
 function renderDeleteCustomOptionPanel(kind, type) {
   if (deleteOptionPanel.kind !== kind || deleteOptionPanel.type !== type) {
     return null;
   }
 
-const key = customOptionKey(kind, type);
+  const key = kind === "category" ? customOptionKey(kind, type) : null;
+  const list = kind === "category"
+    ? customOptions[key] || []
+    : uniqueOptions(customOptions.expenseMethods, customOptions.incomeMethods);
+  const label = kind === "category" ? "category" : "method";
 
   return (
     <div className="mt-2 rounded-2xl bg-slate-50 p-3 ring-1 ring-slate-200">
