@@ -862,7 +862,160 @@ function CustomPersonalCard({ text, setText, image, setImage }) {
     </Card>
   );
 }
+function TransferCard({
+  transferForm,
+  setTransferForm,
+  methodOptions,
+  transfers,
+  onTransfer,
+}) {
+  return (
+    <Card>
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <h2 className="text-xl font-bold">Money Transfer</h2>
+          <p className="mt-1 text-sm text-slate-500">
+            Move money between methods. This will not count as income or expense.
+          </p>
+        </div>
+        <div className="rounded-2xl bg-blue-50 px-3 py-2 text-xl">🔁</div>
+      </div>
 
+      <form onSubmit={onTransfer} className="mt-4 space-y-3">
+        <div className="grid gap-3 md:grid-cols-2">
+          <label className="block">
+            <span className="text-sm font-medium text-slate-600">From Method</span>
+            <select
+              value={transferForm.fromMethod}
+              onChange={(event) =>
+                setTransferForm((previous) => ({
+                  ...previous,
+                  fromMethod: event.target.value,
+                }))
+              }
+              className="mt-1 w-full rounded-2xl border border-slate-200 px-4 py-3 outline-none"
+            >
+              {methodOptions.map((method) => (
+                <option key={method} value={method}>
+                  {method}
+                </option>
+              ))}
+            </select>
+          </label>
+
+          <label className="block">
+            <span className="text-sm font-medium text-slate-600">To Method</span>
+            <select
+              value={transferForm.toMethod}
+              onChange={(event) =>
+                setTransferForm((previous) => ({
+                  ...previous,
+                  toMethod: event.target.value,
+                }))
+              }
+              className="mt-1 w-full rounded-2xl border border-slate-200 px-4 py-3 outline-none"
+            >
+              {methodOptions.map((method) => (
+                <option key={method} value={method}>
+                  {method}
+                </option>
+              ))}
+            </select>
+          </label>
+        </div>
+
+        <label className="block">
+          <span className="text-sm font-medium text-slate-600">Amount</span>
+          <input
+            value={transferForm.amount}
+            onChange={(event) =>
+              setTransferForm((previous) => ({
+                ...previous,
+                amount: formatMoneyTyping(event.target.value),
+              }))
+            }
+            type="text"
+            inputMode="numeric"
+            className="mt-1 w-full rounded-2xl border border-slate-200 px-4 py-3 outline-none"
+          />
+        </label>
+
+        <label className="block">
+          <span className="text-sm font-medium text-slate-600">Date</span>
+          <DateInput
+            value={transferForm.date}
+            onChange={(date) =>
+              setTransferForm((previous) => ({
+                ...previous,
+                date,
+              }))
+            }
+          />
+        </label>
+
+        <label className="block">
+          <span className="text-sm font-medium text-slate-600">Note</span>
+          <input
+            value={transferForm.note}
+            onChange={(event) =>
+              setTransferForm((previous) => ({
+                ...previous,
+                note: event.target.value,
+              }))
+            }
+            placeholder="Example: Top up TNG"
+            className="mt-1 w-full rounded-2xl border border-slate-200 px-4 py-3 outline-none"
+          />
+        </label>
+
+        <button
+          type="submit"
+          className="w-full rounded-2xl bg-blue-600 px-4 py-3 text-sm font-bold text-white transition hover:bg-blue-700"
+        >
+          Transfer Money
+        </button>
+      </form>
+
+      <div className="mt-5">
+        <div className="mb-2 flex items-center justify-between gap-3">
+          <p className="text-sm font-bold text-slate-700">Recent Transfers</p>
+          <p className="text-xs font-semibold text-slate-400">
+            {transfers.length} records
+          </p>
+        </div>
+
+        <div className="max-h-56 space-y-2 overflow-y-auto">
+          {transfers.length ? (
+            transfers.slice(0, 5).map((transfer) => (
+              <div
+                key={transfer.id}
+                className="rounded-2xl bg-slate-50 p-3 text-sm ring-1 ring-slate-100"
+              >
+                <div className="flex items-start justify-between gap-3">
+                  <div>
+                    <p className="font-bold text-slate-900">
+                      {transfer.fromMethod} → {transfer.toMethod}
+                    </p>
+                    <p className="text-xs text-slate-500">
+                      {transfer.date} · {transfer.note || "No note"}
+                    </p>
+                  </div>
+                  <p className="whitespace-nowrap font-bold text-blue-700">
+                    {money(transfer.amount)}
+                  </p>
+                </div>
+              </div>
+            ))
+          ) : (
+            <div className="rounded-2xl bg-slate-50 p-5 text-center text-sm text-slate-500 ring-1 ring-slate-100">
+              No transfer records yet.
+            </div>
+          )}
+        </div>
+      </div>
+    </Card>
+  );
+}
 function EditableCell({ value, field, recordType, onSave, categoryOptionsFor, methodOptionsFor }) {
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState(value ?? "");
@@ -959,7 +1112,16 @@ function normalizeRecord(row) {
     date: row.date,
   };
 }
-
+function normalizeTransfer(row) {
+  return {
+    id: row.id,
+    fromMethod: row.from_method,
+    toMethod: row.to_method,
+    amount: Number(row.amount || 0),
+    note: row.note || "",
+    date: row.date,
+  };
+}
 function toRecordPayload(record, userId) {
   return {
     user_id: userId,
@@ -1040,9 +1202,17 @@ export default function FinanceVisualizerApp() {
   const [dataLoading, setDataLoading] = useState(false);
   const [syncStatus, setSyncStatus] = useState("");
   const [records, setRecords] = useState([]);
+  const [transfers, setTransfers] = useState([]);
   const [budgets, setBudgets] = useState(DEFAULT_BUDGETS);
   const [customOptions, setCustomOptions] = useState(DEFAULT_CUSTOM_OPTIONS);
   const [form, setForm] = useState({ type: "expense", amount: "0.00", category: "饮食", method: "TNG", note: "", date: today() });
+  const [transferForm, setTransferForm] = useState({
+  fromMethod: "BANK",
+  toMethod: "TNG",
+  amount: "0.00",
+  note: "",
+  date: today(),
+});
   const [deleteOptionPanel, setDeleteOptionPanel] = useState({ kind: "", type: "" });
   const [calculationText, setCalculationText] = useState("0.00");
   const [calculationResult, setCalculationResult] = useState(null);
@@ -1090,8 +1260,9 @@ const [customCardImage, setCustomCardImage] = useState(() => {
   useEffect(() => {
     if (user) loadCloudData();
     else {
-      setRecords([]);
-      setBudgets(DEFAULT_BUDGETS);
+setRecords([]);
+setTransfers([]);
+setBudgets(DEFAULT_BUDGETS);
     }
   }, [user?.id]);
 
@@ -1145,6 +1316,17 @@ useEffect(() => {
       return;
     }
     setRecords((recordRows || []).map(normalizeRecord));
+    const { data: transferRows, error: transferError } = await supabase
+  .from("transfers")
+  .select("id,from_method,to_method,amount,note,date,created_at")
+  .order("date", { ascending: false })
+  .order("created_at", { ascending: false });
+
+if (transferError) {
+  setSyncStatus(transferError.message);
+} else {
+  setTransfers((transferRows || []).map(normalizeTransfer));
+}
     const { data: settingsRow, error: settingsError } = await supabase
       .from("user_settings")
       .select("category_budgets,custom_options")
@@ -1612,6 +1794,51 @@ if (insertedRecord.type === "expense") {
   setIncomeCoinTrigger(Date.now());
 }
 }
+  async function addTransfer(event) {
+  event.preventDefault();
+
+  if (!user) return alert("Please sign in first.");
+
+  const amount = parseMoneyInput(transferForm.amount);
+
+  if (!amount || amount <= 0) {
+    return alert("Please enter a valid transfer amount.");
+  }
+
+  if (transferForm.fromMethod === transferForm.toMethod) {
+    return alert("From Method and To Method cannot be the same.");
+  }
+
+  const payload = {
+    user_id: user.id,
+    from_method: transferForm.fromMethod,
+    to_method: transferForm.toMethod,
+    amount,
+    note: transferForm.note.trim(),
+    date: transferForm.date,
+  };
+
+  const { data, error } = await supabase
+    .from("transfers")
+    .insert(payload)
+    .select("id,from_method,to_method,amount,note,date,created_at")
+    .single();
+
+  if (error) return alert(error.message);
+
+  const insertedTransfer = normalizeTransfer(data);
+
+  setTransfers((previous) => [insertedTransfer, ...previous]);
+
+  setTransferForm((previous) => ({
+    ...previous,
+    amount: "0.00",
+    note: "",
+    date: today(),
+  }));
+
+  setSyncStatus("Transfer added to cloud");
+}
   function fillCalculation() {
     try {
       const total = calculate(calculationText);
@@ -1926,12 +2153,13 @@ return (
 
     <TodaySummaryCard stats={todaySummaryStats} />
 
-    <CustomPersonalCard
-      text={customCardText}
-      setText={setCustomCardText}
-      image={customCardImage}
-      setImage={setCustomCardImage}
-    />
+<TransferCard
+  transferForm={transferForm}
+  setTransferForm={setTransferForm}
+  methodOptions={methodOptionsFor(form.type)}
+  transfers={transfers}
+  onTransfer={addTransfer}
+/>
   </div>
 
   <div className="space-y-6">
