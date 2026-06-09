@@ -15,8 +15,9 @@ const CUSTOM_CARD_IMAGE_KEY = "finance-custom-card-image-v3";
 
 const EXPENSE_CATEGORIES = ["饮食", "教育", "住房", "日用", "交通", "娱乐", "运动", "医疗", "美容"];
 const INCOME_CATEGORIES = ["Salary", "Allowance", "Part-time", "Gift", "Others"];
-const EXPENSE_METHODS = ["TNG", "CASH", "DEBIT CARD", "ONLINE BANK IN", "GRAB PAY"];
-const INCOME_METHODS = ["TNG", "CASH", "BANK IN", "GRAB PAY"];
+const BASE_METHODS = ["TNG", "CASH", "BANK", "GRAB PAY"];
+const EXPENSE_METHODS = BASE_METHODS;
+const INCOME_METHODS = BASE_METHODS;
 const DEFAULT_BUDGETS = { 饮食: "600", 教育: "", 住房: "", 日用: "", 交通: "300", 娱乐: "200", 运动: "", 医疗: "", 美容: "150" };
 const DEFAULT_CUSTOM_OPTIONS = {
   expenseCategories: [],
@@ -896,8 +897,9 @@ function EditableCell({ value, field, recordType, onSave, categoryOptionsFor, me
     );
   }
 
-  if (field === "category" || field === "method") {
-    const list = field === "category" ? categoryOptionsFor(recordType) : methodOptionsFor(recordType);
+if (field === "category" || field === "method") {
+  const baseList = field === "category" ? categoryOptionsFor(recordType) : methodOptionsFor(recordType);
+  const list = value ? uniqueOptions(baseList, [value]) : baseList;
 
     return (
       <select
@@ -1195,21 +1197,33 @@ function addCustomOption(kind, type) {
 
   if (!newValue) return null;
 
-if ([ADD_CATEGORY_VALUE, ADD_METHOD_VALUE, DELETE_CATEGORY_VALUE, DELETE_METHOD_VALUE].includes(newValue)) {
-  alert("This name is not allowed.");
-  return null;
-}
+  if ([ADD_CATEGORY_VALUE, ADD_METHOD_VALUE, DELETE_CATEGORY_VALUE, DELETE_METHOD_VALUE].includes(newValue)) {
+    alert("This name is not allowed.");
+    return null;
+  }
 
-  const key =
-    type === "expense"
-      ? isCategory
-        ? "expenseCategories"
-        : "expenseMethods"
-      : isCategory
-        ? "incomeCategories"
-        : "incomeMethods";
+  if (!isCategory) {
+    const currentMethods = uniqueOptions(customOptions.expenseMethods, customOptions.incomeMethods);
+    const allMethods = uniqueOptions(BASE_METHODS, currentMethods);
 
-  const baseList = isCategory ? categoriesFor(type) : methodsFor(type);
+    if (allMethods.includes(newValue)) {
+      return newValue;
+    }
+
+    const nextOptions = {
+      ...customOptions,
+      expenseMethods: uniqueOptions(customOptions.expenseMethods, [newValue]),
+      incomeMethods: uniqueOptions(customOptions.incomeMethods, [newValue]),
+    };
+
+    setCustomOptions(nextOptions);
+    saveCustomOptions(nextOptions);
+
+    return newValue;
+  }
+
+  const key = type === "expense" ? "expenseCategories" : "incomeCategories";
+  const baseList = categoriesFor(type);
   const currentList = customOptions[key] || [];
   const allList = uniqueOptions(baseList, currentList);
 
@@ -1225,7 +1239,7 @@ if ([ADD_CATEGORY_VALUE, ADD_METHOD_VALUE, DELETE_CATEGORY_VALUE, DELETE_METHOD_
   setCustomOptions(nextOptions);
   saveCustomOptions(nextOptions);
 
-  if (type === "expense" && isCategory) {
+  if (type === "expense") {
     updateBudgets((previous) => ({
       ...previous,
       [newValue]: previous[newValue] || "",
@@ -1245,6 +1259,31 @@ if ([ADD_CATEGORY_VALUE, ADD_METHOD_VALUE, DELETE_CATEGORY_VALUE, DELETE_METHOD_
 }
 
 function deleteCustomOption(kind, type, value) {
+  if (kind === "method") {
+    const nextOptions = {
+      ...customOptions,
+      expenseMethods: (customOptions.expenseMethods || []).filter((item) => item !== value),
+      incomeMethods: (customOptions.incomeMethods || []).filter((item) => item !== value),
+    };
+
+    setCustomOptions(nextOptions);
+    saveCustomOptions(nextOptions);
+
+    setForm((previous) => {
+      if (previous.method !== value) return previous;
+
+      const nextMethods = uniqueOptions(
+        BASE_METHODS,
+        uniqueOptions(nextOptions.expenseMethods, nextOptions.incomeMethods)
+      );
+
+      return { ...previous, method: nextMethods[0] || "TNG" };
+    });
+
+    setSyncStatus("Method deleted");
+    return;
+  }
+
   const key = customOptionKey(kind, type);
   const currentList = customOptions[key] || [];
 
@@ -1267,12 +1306,18 @@ function deleteCustomOption(kind, type, value) {
   setForm((previous) => {
     if (previous.type !== type) return previous;
 
-    const baseList = kind === "category" ? categoriesFor(type) : methodsFor(type);
+    const baseList = categoriesFor(type);
     const nextList = uniqueOptions(baseList, nextOptions[key]);
 
-    if (kind === "category" && previous.category === value) {
+    if (previous.category === value) {
       return { ...previous, category: nextList[0] || "" };
     }
+
+    return previous;
+  });
+
+  setSyncStatus("Category deleted");
+}
 
     if (kind === "method" && previous.method === value) {
       return { ...previous, method: nextList[0] || "" };
@@ -1289,9 +1334,7 @@ function renderDeleteCustomOptionPanel(kind, type) {
     return null;
   }
 
-  const key = customOptionKey(kind, type);
-  const list = customOptions[key] || [];
-  const label = kind === "category" ? "category" : "method";
+const key = customOptionKey(kind, type);
 
   return (
     <div className="mt-2 rounded-2xl bg-slate-50 p-3 ring-1 ring-slate-200">
@@ -1350,18 +1393,23 @@ const incomeCategoryOptions = useMemo(
   [customOptions.incomeCategories]
 );
 
+const customMethodOptions = useMemo(
+  () => uniqueOptions(customOptions.expenseMethods, customOptions.incomeMethods),
+  [customOptions.expenseMethods, customOptions.incomeMethods]
+);
+
 const expenseMethodOptions = useMemo(
-  () => uniqueOptions(EXPENSE_METHODS, customOptions.expenseMethods),
-  [customOptions.expenseMethods]
+  () => uniqueOptions(EXPENSE_METHODS, customMethodOptions),
+  [customMethodOptions]
 );
 
 const incomeMethodOptions = useMemo(
-  () => uniqueOptions(INCOME_METHODS, customOptions.incomeMethods),
-  [customOptions.incomeMethods]
+  () => uniqueOptions(INCOME_METHODS, customMethodOptions),
+  [customMethodOptions]
 );
 
 const categoryOptionsFor = (type) => (type === "expense" ? expenseCategoryOptions : incomeCategoryOptions);
-const methodOptionsFor = (type) => (type === "expense" ? expenseMethodOptions : incomeMethodOptions);
+const methodOptionsFor = () => expenseMethodOptions;
   const filteredRecords = useMemo(() => filterRecords(records, filterMode, selectedMonth, selectedYear, keyword), [records, filterMode, selectedMonth, selectedYear, keyword]);
   const expenseRecords = filteredRecords.filter((r) => r.type === "expense");
   const income = sumType(records, "income");
