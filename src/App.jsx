@@ -45,6 +45,21 @@ const money = (v) => new Intl.NumberFormat("en-MY", { style: "currency", currenc
 const categoriesFor = (t) => (t === "expense" ? EXPENSE_CATEGORIES : INCOME_CATEGORIES);
 const methodsFor = (t) => (t === "expense" ? EXPENSE_METHODS : INCOME_METHODS);
 const recordMethod = (r) => r.method || methodsFor(r.type)[0];
+function normalizeMethodForBalance(method) {
+  const raw = String(method || "").trim();
+  const upper = raw.toUpperCase();
+
+  if (upper === "BANK IN") return "BANK";
+  if (upper === "ONLINE BANK IN") return "BANK";
+  if (upper === "DEBIT CARD") return "BANK";
+
+  if (upper === "BANK") return "BANK";
+  if (upper === "TNG") return "TNG";
+  if (upper === "CASH") return "CASH";
+  if (upper === "GRAB PAY") return "GRAB PAY";
+
+  return raw;
+}
 function uniqueOptions(baseOptions, customOptions = []) {
   return Array.from(new Set([...(baseOptions || []), ...(customOptions || [])].filter(Boolean)));
 }
@@ -530,17 +545,85 @@ function StatCard({ title, value, icon, desc }) {
   );
 }
 
-function BalanceCard({ title, value, desc, limit }) {
+function BalanceCard({ title, value, desc, limit, methodBalances = [] }) {
   const safeLimit = Number(limit || 0);
   const low = value < safeLimit;
+  const [open, setOpen] = useState(false);
+
+  const showMethodBreakdown = title === "Balance" && methodBalances.length > 0;
 
   return (
     <Card className={low ? "bg-red-50 ring-red-300" : ""}>
-      <p className={`text-sm font-medium ${low ? "text-red-700" : "text-slate-500"}`}>{title}</p>
-      <p className={`mt-2 text-2xl font-bold ${low ? "text-red-700" : "text-slate-900"}`}>{money(value)}</p>
-      <p className={`mt-1 text-sm ${low ? "text-red-700" : "text-slate-500"}`}>
-        {low ? `⚠ Balance below ${money(safeLimit)}` : desc}
-      </p>
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <p className={`text-sm font-medium ${low ? "text-red-700" : "text-slate-500"}`}>
+            {title}
+          </p>
+
+          <p className={`mt-2 text-2xl font-bold ${low ? "text-red-700" : "text-slate-900"}`}>
+            {money(value)}
+          </p>
+
+          <p className={`mt-1 text-sm ${low ? "text-red-700" : "text-slate-500"}`}>
+            {low ? `⚠ Balance below ${money(safeLimit)}` : desc}
+          </p>
+        </div>
+
+        {showMethodBreakdown && (
+          <button
+            type="button"
+            onClick={() => setOpen((previous) => !previous)}
+            className="rounded-xl bg-slate-100 px-3 py-2 text-xs font-bold text-slate-700 transition hover:bg-slate-200"
+          >
+            {open ? "Hide" : "Methods"}
+          </button>
+        )}
+      </div>
+
+      {showMethodBreakdown && open && (
+        <div className="mt-4 rounded-2xl bg-slate-50 p-3 ring-1 ring-slate-200">
+          <div className="mb-3 flex items-center justify-between gap-3">
+            <div>
+              <p className="text-sm font-bold text-slate-900">Method Balance</p>
+              <p className="text-xs text-slate-500">
+                Transfer only moves money between methods.
+              </p>
+            </div>
+            <div className="rounded-xl bg-emerald-50 px-2 py-1 text-base">🏦</div>
+          </div>
+
+          <div className="space-y-2">
+            {methodBalances.map((item) => (
+              <div
+                key={item.method}
+                className="rounded-xl bg-white p-3 text-sm ring-1 ring-slate-100"
+              >
+                <div className="flex items-start justify-between gap-3">
+                  <div>
+                    <p className="font-bold text-slate-900">{item.method}</p>
+
+                    <p className="mt-1 text-xs text-slate-500">
+                      Income {money(item.income)} · Expense {money(item.expense)}
+                    </p>
+
+                    <p className="mt-1 text-xs text-slate-500">
+                      In {money(item.transferIn)} · Out {money(item.transferOut)}
+                    </p>
+                  </div>
+
+                  <p
+                    className={`whitespace-nowrap font-bold ${
+                      item.balance < 0 ? "text-red-600" : "text-emerald-700"
+                    }`}
+                  >
+                    {money(item.balance)}
+                  </p>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
     </Card>
   );
 }
@@ -1662,28 +1745,25 @@ const methodOptionsFor = () => expenseMethodOptions;
   const chartLabel = (d) => filterMode === "month" ? d.slice(8) : filterMode === "all" ? d : d.slice(5);
   const categoryData = useMemo(() => group(expenseRecords, (r) => r.category), [expenseRecords]);
   const methodData = useMemo(() => group(expenseRecords, (r) => recordMethod(r)), [expenseRecords]);
-  const accountMethodOptions = useMemo(() => {
-  const recordMethods = records.map((record) => recordMethod(record));
-  const transferMethods = transfers.flatMap((transfer) => [
-    transfer.fromMethod,
-    transfer.toMethod,
-  ]);
+const accountMethodOptions = useMemo(() => {
+  const defaultMethods = ["TNG", "CASH", "BANK", "GRAB PAY"];
+  const normalizedCustomMethods = (customMethodOptions || [])
+    .map(normalizeMethodForBalance)
+    .filter(Boolean);
 
-  return uniqueOptions(
-    expenseMethodOptions,
-    uniqueOptions(recordMethods, transferMethods)
-  );
-}, [expenseMethodOptions, records, transfers]);
+  return uniqueOptions(defaultMethods, normalizedCustomMethods);
+}, [customMethodOptions]);
 
 const methodBalances = useMemo(() => {
   const map = {};
 
   const ensureMethod = (method) => {
-    if (!method) return null;
+    const normalizedMethod = normalizeMethodForBalance(method);
+    if (!normalizedMethod) return null;
 
-    if (!map[method]) {
-      map[method] = {
-        method,
+    if (!map[normalizedMethod]) {
+      map[normalizedMethod] = {
+        method: normalizedMethod,
         income: 0,
         expense: 0,
         transferIn: 0,
@@ -1692,20 +1772,21 @@ const methodBalances = useMemo(() => {
       };
     }
 
-    return map[method];
+    return map[normalizedMethod];
   };
 
   accountMethodOptions.forEach(ensureMethod);
 
   records.forEach((record) => {
-    const method = recordMethod(record);
-    const row = ensureMethod(method);
+    const row = ensureMethod(recordMethod(record));
     if (!row) return;
 
+    const amount = Number(record.amount || 0);
+
     if (record.type === "income") {
-      row.income += Number(record.amount || 0);
+      row.income += amount;
     } else {
-      row.expense += Number(record.amount || 0);
+      row.expense += amount;
     }
   });
 
@@ -1724,11 +1805,23 @@ const methodBalances = useMemo(() => {
       ...row,
       balance: row.income - row.expense + row.transferIn - row.transferOut,
     }))
-    .sort(
-      (a, b) =>
-        accountMethodOptions.indexOf(a.method) -
-        accountMethodOptions.indexOf(b.method)
-    );
+    .filter(
+      (row) =>
+        row.income !== 0 ||
+        row.expense !== 0 ||
+        row.transferIn !== 0 ||
+        row.transferOut !== 0 ||
+        accountMethodOptions.includes(row.method)
+    )
+    .sort((a, b) => {
+      const aIndex = accountMethodOptions.indexOf(a.method);
+      const bIndex = accountMethodOptions.indexOf(b.method);
+
+      if (aIndex === -1 && bIndex === -1) return a.method.localeCompare(b.method);
+      if (aIndex === -1) return 1;
+      if (bIndex === -1) return -1;
+      return aIndex - bIndex;
+    });
 }, [accountMethodOptions, records, transfers]);
   const spentMap = useMemo(() => {
   const map = Object.fromEntries(expenseCategoryOptions.map((c) => [c, 0]));
@@ -2148,7 +2241,13 @@ return (
   </div>
 </div>
 
-        <section className="grid gap-4 md:grid-cols-3"><StatCard title="Total Income" value={money(income)} icon="📈" desc="Overall records" /><StatCard title="Total Expense" value={money(expense)} icon="📉" desc="Overall records" /><BalanceCard title="Balance" value={income - expense} desc="Overall cash flow" limit={balanceLimit} /></section>
+        <section className="grid gap-4 md:grid-cols-3"><StatCard title="Total Income" value={money(income)} icon="📈" desc="Overall records" /><StatCard title="Total Expense" value={money(expense)} icon="📉" desc="Overall records" /><BalanceCard
+  title="Balance"
+  value={income - expense}
+  desc="Overall cash flow"
+  limit={balanceLimit}
+  methodBalances={methodBalances}
+/></section>
 
 <section className="grid gap-6 lg:grid-cols-[380px_1fr]">
   <div className="space-y-6">
@@ -2288,7 +2387,7 @@ methodOptions={accountMethodOptions}
   transfers={transfers}
   onTransfer={addTransfer}
 />
-    <MethodBalanceCard balances={methodBalances} />
+
   </div>
 
   <div className="space-y-6">
