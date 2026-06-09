@@ -1016,6 +1016,66 @@ function TransferCard({
     </Card>
   );
 }
+function MethodBalanceCard({ balances }) {
+  const totalBalance = balances.reduce(
+    (sum, item) => sum + Number(item.balance || 0),
+    0
+  );
+
+  return (
+    <Card>
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <h2 className="text-xl font-bold">Method Balance</h2>
+          <p className="mt-1 text-sm text-slate-500">
+            Shows where your money is now. Transfers affect this card only.
+          </p>
+        </div>
+        <div className="rounded-2xl bg-emerald-50 px-3 py-2 text-xl">🏦</div>
+      </div>
+
+      <div className="mt-4 rounded-2xl bg-slate-900 p-4 text-white">
+        <p className="text-xs font-semibold text-slate-300">Total Method Balance</p>
+        <p className="mt-1 text-2xl font-bold">{money(totalBalance)}</p>
+      </div>
+
+      <div className="mt-4 space-y-2">
+        {balances.length ? (
+          balances.map((item) => (
+            <div
+              key={item.method}
+              className="rounded-2xl bg-slate-50 p-3 text-sm ring-1 ring-slate-100"
+            >
+              <div className="flex items-start justify-between gap-3">
+                <div>
+                  <p className="font-bold text-slate-900">{item.method}</p>
+                  <p className="mt-1 text-xs text-slate-500">
+                    Income {money(item.income)} · Expense {money(item.expense)}
+                  </p>
+                  <p className="mt-1 text-xs text-slate-500">
+                    Transfer in {money(item.transferIn)} · Transfer out {money(item.transferOut)}
+                  </p>
+                </div>
+
+                <p
+                  className={`whitespace-nowrap font-bold ${
+                    item.balance < 0 ? "text-red-700" : "text-emerald-700"
+                  }`}
+                >
+                  {money(item.balance)}
+                </p>
+              </div>
+            </div>
+          ))
+        ) : (
+          <div className="rounded-2xl bg-slate-50 p-5 text-center text-sm text-slate-500 ring-1 ring-slate-100">
+            No method balance data.
+          </div>
+        )}
+      </div>
+    </Card>
+  );
+}
 function EditableCell({ value, field, recordType, onSave, categoryOptionsFor, methodOptionsFor }) {
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState(value ?? "");
@@ -1602,6 +1662,74 @@ const methodOptionsFor = () => expenseMethodOptions;
   const chartLabel = (d) => filterMode === "month" ? d.slice(8) : filterMode === "all" ? d : d.slice(5);
   const categoryData = useMemo(() => group(expenseRecords, (r) => r.category), [expenseRecords]);
   const methodData = useMemo(() => group(expenseRecords, (r) => recordMethod(r)), [expenseRecords]);
+  const accountMethodOptions = useMemo(() => {
+  const recordMethods = records.map((record) => recordMethod(record));
+  const transferMethods = transfers.flatMap((transfer) => [
+    transfer.fromMethod,
+    transfer.toMethod,
+  ]);
+
+  return uniqueOptions(
+    expenseMethodOptions,
+    uniqueOptions(recordMethods, transferMethods)
+  );
+}, [expenseMethodOptions, records, transfers]);
+
+const methodBalances = useMemo(() => {
+  const map = {};
+
+  const ensureMethod = (method) => {
+    if (!method) return null;
+
+    if (!map[method]) {
+      map[method] = {
+        method,
+        income: 0,
+        expense: 0,
+        transferIn: 0,
+        transferOut: 0,
+        balance: 0,
+      };
+    }
+
+    return map[method];
+  };
+
+  accountMethodOptions.forEach(ensureMethod);
+
+  records.forEach((record) => {
+    const method = recordMethod(record);
+    const row = ensureMethod(method);
+    if (!row) return;
+
+    if (record.type === "income") {
+      row.income += Number(record.amount || 0);
+    } else {
+      row.expense += Number(record.amount || 0);
+    }
+  });
+
+  transfers.forEach((transfer) => {
+    const amount = Number(transfer.amount || 0);
+
+    const fromRow = ensureMethod(transfer.fromMethod);
+    const toRow = ensureMethod(transfer.toMethod);
+
+    if (fromRow) fromRow.transferOut += amount;
+    if (toRow) toRow.transferIn += amount;
+  });
+
+  return Object.values(map)
+    .map((row) => ({
+      ...row,
+      balance: row.income - row.expense + row.transferIn - row.transferOut,
+    }))
+    .sort(
+      (a, b) =>
+        accountMethodOptions.indexOf(a.method) -
+        accountMethodOptions.indexOf(b.method)
+    );
+}, [accountMethodOptions, records, transfers]);
   const spentMap = useMemo(() => {
   const map = Object.fromEntries(expenseCategoryOptions.map((c) => [c, 0]));
   expenseRecords.forEach((r) => {
@@ -2156,10 +2284,11 @@ return (
 <TransferCard
   transferForm={transferForm}
   setTransferForm={setTransferForm}
-  methodOptions={methodOptionsFor(form.type)}
+methodOptions={accountMethodOptions}
   transfers={transfers}
   onTransfer={addTransfer}
 />
+    <MethodBalanceCard balances={methodBalances} />
   </div>
 
   <div className="space-y-6">
