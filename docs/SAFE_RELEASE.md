@@ -27,9 +27,14 @@ This repository contains the web app for a real finance database. **No feature c
 - **Old Vercel preview deployments are not automatically reconfigured**. Never perform destructive tests on old previews.
 
 ## Status / limitations (2026-11-08)
-- An encrypted application-data snapshot was verified; it is **not** a full native Postgres/Supabase backup.
-- Backup has been decrypted in the independent project and contents validated, but complete data-restoration is **not** verified.
-- Actual GitHub enforced main-branch protection must be configured and checked in GitHub Settings.
-- Dependencies currently use `latest` and no lockfile was found. Freeze dependencies and commit a lockfile before claiming reproducible builds.
-- The test suite is a **baseline smoke/regression check**, not comprehensive financial math or end-to-end coverage.
-- No user data should be copied from production to the test environment.
+- Direct npm dependencies are pinned, `package-lock.json` is committed, and GitHub Actions runs `npm ci` + Node 24 regression tests + Vite build; observed successful run. This PR is still DRAFT and not merged.
+- Production and Preview now use different Supabase project references via environment-targeted variables. Old Preview deployment bundles do not change retroactively; never use old preview URLs for destructive tests.
+- The encrypted business-data snapshot was validated against production for exact equality across all three app tables. An independent-project decrypt/hash check passed.
+- A synthetic create/snapshot/delete/restore/compare test succeeded inside a rolled-back transaction in the isolated test project. This demonstrates app-table round-trip, not full Auth/Storage/project disaster recovery.
+- The Free plan **does not provide automatic daily database backups**. Before risky changes obtain a fresh independently stored encrypted full database backup using official CLI, and verify restoration in isolation.
+- GitHub main-branch protection and required status check enforcement must still be configured in repository settings. Suggested check: **Finance safety / locked build**. Never merge before confirming enforcement.
+- Dependabot monthly PR configuration is staged here and only becomes active once merged to the default branch. No auto-merge.
+- Existing `xlsx@0.18.5` from npm has two known security advisories involving crafted spreadsheet parsing (prototype pollution / ReDoS). The reviewed code currently uses `XLSX.writeFile` for export and manual CSV parsing, not `XLSX.read`; risk appears less direct, but plan a safe replacement or patched source and verify all export formats before releasing.
+- Supabase's leaked-password-protection advisor warning cannot be eliminated on the Free plan; it requires Pro. **Do not upgrade to paid plan.** Use strong passwords, MFA where available, and free password-strength rules.
+- This is still a baseline regression suite, not full browser-driven end-to-end coverage or guarantees against every type of data corruption.
+- Never copy real financial data to CI, GitHub, or Preview.
