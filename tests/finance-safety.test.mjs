@@ -1,0 +1,47 @@
+import test from "node:test";
+import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
+import vm from "node:vm";
+
+const app = readFileSync(new URL("../src/App.jsx", import.meta.url), "utf8");
+const client = readFileSync(new URL("../src/supabaseClient.js", import.meta.url), "utf8");
+
+test("Supabase client uses deployment environment variables instead of embedded credentials", () => {
+  assert.match(client, /import\.meta\.env\.VITE_SUPABASE_URL/);
+  assert.match(client, /import\.meta\.env\.VITE_SUPABASE_ANON_KEY/);
+  assert.doesNotMatch(client, /sb_secret_|service_role/i);
+  assert.doesNotMatch(client, /https:\/\/[a-z0-9]{20}\.supabase\.co/i);
+});
+
+test("App retains authentication and cloud tables", () => {
+  assert.match(app, /supabase\.auth\.getSession\(/);
+  assert.match(app, /supabase\.auth\.onAuthStateChange\(/);
+  for (const table of ["records", "transfers", "user_settings"]) {
+    assert.ok(app.includes('.from("' + table + '")'), 'Cloud table missing: ' + table);
+  }
+  assert.match(app, /if\s*\(!session\)/);
+});
+
+test("Balance method alias normalization preserves historical method meaning", () => {
+  const fn = app.match(/function normalizeMethodForBalance\(method\)\s*\{[\s\S]*?\n\}/);
+  assert.ok(fn, "normalizeMethodForBalance function missing");
+  const normalize = vm.runInNewContext(fn[0] + "\nnormalizeMethodForBalance", Object.create(null), { timeout: 1000 });
+  for (const old of ["BANK IN", "ONLINE BANK IN", "DEBIT CARD", "BANK"]) {
+    assert.equal(normalize(old), "BANK");
+  }
+  for (const kept of ["TNG", "CASH", "GRAB PAY"]) {
+    assert.equal(normalize(kept), kept);
+  }
+});
+
+test("Record and transfer writes retain explicit user ownership", () => {
+  assert.match(app, /user_id:\s*user\.id/);
+  assert.match(app, /\.from\("records"\)\s*\.insert\(/);
+  assert.match(app, /\.from\("transfers"\)\s*\.insert\(/);
+});
+
+test("Record deletion retains its record-id filter and explicit UI confirmation", () => {
+  assert.match(app, /async function deleteRecord\(recordId\)/);
+  assert.match(app, /\.from\("records"\)\s*\.delete\(\)\s*\.eq\("id",\s*recordId\)/);
+  assert.match(app, /deleteConfirm === record\.id/);
+});
