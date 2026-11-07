@@ -32,3 +32,14 @@ jobs:
         run: npm install --no-audit --no-fund --ignore-scripts
       - name: Build Vite application
         run: npm run build
+      - name: Capture exact resolved dependency versions
+        run: npm ls --depth=0 --json > resolved-dependencies.json
+      - name: Archive candidate lockfile (no credentials)
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: finance-candidate-lockfile
+          path: |
+            package-lock.json
+            resolved-dependencies.json
+          if-no-files-found: error
+          retention-days: 1
