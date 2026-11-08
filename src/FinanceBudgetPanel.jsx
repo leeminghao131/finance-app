@@ -72,7 +72,11 @@ export default function FinanceBudgetPanel({
         </div>
         <label className="text-xs font-bold text-slate-600">Budget Month
           <input type="month" className="mt-1 block rounded-xl border border-slate-300 px-3 py-2 text-sm"
-            value={budgetMonth} onChange={e=>{if(e.target.value)setBudgetMonth(e.target.value);}}/>
+            value={budgetMonth} onChange={e=>{
+              if (!e.target.value || e.target.value===budgetMonth) return;
+              if (dirty && !window.confirm("Discard unsaved budget edits for this month?")) return;
+              setBudgetMonth(e.target.value);
+            }}/>
         </label>
       </div>
       <p className="mt-3 rounded-xl bg-slate-50 p-3 text-xs text-slate-600">{status}</p>
