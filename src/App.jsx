@@ -2438,7 +2438,16 @@ return (
           <div><p className="text-sm font-medium text-slate-300">Personal Finance Dashboard</p><h1 className="mt-2 text-3xl font-bold md:text-4xl">记账可视化软件</h1><p className="mt-2 text-sm text-slate-300">记录收入与支出，自动生成统计、分类比例、每日趋势和预算使用情况。</p></div>
           <div className="flex flex-wrap gap-3"><button onClick={() => setSoundEnabled((v) => !v)} className="rounded-2xl bg-slate-800 px-4 py-3 text-sm font-semibold text-white ring-1 ring-slate-600">{soundEnabled ? "🔊" : "🔇"} Sound</button><button onClick={exportExcel} className="rounded-2xl bg-white px-4 py-3 text-sm font-semibold text-slate-900">⬇ Export Excel</button><label className="cursor-pointer rounded-2xl bg-slate-700 px-4 py-3 text-sm font-semibold text-white ring-1 ring-slate-600">⬆ Import CSV<input type="file" accept=".csv" className="hidden" onChange={importCsv} /></label><button onClick={signOut} className="rounded-2xl bg-white px-4 py-3 text-sm font-semibold text-slate-900">Sign out</button></div>
         </header>
-        <div className="rounded-2xl bg-white px-4 py-3 text-sm text-slate-600 ring-1 ring-slate-200">Signed in as <b>{user?.email}</b> · {dataLoading ? "Syncing..." : syncStatus || "Cloud ready"}</div>
+        <div className="rounded-2xl bg-white px-4 py-3 text-sm text-slate-600 ring-1 ring-slate-200">
+          Signed in as <b>{user?.email}</b> · {dataLoading ? "Syncing..." : syncStatus || "Cloud ready"}
+          {syncProgress && <span className="ml-2 font-semibold text-blue-700">{syncProgress}</span>}
+        </div>
+        {undoDeleted && (
+          <div role="status" className="flex flex-wrap items-center justify-between gap-3 rounded-2xl bg-blue-50 p-4 text-sm text-blue-900 ring-1 ring-blue-200">
+            <span><b>Moved to Recycle Bin:</b> {undoDeleted.category} · {money(undoDeleted.amount)}</span>
+            <button type="button" onClick={() => restoreRecord(undoDeleted.id)} className="rounded-xl bg-blue-700 px-4 py-2 font-bold text-white hover:bg-blue-800">Undo</button>
+          </div>
+        )>
         <div className="flex flex-col gap-2 rounded-2xl bg-white px-4 py-3 text-sm text-slate-600 ring-1 ring-slate-200 md:flex-row md:items-center md:justify-between">
   <div>
     <p className="font-bold text-slate-800">Balance Alert Limit</p>
@@ -2767,7 +2776,7 @@ categoryOptionsFor={categoryOptionsFor}
                         ) : (
                           <button
                             onClick={() => setDeleteConfirm(record.id)}
-                            className="rounded-lg px-2 py-1 text-xs font-bold text-slate-400 opacity-0 transition hover:bg-red-50 hover:text-red-600 group-hover:opacity-100"
+                            className="rounded-lg px-2 py-1 text-xs font-bold text-red-700 opacity-100 transition hover:bg-red-50 md:text-slate-400 md:opacity-0 md:hover:text-red-600 md:group-hover:opacity-100"
                           >
                             Delete
                           </button>
@@ -2799,6 +2808,42 @@ categoryOptionsFor={categoryOptionsFor}
     </div>
   )}
 </Card>
+
+        <Card>
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <h2 className="text-xl font-bold">Recycle Bin / 回收站</h2>
+              <p className="mt-1 text-sm text-slate-500">
+                {deletedRecords.length} saved deleted records · Deleted entries are excluded from all balances and reports.
+              </p>
+            </div>
+            <button type="button" onClick={() => setTrashOpen((value) => !value)}
+              aria-expanded={trashOpen}
+              className="rounded-xl border border-slate-300 bg-white px-4 py-2 text-sm font-bold hover:bg-slate-50">
+              {trashOpen ? "Hide Recycle Bin" : "Open Recycle Bin"}
+            </button>
+          </div>
+          {trashOpen && (
+            <div className="mt-4 space-y-2">
+              {deletedRecords.length === 0 ? (
+                <p className="rounded-xl bg-slate-50 p-4 text-sm text-slate-500">The Recycle Bin is empty.</p>
+              ) : deletedRecords.slice().sort((a, b) => new Date(b.deleted_at) - new Date(a.deleted_at)).map((record) => (
+                <div key={record.id} className="flex flex-wrap items-center justify-between gap-3 rounded-xl bg-slate-50 p-3 ring-1 ring-slate-200">
+                  <div className="min-w-0">
+                    <p className="font-bold text-slate-900">{record.category} · {money(record.amount)}</p>
+                    <p className="text-xs text-slate-500">{record.date} · {record.type} · {recordMethod(record)} · {record.note || "No note"}</p>
+                    <p className="mt-1 text-xs text-slate-400">Deleted {new Date(record.deleted_at).toLocaleString("en-MY")}</p>
+                  </div>
+                  <button type="button" onClick={() => restoreRecord(record.id)}
+                    className="rounded-xl bg-emerald-600 px-4 py-2 text-sm font-bold text-white hover:bg-emerald-700">
+                    Restore
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+          <p className="mt-3 text-xs text-slate-500">Records remain recoverable after 10 seconds, after closing this tab, and across devices. There is no permanent delete button.</p>
+        </Card>
 
         <footer className="pb-6 text-center text-xs text-slate-400">记账可视化软件 · Data synced with Supabase cloud · {records.length} total records</footer>
       </div>
