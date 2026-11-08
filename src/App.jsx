@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useRef, useState } from "react";
 import * as XLSX from "xlsx";
 import { supabase, hasSupabaseEnv, isTestEnvironment } from "./supabaseClient";
 import { parseEditedAmount, splitRecordStatus, loadEveryOwnedRow } from "./financeData";
+import { localDateMY, localMonthMY, localYearMY, shiftCalendarDay, calendarDaysRange, previousCalendarDays, calendarMonthDays, requireCalendarDate } from "./financeCalendar";
 import {
   BarChart, Bar, PieChart, Pie, Cell, XAxis, YAxis, Tooltip,
   ResponsiveContainer, CartesianGrid, Legend, LineChart, Line,
@@ -33,13 +34,9 @@ const DELETE_CATEGORY_VALUE = "__delete_category__";
 const DELETE_METHOD_VALUE = "__delete_method__";
 const COLORS = ["#6366f1", "#22c55e", "#f97316", "#ef4444", "#06b6d4", "#a855f7", "#eab308", "#64748b", "#ec4899"];
 
-const today = () => {
-  const date = new Date();
-  const localDate = new Date(date.getTime() - date.getTimezoneOffset() * 60000);
-  return localDate.toISOString().slice(0, 10);
-};
-const monthNow = () => new Date().toISOString().slice(0, 7);
-const yearNow = () => String(new Date().getFullYear());
+const today = localDateMY;
+const monthNow = localMonthMY;
+const yearNow = localYearMY;
 const makeId = () => (crypto?.randomUUID ? crypto.randomUUID() : `${Date.now()}-${Math.random()}`);
 const pad = (n) => String(n).padStart(2, "0");
 const money = (v) => new Intl.NumberFormat("en-MY", { style: "currency", currency: "MYR" }).format(Number(v || 0));
@@ -100,26 +97,10 @@ const recordTypeStyle = (type) =>
         label: "🔥 Expense",
       };
 
-function daysInMonth(ym) {
-  const [y, m] = ym.split("-").map(Number);
-  return new Date(y, m, 0).getDate();
-}
-
-function addDays(dateString, amount) {
-  const d = new Date(dateString);
-  d.setDate(d.getDate() + amount);
-  return d.toISOString().slice(0, 10);
-}
-
-function dateRange(start, count) {
-  return Array.from({ length: count }, (_, i) => addDays(start, i));
-}
-
-function recentStart(days) {
-  const d = new Date();
-  d.setDate(d.getDate() - (days - 1));
-  return d.toISOString().slice(0, 10);
-}
+const daysInMonth = calendarMonthDays;
+const addDays = shiftCalendarDay;
+const dateRange = calendarDaysRange;
+const recentStart = previousCalendarDays;
 
 function sumType(records, type) {
   return records.filter((r) => r.type === type).reduce((s, r) => s + Number(r.amount || 0), 0);
@@ -1349,6 +1330,7 @@ export default function FinanceVisualizerApp() {
   const [session, setSession] = useState(null);
   const [user, setUser] = useState(null);
   const [authLoading, setAuthLoading] = useState(true);
+  const [localToday, setLocalToday] = useState(today());
   const [dataLoading, setDataLoading] = useState(false);
   const [syncStatus, setSyncStatus] = useState("");
   const [records, setRecords] = useState([]);
@@ -1404,6 +1386,30 @@ const [customCardImage, setCustomCardImage] = useState(() => {
   const saved = localStorage.getItem(BALANCE_LIMIT_KEY);
   return saved || "1500";
 });
+
+  useEffect(() => {
+    // Refresh date-sensitive views at local midnight even if the tab stays open.
+    let lastDay = today();
+    const checkDate = () => {
+      const next = today();
+      if (next === lastDay) return;
+      const prior = lastDay;
+      lastDay = next;
+      setLocalToday(next);
+      setForm((v) => v.date === prior ? { ...v, date: next } : v);
+      setTransferForm((v) => v.date === prior ? { ...v, date: next } : v);
+      setSelectedMonth((v) => v === prior.slice(0,7) ? next.slice(0,7) : v);
+      setSelectedYear((v) => v === prior.slice(0,4) ? next.slice(0,4) : v);
+    };
+    const id = window.setInterval(checkDate, 30000);
+    window.addEventListener("focus", checkDate);
+    document.addEventListener("visibilitychange", checkDate);
+    return () => {
+      window.clearInterval(id);
+      window.removeEventListener("focus", checkDate);
+      document.removeEventListener("visibilitychange", checkDate);
+    };
+  }, []);
 
   useEffect(() => {
     if (!hasSupabaseEnv) {
@@ -2046,7 +2052,7 @@ return { ...row, balanceGreen: balance > limit ? balance : null, balanceRed: bal
     count: todayRecords.length,
     topCategory,
   };
-}, [records]);
+}, [records, localToday]);
   const groupedTransactionRecords = useMemo(() => {
   const grouped = {};
 
@@ -2207,9 +2213,7 @@ if (insertedRecord.type === "expense") {
       updates = field === "type"
         ? { type: value, category: categoryOptionsFor(value)[0], method: methodOptionsFor(value)[0] }
         : { [field]: field === "amount" ? parseEditedAmount(value) : value };
-      if (field === "date" && !/^\d{4}-\d{2}-\d{2}$/.test(String(value))) {
-        throw new Error("Please select a valid date.");
-      }
+      if (field === "date") requireCalendarDate(value);
       if (field === "amount" && current.amount === updates.amount) return;
     } catch (error) {
       alert(error.message);
