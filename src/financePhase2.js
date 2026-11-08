@@ -25,8 +25,9 @@ export function validCalendarDate(value) {
 export function shiftCalendarDate(value, days) {
   if (!validCalendarDate(value) || !Number.isInteger(days)) throw new Error("Invalid calendar date or offset.");
   const [year, month, day] = value.split("-").map(Number);
-  const dt = new Date(Date.UTC(year, month - 1, day + days));
+  const dt = new Date(Date.UTC(2000, month - 1, day));
   dt.setUTCFullYear(year);
+  dt.setUTCDate(dt.getUTCDate() + days);
   return dt.toISOString().slice(0, 10);
 }
 
