@@ -14,6 +14,8 @@ CREATE TABLE IF NOT EXISTS public.finance_import_items (
 );
 CREATE INDEX IF NOT EXISTS finance_import_items_user_source_idx
   ON public.finance_import_items(user_id, file_sha256);
+CREATE INDEX IF NOT EXISTS finance_import_items_record_fk_idx
+  ON public.finance_import_items(record_id);
 ALTER TABLE public.finance_import_items ENABLE ROW LEVEL SECURITY;
 REVOKE ALL ON public.finance_import_items FROM PUBLIC, anon;
 GRANT SELECT, INSERT, UPDATE ON public.finance_import_items TO authenticated;
