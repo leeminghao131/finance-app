@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { supabase, hasSupabaseEnv, isTestEnvironment } from "./supabaseClient";
-import { parseEditedAmount, splitRecordStatus, loadEveryOwnedRow } from "./financeData";
+import { parseEditedAmount } from "./financeData";
 import { localDateMY, localMonthMY, localYearMY, shiftCalendarDay, calendarDaysRange, previousCalendarDays, calendarMonthDays, requireCalendarDate } from "./financeCalendar";
 import { normalizeBudgetsInput } from "./financeInsights.js";
 import FinanceTransferPanel from "./FinanceTransferPanel.jsx";
@@ -9,6 +9,7 @@ import FinanceForecastPanel from "./FinanceForecastPanel.jsx";
 import FinanceCsvImportPanel from "./FinanceCsvImportPanel.jsx";
 import FinanceExcelExportPanel from "./FinanceExcelExportPanel.jsx";
 import { normalizeRecord, normalizeTransfer, toRecordPayload } from "./financeRecords.js";
+import { fetchFinanceSnapshot } from "./financeCloudService.js";
 import { CoinRainEffect, IncomeCoinSpinEffect } from "./FinanceVisualEffects.jsx";
 import {
   BarChart, Bar, PieChart, Pie, Cell, XAxis, YAxis, Tooltip,
@@ -812,77 +813,40 @@ useEffect(() => {
 }, [form.type, customOptions]);
 
   async function loadCloudData({ background = false } = {}) {
-    const accountId = user?.id;
-    if (!accountId || !supabase) return;
-    const requestId = ++recordsLoadCounterRef.current;
-    const isCurrent = () => requestId === recordsLoadCounterRef.current && liveUserIdRef.current === accountId;
-    if (!background) setInitialDataReady(false);
-    setDataLoading(true);
-    setSyncProgress("");
-    setSyncStatus(background ? "Refreshing finance data..." : "Loading complete cloud data...");
+    const accountId=user?.id;
+    if(!accountId||!supabase)return;
+    const requestId=++recordsLoadCounterRef.current;
+    const isCurrent=()=>requestId===recordsLoadCounterRef.current&&liveUserIdRef.current===accountId;
+    if(!background)setInitialDataReady(false);
+    setDataLoading(true);setSyncProgress("");
+    setSyncStatus(background?"Refreshing finance data...":"Loading complete cloud data...");
     try {
-      const progress = (loaded, total, table) => {
-        if (isCurrent()) setSyncProgress(table + ": " + loaded + " / " + total);
-      };
-      const recordRows = await loadEveryOwnedRow(
-        supabase, "records",
-        "id,type,amount,category,method,note,date,created_at,updated_at,version,deleted_at",
-        accountId, progress
-      );
-      if (!isCurrent()) return;
-      const transferRows = await loadEveryOwnedRow(
-        supabase, "transfers",
-        "id,from_method,to_method,amount,note,date,created_at,updated_at,version,deleted_at",
-        accountId, progress
-      );
-      if (!isCurrent()) return;
-      const { data: settingsRow, error: settingsError } = await supabase
-        .from("user_settings")
-        .select("category_budgets,custom_options,version,forecast_plans")
-        .eq("user_id", accountId)
-        .maybeSingle();
-      if (settingsError) throw settingsError;
-      if (!isCurrent()) return;
-      const { data: savedMonths, error: monthError } = await supabase
-        .from("monthly_budgets")
-        .select("user_id,month,category_budgets,version,updated_at")
-        .eq("user_id",accountId)
-        .order("month",{ascending:false})
-        .limit(1000);
-      if (monthError) throw monthError;
-      if ((savedMonths || []).length === 1000) throw new Error("Monthly budget history reached the read cap; refusing incomplete results.");
-      if (!isCurrent()) return;
-      const byNewest = (a, b) => String(b.date || "").localeCompare(String(a.date || ""))
-        || new Date(b.created_at || 0) - new Date(a.created_at || 0);
-      const { active, deleted } = splitRecordStatus(recordRows.slice().sort(byNewest).map(normalizeRecord));
-      // A complete, count-checked snapshot replaces all three states together.
-      setRecords(active);
-      setDeletedRecords(deleted);
-      const {active:activeTransfers,deleted:trashTransfers} = splitRecordStatus(transferRows.slice().sort(byNewest).map(normalizeTransfer));
-      setTransfers(activeTransfers);
-      setDeletedTransfers(trashTransfers);
-      setMonthRows(savedMonths || []);
-      const nextBudgets = settingsRow?.category_budgets
-        ? { ...DEFAULT_BUDGETS, ...settingsRow.category_budgets }
+      const snapshot=await fetchFinanceSnapshot(supabase,accountId,(loaded,total,table)=>{
+        if(isCurrent())setSyncProgress(table+": "+loaded+" / "+total);
+      });
+      if(!isCurrent())return;
+      setRecords(snapshot.records);
+      setDeletedRecords(snapshot.deletedRecords);
+      setTransfers(snapshot.transfers);
+      setDeletedTransfers(snapshot.deletedTransfers);
+      setMonthRows(snapshot.monthRows);
+      const settingsRow=snapshot.settingsRow;
+      const nextBudgets=settingsRow?.category_budgets
+        ? {...DEFAULT_BUDGETS,...settingsRow.category_budgets}
         : DEFAULT_BUDGETS;
-      budgetsRef.current = nextBudgets;
-      setBudgets(nextBudgets);
+      budgetsRef.current=nextBudgets;setBudgets(nextBudgets);
       setCustomOptions(settingsRow?.custom_options
-        ? { ...DEFAULT_CUSTOM_OPTIONS, ...settingsRow.custom_options }
+        ? {...DEFAULT_CUSTOM_OPTIONS,...settingsRow.custom_options}
         : DEFAULT_CUSTOM_OPTIONS);
-      setForecastPlans(Array.isArray(settingsRow?.forecast_plans) ? settingsRow.forecast_plans : []);
-      const version = settingsRow ? Number(settingsRow.version || 1) : null;
-      settingsVersionRef.current = version;
-      setSettingsVersion(version);
+      setForecastPlans(Array.isArray(settingsRow?.forecast_plans)?settingsRow.forecast_plans:[]);
+      const version=settingsRow?Number(settingsRow.version||1):null;
+      settingsVersionRef.current=version;setSettingsVersion(version);
       setSyncStatus("Cloud synced — all records loaded");
-      setSyncProgress("");
-      setInitialDataReady(true);
-      setDataLoading(false);
-    } catch (error) {
-      if (!isCurrent()) return;
-      setSyncStatus("Cloud sync failed: " + (error.message || "unknown error") + ". No partial totals were applied.");
-      setSyncProgress("");
-      setDataLoading(false);
+      setSyncProgress("");setInitialDataReady(true);setDataLoading(false);
+    }catch(error){
+      if(!isCurrent())return;
+      setSyncStatus("Cloud sync failed: "+(error.message||"unknown error")+". No partial totals were applied.");
+      setSyncProgress("");setDataLoading(false);
     }
   }
 
