@@ -3,6 +3,10 @@ import * as XLSX from "xlsx";
 import { supabase, hasSupabaseEnv, isTestEnvironment } from "./supabaseClient";
 import { parseEditedAmount, splitRecordStatus, loadEveryOwnedRow } from "./financeData";
 import { localDateMY, localMonthMY, localYearMY, shiftCalendarDay, calendarDaysRange, previousCalendarDays, calendarMonthDays, requireCalendarDate } from "./financeCalendar";
+import { normalizeBudgetsInput } from "./financeInsights.js";
+import FinanceTransferPanel from "./FinanceTransferPanel.jsx";
+import FinanceBudgetPanel from "./FinanceBudgetPanel.jsx";
+import FinanceForecastPanel from "./FinanceForecastPanel.jsx";
 import {
   BarChart, Bar, PieChart, Pie, Cell, XAxis, YAxis, Tooltip,
   ResponsiveContainer, CartesianGrid, Legend, LineChart, Line,
@@ -1251,6 +1255,9 @@ function normalizeTransfer(row) {
     amount: Number(row.amount || 0),
     note: row.note || "",
     date: row.date,
+    version: Number(row.version || 1),
+    deleted_at: row.deleted_at || null,
+    updated_at: row.updated_at || row.created_at,
   };
 }
 function toRecordPayload(record, userId) {
@@ -1336,6 +1343,11 @@ export default function FinanceVisualizerApp() {
   const [records, setRecords] = useState([]);
   const [deletedRecords, setDeletedRecords] = useState([]);
   const [transfers, setTransfers] = useState([]);
+  const [deletedTransfers, setDeletedTransfers] = useState([]);
+  const [undoTransfer, setUndoTransfer] = useState(null);
+  const [monthRows, setMonthRows] = useState([]);
+  const [budgetMonth, setBudgetMonth] = useState(monthNow());
+  const [forecastPlans, setForecastPlans] = useState([]);
   const [undoDeleted, setUndoDeleted] = useState(null);
   const [trashOpen, setTrashOpen] = useState(false);
   const [syncProgress, setSyncProgress] = useState("");
@@ -1348,6 +1360,8 @@ export default function FinanceVisualizerApp() {
   const recordsLoadCounterRef = useRef(0);
   const liveUserIdRef = useRef(null);
   const undoTimeoutRef = useRef(null);
+  const undoTransferTimeoutRef = useRef(null);
+  const pendingTransfersRef = useRef(new Set());
   const pendingRecordsRef = useRef(new Set());
   const reloadDebounceRef = useRef(null);
   const [budgets, setBudgets] = useState(DEFAULT_BUDGETS);
@@ -1399,6 +1413,7 @@ const [customCardImage, setCustomCardImage] = useState(() => {
       setForm((v) => v.date === prior ? { ...v, date: next } : v);
       setTransferForm((v) => v.date === prior ? { ...v, date: next } : v);
       setSelectedMonth((v) => v === prior.slice(0,7) ? next.slice(0,7) : v);
+      setBudgetMonth((v) => v === prior.slice(0,7) ? next.slice(0,7) : v);
       setSelectedYear((v) => v === prior.slice(0,4) ? next.slice(0,4) : v);
     };
     const id = window.setInterval(checkDate, 30000);
@@ -1449,6 +1464,10 @@ const [customCardImage, setCustomCardImage] = useState(() => {
       setRecords([]);
       setDeletedRecords([]);
       setTransfers([]);
+      setDeletedTransfers([]);
+      setMonthRows([]);
+      setForecastPlans([]);
+      setUndoTransfer(null);
       setBudgets(DEFAULT_BUDGETS);
       setCustomOptions(DEFAULT_CUSTOM_OPTIONS);
       setUndoDeleted(null);
@@ -1459,6 +1478,7 @@ const [customCardImage, setCustomCardImage] = useState(() => {
       clearTimeout(reloadDebounceRef.current);
       clearTimeout(budgetSaveTimerRef.current);
       clearTimeout(undoTimeoutRef.current);
+      clearTimeout(undoTransferTimeoutRef.current);
     };
   }, [user?.id]);
 
@@ -1475,7 +1495,7 @@ const [customCardImage, setCustomCardImage] = useState(() => {
       }, 350);
     };
     const channel = supabase.channel("finance-updates-" + accountId);
-    for (const table of ["records", "transfers", "user_settings"]) {
+    for (const table of ["records", "transfers", "user_settings", "monthly_budgets"]) {
       channel.on("postgres_changes", {
         event: "*", schema: "public", table, filter: "user_id=eq." + accountId,
       }, scheduleRefresh);
@@ -1561,16 +1581,25 @@ useEffect(() => {
       if (!isCurrent()) return;
       const transferRows = await loadEveryOwnedRow(
         supabase, "transfers",
-        "id,from_method,to_method,amount,note,date,created_at",
+        "id,from_method,to_method,amount,note,date,created_at,updated_at,version,deleted_at",
         accountId, progress
       );
       if (!isCurrent()) return;
       const { data: settingsRow, error: settingsError } = await supabase
         .from("user_settings")
-        .select("category_budgets,custom_options,version")
+        .select("category_budgets,custom_options,version,forecast_plans")
         .eq("user_id", accountId)
         .maybeSingle();
       if (settingsError) throw settingsError;
+      if (!isCurrent()) return;
+      const { data: savedMonths, error: monthError } = await supabase
+        .from("monthly_budgets")
+        .select("user_id,month,category_budgets,version,updated_at")
+        .eq("user_id",accountId)
+        .order("month",{ascending:false})
+        .limit(1000);
+      if (monthError) throw monthError;
+      if ((savedMonths || []).length === 1000) throw new Error("Monthly budget history reached the read cap; refusing incomplete results.");
       if (!isCurrent()) return;
       const byNewest = (a, b) => String(b.date || "").localeCompare(String(a.date || ""))
         || new Date(b.created_at || 0) - new Date(a.created_at || 0);
@@ -1578,7 +1607,10 @@ useEffect(() => {
       // A complete, count-checked snapshot replaces all three states together.
       setRecords(active);
       setDeletedRecords(deleted);
-      setTransfers(transferRows.slice().sort(byNewest).map(normalizeTransfer));
+      const {active:activeTransfers,deleted:trashTransfers} = splitRecordStatus(transferRows.slice().sort(byNewest).map(normalizeTransfer));
+      setTransfers(activeTransfers);
+      setDeletedTransfers(trashTransfers);
+      setMonthRows(savedMonths || []);
       const nextBudgets = settingsRow?.category_budgets
         ? { ...DEFAULT_BUDGETS, ...settingsRow.category_budgets }
         : DEFAULT_BUDGETS;
@@ -1587,6 +1619,7 @@ useEffect(() => {
       setCustomOptions(settingsRow?.custom_options
         ? { ...DEFAULT_CUSTOM_OPTIONS, ...settingsRow.custom_options }
         : DEFAULT_CUSTOM_OPTIONS);
+      setForecastPlans(Array.isArray(settingsRow?.forecast_plans) ? settingsRow.forecast_plans : []);
       const version = settingsRow ? Number(settingsRow.version || 1) : null;
       settingsVersionRef.current = version;
       setSettingsVersion(version);
