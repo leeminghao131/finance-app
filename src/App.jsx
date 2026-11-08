@@ -498,6 +498,8 @@ if (field === "category" || field === "method") {
       type={field === "date" ? "date" : "text"}
       inputMode={field === "amount" ? "decimal" : "text"}
       value={draft}
+      onFocus={(event) => { if (field === "amount") event.target.select(); }}
+      title={field === "amount" ? "Enter normal RM amount: 100 means RM100.00" : undefined}
       onChange={(e) => setDraft(e.target.value)}
       onBlur={commit}
       onKeyDown={(e) => e.key === "Enter" && commit()}
@@ -628,6 +630,7 @@ export default function FinanceVisualizerApp() {
 });
   const [deleteOptionPanel, setDeleteOptionPanel] = useState({ kind: "", type: "" });
   const [calculationText, setCalculationText] = useState("0.00");
+  const [amountEntryMode, setAmountEntryMode] = useState("rm");
   const [calculationResult, setCalculationResult] = useState(null);
   const [filterMode, setFilterMode] = useState("month");
   const [selectedMonth, setSelectedMonth] = useState(monthNow());
@@ -1414,8 +1417,9 @@ async function addRecord(e) {
   e.preventDefault();
   if (!user) return alert("Please sign in first.");
 
- const amount = parseMoneyInput(form.amount);
-  if (!amount || amount <= 0) return alert("Please enter a valid amount.");
+ let amount;
+  try { amount = parseEditedAmount(form.amount); }
+  catch(error) { alert(error.message); return; }
 
   const payload = toRecordPayload(
     { ...form, amount, note: form.note.trim() },
@@ -1825,19 +1829,44 @@ return (
   💰 Income
 </button></div>
 <label className="block">
-  <span className="text-sm font-medium text-slate-600">Amount</span>
+  <span className="flex flex-wrap items-center justify-between gap-2 text-sm font-medium text-slate-600">
+    <span>Amount (RM)</span>
+    <span className="inline-flex rounded-lg bg-slate-100 p-1 text-xs" role="group" aria-label="Amount input mode">
+      <button type="button" aria-pressed={amountEntryMode === "rm"}
+        onClick={() => setAmountEntryMode("rm")}
+        className={`rounded-md px-2 py-1 font-semibold ${amountEntryMode === "rm" ? "bg-white text-slate-900 shadow-sm" : "text-slate-500"}`}>
+        RM typing
+      </button>
+      <button type="button" aria-pressed={amountEntryMode === "cents"}
+        onClick={() => {
+          setAmountEntryMode("cents");
+          setForm(previous => ({
+            ...previous,
+            amount: Number.isFinite(Number(previous.amount)) ? Number(previous.amount).toFixed(2) : previous.amount,
+          }));
+        }}
+        className={`rounded-md px-2 py-1 font-semibold ${amountEntryMode === "cents" ? "bg-white text-slate-900 shadow-sm" : "text-slate-500"}`}>
+        Cents keypad
+      </button>
+    </span>
+  </span>
   <input
     value={form.amount}
     onChange={(event) =>
       setForm((previous) => ({
         ...previous,
-        amount: formatMoneyTyping(event.target.value),
+        amount: amountEntryMode === "cents" ? formatMoneyTyping(event.target.value) : event.target.value,
       }))
     }
     type="text"
-    inputMode="numeric"
+    inputMode={amountEntryMode === "cents" ? "numeric" : "decimal"}
+    onFocus={event => { if (amountEntryMode === "rm") event.target.select(); }}
+    title={amountEntryMode === "cents" ? "2455 means RM24.55" : "100 means RM100.00"}
     className="mt-1 w-full rounded-2xl border border-slate-200 px-4 py-3 outline-none"
   />
+  <span className="mt-1 block text-xs text-slate-500">
+    {amountEntryMode === "cents" ? "Cents keypad: 2455 → RM24.55" : "Normal RM: 100 → RM100.00 · 24.55 → RM24.55"}
+  </span>
 </label>
               <div className="rounded-2xl bg-slate-50 p-4 ring-1 ring-slate-200"><p className="text-sm font-bold text-slate-700">小计算器</p><textarea
   value={calculationText}
