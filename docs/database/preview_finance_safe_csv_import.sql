@@ -109,7 +109,7 @@ BEGIN
     v_marker_id := NULL;
     INSERT INTO public.finance_import_items(user_id, file_sha256, source_row)
     VALUES (v_user, p_file_sha256, v_source_row)
-    ON CONFLICT (user_id, file_sha256, source_row) DO NOTHING
+    ON CONFLICT ON CONSTRAINT finance_import_items_unique_source_row DO NOTHING
     RETURNING id INTO v_marker_id;
 
     IF v_marker_id IS NULL THEN
