@@ -1639,9 +1639,9 @@ useEffect(() => {
   // This prevents a budget update from overwriting someone else's custom-options edits.
   function queueSettingsField(column, value) {
     const accountId = user?.id;
-    if (!accountId) return;
-    settingsQueueRef.current = settingsQueueRef.current.catch(() => {}).then(async () => {
-      if (liveUserIdRef.current !== accountId) return;
+    if (!accountId) return Promise.resolve(false);
+    settingsQueueRef.current = settingsQueueRef.current.catch(() => false).then(async () => {
+      if (liveUserIdRef.current !== accountId) return false;
       const currentVersion = settingsVersionRef.current;
       let request;
       if (currentVersion === null) {
@@ -1654,22 +1654,25 @@ useEffect(() => {
       }
       try {
         const { data, error } = await request.select("version").maybeSingle();
-        if (liveUserIdRef.current !== accountId) return;
+        if (liveUserIdRef.current !== accountId) return false;
         if (error) throw error;
         if (!data) {
           setSyncStatus("Settings conflict — another device updated settings; reloading.");
           await loadCloudData({ background: true });
           alert("Settings were changed on another device. Your change was not saved. Latest settings have been loaded.");
-          return;
+          return false;
         }
         const nextVersion = Number(data.version);
         settingsVersionRef.current = nextVersion;
         setSettingsVersion(nextVersion);
         setSyncStatus("Settings synced");
+        return true;
       } catch (error) {
         setSyncStatus("Settings not saved: " + error.message + ". Please retry.");
+        return false;
       }
     });
+    return settingsQueueRef.current;
   }
 
   function saveBudgets(nextBudgets) {
@@ -1678,6 +1681,66 @@ useEffect(() => {
 
   function saveCustomOptions(nextOptions) {
     queueSettingsField("custom_options", nextOptions);
+  }
+
+
+  async function saveMonthlyBudget(month, nextBudgets, expectedVersion) {
+    if (!user) return false;
+    const accountId = user.id;
+    let budgetsToSave;
+    try {
+      if (!/^\d{4}-(0[1-9]|1[0-2])$/.test(month)) throw new Error("Choose a valid budget month.");
+      budgetsToSave = normalizeBudgetsInput(nextBudgets);
+      const query = expectedVersion == null
+        ? supabase.from("monthly_budgets").insert({
+            user_id: accountId, month, category_budgets: budgetsToSave,
+          })
+        : supabase.from("monthly_budgets").update({
+            category_budgets: budgetsToSave,
+          }).eq("user_id", accountId).eq("month", month).eq("version", expectedVersion);
+      const {data,error} = await query.select("user_id,month,category_budgets,version,updated_at").maybeSingle();
+      if (error) throw error;
+      if (liveUserIdRef.current !== accountId) return false;
+      if (!data) {
+        setSyncStatus("Monthly budget conflict; no other device's budget was overwritten.");
+        alert("This month budget was changed on another device. Reopen this month after refreshing.");
+        await loadCloudData({background:true});
+        return false;
+      }
+      setMonthRows(current => [data, ...current.filter(row=>row.month!==month)]);
+      setSyncStatus("Saved monthly budget " + month);
+      return true;
+    } catch(e) {
+      setSyncStatus("Budget not saved: " + e.message);
+      alert("Budget not saved. It may have been changed on another device: " + e.message);
+      await loadCloudData({background:true});
+      return false;
+    }
+  }
+
+  async function saveTemplateBudget(nextBudgets) {
+    const clean = normalizeBudgetsInput(nextBudgets);
+    const ok = await queueSettingsField("category_budgets",clean);
+    if(ok) {budgetsRef.current = clean;setBudgets(clean);}
+    else alert("Default budget template was not saved. Please refresh and try again.");
+    return ok;
+  }
+
+  async function saveExpectedIncomePlans(nextPlans) {
+    try {
+      if (!Array.isArray(nextPlans) || nextPlans.length>200) throw new Error("Too many planned income entries.");
+      const normalized = nextPlans.map(plan => ({
+        id:String(plan.id),
+        date:requireCalendarDate(plan.date),
+        amount:parseEditedAmount(plan.amount),
+        note:String(plan.note||"").trim().slice(0,300),
+      }));
+      if (normalized.some(plan=>plan.date<=today())) throw new Error("Only future dates are valid for expected income plans.");
+      const ok=await queueSettingsField("forecast_plans",normalized);
+      if (ok) setForecastPlans(normalized);
+      else alert("Expected income was not saved. Refresh and try again.");
+      return ok;
+    } catch(e) {alert(e.message);return false;}
   }
 
   function addCustomOption(kind, type) {
