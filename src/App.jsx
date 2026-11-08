@@ -1362,6 +1362,7 @@ export default function FinanceVisualizerApp() {
   const undoTimeoutRef = useRef(null);
   const undoTransferTimeoutRef = useRef(null);
   const pendingTransfersRef = useRef(new Set());
+  const transferCreationPendingRef = useRef(false);
   const pendingRecordsRef = useRef(new Set());
   const reloadDebounceRef = useRef(null);
   const [budgets, setBudgets] = useState(DEFAULT_BUDGETS);
@@ -2230,51 +2231,41 @@ if (insertedRecord.type === "expense") {
 }
 }
   async function addTransfer(event) {
-  event.preventDefault();
+    event.preventDefault();
+    if (!user) {alert("Please sign in first.");return;}
+    if (transferCreationPendingRef.current) return;
+    const amount = parseMoneyInput(transferForm.amount);
+    if (!Number.isFinite(amount) || amount <= 0 || !Number.isSafeInteger(Math.round(amount*100))) {
+      alert("Please enter a valid positive transfer amount."); return;
+    }
+    if (transferForm.fromMethod === transferForm.toMethod) {
+      alert("From Method and To Method cannot be the same."); return;
+    }
+    try {requireCalendarDate(transferForm.date);} catch(e){alert(e.message);return;}
 
-  if (!user) return alert("Please sign in first.");
-
-  const amount = parseMoneyInput(transferForm.amount);
-
-  if (!amount || amount <= 0) {
-    return alert("Please enter a valid transfer amount.");
+    transferCreationPendingRef.current = true;
+    try {
+      const payload = {
+        user_id:user.id,from_method:transferForm.fromMethod,to_method:transferForm.toMethod,
+        amount,note:String(transferForm.note||"").trim(),date:transferForm.date,
+      };
+      const {data,error}=await supabase.from("transfers")
+        .insert(payload)
+        .select("id,from_method,to_method,amount,note,date,created_at,updated_at,version,deleted_at")
+        .single();
+      if (error) throw error;
+      setTransfers(rows => [normalizeTransfer(data),...rows]);
+      setTransferForm(previous => ({
+        ...previous,amount:"0.00",note:"",date:today(),
+      }));
+      setSyncStatus("Transfer added to cloud");
+    }catch(error){
+      setSyncStatus("Transfer could not be saved: "+error.message);
+      alert(error.message);
+    }finally{
+      transferCreationPendingRef.current = false;
+    }
   }
-
-  if (transferForm.fromMethod === transferForm.toMethod) {
-    return alert("From Method and To Method cannot be the same.");
-  }
-  try {requireCalendarDate(transferForm.date);} catch(e){return alert(e.message);}
-
-  const payload = {
-    user_id: user.id,
-    from_method: transferForm.fromMethod,
-    to_method: transferForm.toMethod,
-    amount,
-    note: transferForm.note.trim(),
-    date: transferForm.date,
-  };
-
-  const { data, error } = await supabase
-    .from("transfers")
-    .insert(payload)
-    .select("id,from_method,to_method,amount,note,date,created_at,updated_at,version,deleted_at")
-    .single();
-
-  if (error) return alert(error.message);
-
-  const insertedTransfer = normalizeTransfer(data);
-
-  setTransfers((previous) => [insertedTransfer, ...previous]);
-
-  setTransferForm((previous) => ({
-    ...previous,
-    amount: "0.00",
-    note: "",
-    date: today(),
-  }));
-
-  setSyncStatus("Transfer added to cloud");
-}
 
   async function updateTransfer(transferId, edit) {
     const current = transfers.find(r=>r.id===transferId);
