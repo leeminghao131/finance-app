@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import * as XLSX from "xlsx";
 import { supabase, hasSupabaseEnv } from "./supabaseClient";
+import { parseEditedAmount, splitRecordStatus, loadEveryOwnedRow } from "./financeData";
 import {
   BarChart, Bar, PieChart, Pie, Cell, XAxis, YAxis, Tooltip,
   ResponsiveContainer, CartesianGrid, Legend, LineChart, Line,
@@ -1253,6 +1254,9 @@ function normalizeRecord(row) {
     method: row.method,
     note: row.note || "",
     date: row.date,
+    version: Number(row.version || 1),
+    updated_at: row.updated_at || row.created_at,
+    deleted_at: row.deleted_at || null,
   };
 }
 function normalizeTransfer(row) {
@@ -1345,7 +1349,19 @@ export default function FinanceVisualizerApp() {
   const [dataLoading, setDataLoading] = useState(false);
   const [syncStatus, setSyncStatus] = useState("");
   const [records, setRecords] = useState([]);
+  const [deletedRecords, setDeletedRecords] = useState([]);
   const [transfers, setTransfers] = useState([]);
+  const [undoDeleted, setUndoDeleted] = useState(null);
+  const [trashOpen, setTrashOpen] = useState(false);
+  const [syncProgress, setSyncProgress] = useState("");
+  const [settingsVersion, setSettingsVersion] = useState(null);
+  const settingsVersionRef = useRef(null);
+  const settingsQueueRef = useRef(Promise.resolve());
+  const budgetSaveTimerRef = useRef(null);
+  const recordsLoadCounterRef = useRef(0);
+  const liveUserIdRef = useRef(null);
+  const undoTimeoutRef = useRef(null);
+  const reloadDebounceRef = useRef(null);
   const [budgets, setBudgets] = useState(DEFAULT_BUDGETS);
   const [customOptions, setCustomOptions] = useState(DEFAULT_CUSTOM_OPTIONS);
   const [form, setForm] = useState({ type: "expense", amount: "0.00", category: "饮食", method: "TNG", note: "", date: today() });
