@@ -2,7 +2,7 @@ name: Finance Safety Checks
 
 on:
   pull_request:
-    branches: [main, safety/guardrails-2026-11-08]
+    branches: [main, safety/guardrails-2026-11-08, "feature/**"]
   push:
     branches:
       - "safety/**"
