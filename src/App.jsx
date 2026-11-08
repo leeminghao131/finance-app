@@ -1,12 +1,16 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
-import * as XLSX from "xlsx";
 import { supabase, hasSupabaseEnv, isTestEnvironment } from "./supabaseClient";
-import { parseEditedAmount, splitRecordStatus, loadEveryOwnedRow } from "./financeData";
+import { parseEditedAmount } from "./financeData";
 import { localDateMY, localMonthMY, localYearMY, shiftCalendarDay, calendarDaysRange, previousCalendarDays, calendarMonthDays, requireCalendarDate } from "./financeCalendar";
 import { normalizeBudgetsInput } from "./financeInsights.js";
 import FinanceTransferPanel from "./FinanceTransferPanel.jsx";
 import FinanceBudgetPanel from "./FinanceBudgetPanel.jsx";
 import FinanceForecastPanel from "./FinanceForecastPanel.jsx";
+import FinanceCsvImportPanel from "./FinanceCsvImportPanel.jsx";
+import FinanceExcelExportPanel from "./FinanceExcelExportPanel.jsx";
+import { normalizeRecord, normalizeTransfer, toRecordPayload } from "./financeRecords.js";
+import { fetchFinanceSnapshot } from "./financeCloudService.js";
+import { CoinRainEffect, IncomeCoinSpinEffect } from "./FinanceVisualEffects.jsx";
 import {
   BarChart, Bar, PieChart, Pie, Cell, XAxis, YAxis, Tooltip,
   ResponsiveContainer, CartesianGrid, Legend, LineChart, Line,
@@ -208,314 +212,6 @@ function filterRecords(records, mode, month, year, keyword) {
 function Card({ children, className = "" }) {
   return <div className={`rounded-2xl bg-white p-5 shadow-sm ring-1 ring-slate-200 ${className}`}>{children}</div>;
 }
-function CoinRainEffect({ trigger }) {
-  const [coins, setCoins] = useState([]);
-
-  useEffect(() => {
-    if (!trigger) return;
-
-    const symbols = ["RM", "$", "€", "¥", "£", "₿"];
-    const nextCoins = Array.from({ length: 42 }, (_, index) => ({
-      id: `${trigger}-${index}`,
-      symbol: symbols[index % symbols.length],
-      left: 4 + Math.random() * 92,
-      delay: Math.random() * 0.45,
-      duration: 4.5 + Math.random() * 0.5,
-      size: 24 + Math.random() * 22,
-      drift: -90 + Math.random() * 180,
-      spin: 720 + Math.random() * 1080,
-      wobble: 0.8 + Math.random() * 0.8,
-      blur: Math.random() * 0.3,
-    }));
-
-    setCoins(nextCoins);
-
-    const timer = setTimeout(() => {
-      setCoins([]);
-    }, 5500);
-
-    return () => clearTimeout(timer);
-  }, [trigger]);
-
-  if (!coins.length) return null;
-
-  return (
-    <div className="pointer-events-none fixed inset-0 z-[9999] overflow-hidden">
-      <style>
-        {`
-          @keyframes realisticCoinDrop {
-            0% {
-              transform: translate3d(0, -14vh, 0) rotateZ(0deg) rotateY(0deg) scale(0.8);
-              opacity: 0;
-            }
-            8% {
-              opacity: 1;
-            }
-            85% {
-              opacity: 1;
-            }
-            100% {
-              transform: translate3d(var(--drift), 108vh, 0) rotateZ(var(--spin)) rotateY(1260deg) scale(1.02);
-              opacity: 0;
-            }
-          }
-
-          @keyframes realisticCoinWobble {
-            0%, 100% {
-              transform: rotateY(0deg) scaleX(1);
-            }
-            25% {
-              transform: rotateY(70deg) scaleX(0.72);
-            }
-            50% {
-              transform: rotateY(0deg) scaleX(1);
-            }
-            75% {
-              transform: rotateY(-70deg) scaleX(0.72);
-            }
-          }
-
-          @keyframes realisticCoinShine {
-            0%, 100% {
-              filter: brightness(1) saturate(1);
-            }
-            50% {
-              filter: brightness(1.3) saturate(1.08);
-            }
-          }
-
-          @keyframes realisticCoinShadow {
-            0% {
-              opacity: 0;
-              transform: translateX(-50%) scale(0.3);
-            }
-            15% {
-              opacity: 0.22;
-            }
-            100% {
-              opacity: 0;
-              transform: translateX(calc(-50% + var(--drift) * 0.25)) scale(1.25);
-            }
-          }
-        `}
-      </style>
-
-      {coins.map((coin) => (
-        <div
-          key={coin.id}
-          className="absolute top-0"
-          style={{
-            left: `${coin.left}%`,
-            animation: `realisticCoinDrop ${coin.duration}s cubic-bezier(.2,.75,.25,1) ${coin.delay}s forwards`,
-            "--drift": `${coin.drift}px`,
-            "--spin": `${coin.spin}deg`,
-            filter: `blur(${coin.blur}px)`,
-          }}
-        >
-          <div
-            className="absolute top-full rounded-full bg-black/30 blur-md"
-            style={{
-              width: `${coin.size * 0.9}px`,
-              height: `${coin.size * 0.22}px`,
-              left: "50%",
-              marginTop: "10px",
-              animation: `realisticCoinShadow ${coin.duration}s linear ${coin.delay}s forwards`,
-              transform: "translateX(-50%)",
-              "--drift": `${coin.drift}px`,
-            }}
-          />
-          <div
-            className="relative flex items-center justify-center rounded-full"
-            style={{
-              width: `${coin.size}px`,
-              height: `${coin.size}px`,
-              animation: `realisticCoinWobble ${coin.wobble}s ease-in-out ${coin.delay}s infinite, realisticCoinShine 0.85s ease-in-out ${coin.delay}s infinite`,
-              background: "radial-gradient(circle at 30% 28%, #fff4bf 0%, #f7db7c 20%, #d89b1d 45%, #8a5110 78%, #5e3608 100%)",
-              border: "1.5px solid rgba(107, 61, 8, 0.9)",
-              boxShadow:
-                "inset 0 2px 4px rgba(255,255,255,0.62), inset 0 -5px 8px rgba(80,42,5,0.58), 0 8px 18px rgba(0,0,0,0.3)",
-            }}
-          >
-            <div
-              className="absolute rounded-full"
-              style={{
-                inset: "11%",
-                border: "1.5px solid rgba(122,72,11,0.7)",
-                boxShadow: "inset 0 1px 2px rgba(255,255,255,0.4)",
-              }}
-            />
-            <div
-              className="absolute rounded-full"
-              style={{
-                inset: "21%",
-                background: "radial-gradient(circle at 35% 35%, rgba(255,244,191,0.95) 0%, rgba(244,192,67,0.9) 45%, rgba(143,82,16,0.95) 100%)",
-                boxShadow: "inset 0 1px 1px rgba(255,255,255,0.35), inset 0 -2px 3px rgba(92,49,6,0.45)",
-              }}
-            />
-            <span
-              className="relative z-10 font-black"
-              style={{
-                fontSize: `${coin.size * 0.32}px`,
-                color: "#5c3205",
-                textShadow: "0 1px 0 rgba(255,243,191,0.55), 0 -1px 0 rgba(84,46,6,0.35)",
-                transform: "translateY(-1px)",
-              }}
-            >
-              {coin.symbol}
-            </span>
-          </div>
-        </div>
-      ))}
-    </div>
-  );
-}
-function IncomeCoinSpinEffect({ trigger }) {
-  const [visible, setVisible] = useState(false);
-
-  useEffect(() => {
-    if (!trigger) return;
-    setVisible(true);
-
-    const timer = setTimeout(() => {
-      setVisible(false);
-    }, 5200);
-
-    return () => clearTimeout(timer);
-  }, [trigger]);
-
-  if (!visible) return null;
-
-  return (
-    <div className="pointer-events-none fixed inset-0 z-[9999] flex items-center justify-center overflow-hidden">
-      <style>
-        {`
-          @keyframes incomeCoinBackdrop {
-            0% {
-              opacity: 0;
-            }
-            15% {
-              opacity: 1;
-            }
-            85% {
-              opacity: 1;
-            }
-            100% {
-              opacity: 0;
-            }
-          }
-
-          @keyframes incomeCoinEnter {
-            0% {
-              transform: scale(0.45) rotateZ(-10deg);
-              opacity: 0;
-            }
-            15% {
-              transform: scale(1.05) rotateZ(0deg);
-              opacity: 1;
-            }
-            100% {
-              transform: scale(1) rotateZ(0deg);
-              opacity: 1;
-            }
-          }
-
-          @keyframes incomeCoinSpin {
-            0% {
-              transform: rotateY(0deg) rotateZ(0deg);
-            }
-            100% {
-              transform: rotateY(3600deg) rotateZ(10deg);
-            }
-          }
-
-          @keyframes incomeCoinGlow {
-            0%, 100% {
-              filter: drop-shadow(0 0 12px rgba(245, 158, 11, 0.4));
-            }
-            50% {
-              filter: drop-shadow(0 0 28px rgba(251, 191, 36, 0.95));
-            }
-          }
-
-          @keyframes incomeCoinRing {
-            0% {
-              transform: scale(0.8);
-              opacity: 0;
-            }
-            20% {
-              opacity: 0.6;
-            }
-            100% {
-              transform: scale(1.35);
-              opacity: 0;
-            }
-          }
-        `}
-      </style>
-
-      <div
-        className="absolute inset-0 bg-[radial-gradient(circle_at_center,rgba(255,215,120,0.22),rgba(15,23,42,0.68))]"
-        style={{ animation: "incomeCoinBackdrop 5s ease forwards" }}
-      />
-      <div
-        className="absolute rounded-full border border-amber-300/60"
-        style={{
-          width: "240px",
-          height: "240px",
-          animation: "incomeCoinRing 5s ease-out forwards",
-        }}
-      />
-      <div
-        style={{
-          animation: "incomeCoinEnter 0.45s ease-out forwards, incomeCoinGlow 0.9s ease-in-out infinite",
-          perspective: "1200px",
-        }}
-      >
-        <div
-          className="relative flex items-center justify-center rounded-full"
-          style={{
-            width: "220px",
-            height: "220px",
-            animation: "incomeCoinSpin 5s cubic-bezier(.2,.7,.2,1) forwards",
-            background: "radial-gradient(circle at 30% 28%, #fff4bf 0%, #f6d46d 18%, #d28f19 43%, #8a4f10 75%, #5b3106 100%)",
-            border: "2px solid rgba(112, 65, 10, 0.95)",
-            boxShadow:
-              "inset 0 4px 10px rgba(255,255,255,0.58), inset 0 -8px 14px rgba(80,42,5,0.6), 0 18px 45px rgba(0,0,0,0.42)",
-          }}
-        >
-          <div
-            className="absolute rounded-full"
-            style={{
-              inset: "12%",
-              border: "2px solid rgba(122,72,11,0.75)",
-              boxShadow: "inset 0 2px 3px rgba(255,255,255,0.38)",
-            }}
-          />
-          <div
-            className="absolute rounded-full"
-            style={{
-              inset: "24%",
-              background: "radial-gradient(circle at 35% 35%, rgba(255,247,200,0.96) 0%, rgba(243,194,72,0.92) 42%, rgba(142,80,16,0.97) 100%)",
-              boxShadow: "inset 0 2px 4px rgba(255,255,255,0.35), inset 0 -4px 6px rgba(82,43,5,0.45)",
-            }}
-          />
-          <span
-            className="relative z-10 font-black"
-            style={{
-              fontSize: "62px",
-              color: "#5d3406",
-              textShadow: "0 2px 0 rgba(255,247,200,0.65), 0 -2px 0 rgba(82,43,5,0.35)",
-              transform: "translateY(-2px)",
-            }}
-          >
-            RM
-          </span>
-        </div>
-      </div>
-    </div>
-  );
-}
-
 function StatCard({ title, value, icon, desc }) {
   return (
     <Card>
@@ -618,51 +314,6 @@ function DateInput({ value, onChange }) {
   return <input type="date" value={value} onChange={(e) => onChange(e.target.value)} className="w-full cursor-pointer rounded-2xl border border-slate-200 bg-white px-4 py-3 outline-none" />;
 }
 
-function BudgetCard({ totalBudget, used, budgets, setBudgets, spentMap, expenseCategoryOptions }) {
-  const [open, setOpen] = useState(false);
-  const warning = used >= 75;
-  return (
-    <Card className={`relative ${warning ? "bg-red-50 ring-red-300" : ""}`}>
-      <div className="flex items-start justify-between gap-3">
-        <p className={`text-sm font-medium ${warning ? "text-red-700" : "text-slate-500"}`}>Total Budget</p>
-        <button type="button" onClick={() => setOpen((v) => !v)} className={`rounded-xl px-3 py-1 text-xs font-bold ${warning ? "bg-red-100 text-red-700" : "bg-slate-100 text-slate-600"}`}>Category Budget</button>
-      </div>
-      <div className="mt-2 flex items-center gap-2">
-        <span className={`text-sm font-semibold ${warning ? "text-red-700" : "text-slate-500"}`}>RM</span>
-        <div className={`w-full rounded-xl border bg-slate-50 px-3 py-2 text-lg font-bold ${warning ? "border-red-300 text-red-700" : "border-slate-200 text-slate-900"}`}>{totalBudget.toFixed(2)}</div>
-      </div>
-      <div className={`mt-3 h-3 overflow-hidden rounded-full ${warning ? "bg-red-200" : "bg-slate-100"}`}>
-        <div className={`h-full rounded-full ${warning ? "bg-red-600" : "bg-slate-900"}`} style={{ width: `${Math.min(used, 100)}%` }} />
-      </div>
-      <p className={`mt-1 text-sm font-medium ${warning ? "text-red-700" : "text-slate-500"}`}>Used {used.toFixed(0)}%</p>
-      {open && (
-        <div className="absolute right-0 top-full z-50 mt-3 max-h-[70vh] w-[760px] max-w-[90vw] overflow-y-auto rounded-2xl bg-white p-4 shadow-xl ring-1 ring-slate-200">
-          <div className="mb-3 flex items-center justify-between gap-3">
-            <div><p className="text-base font-bold text-slate-900">Category Budget / 分类预算</p><p className="text-xs text-slate-500">Calculated from current filtered expense.</p></div>
-            <button type="button" onClick={() => setOpen(false)} className="rounded-xl bg-slate-100 px-3 py-2 text-sm font-bold text-slate-600">×</button>
-          </div>
-          <div className="grid gap-3 md:grid-cols-2">
-            {expenseCategoryOptions.map((category) => {
-              const budget = Number(budgets[category] || 0);
-              const spent = Number(spentMap[category] || 0);
-              const categoryUsed = budget > 0 ? (spent / budget) * 100 : 0;
-              const warn = categoryUsed >= 75;
-              return (
-                <div key={category} className={`rounded-2xl p-3 ring-1 ${warn ? "bg-red-50 ring-red-200" : "bg-slate-50 ring-slate-200"}`}>
-                  <div className="flex items-center justify-between gap-3"><p className={`font-bold ${warn ? "text-red-700" : "text-slate-800"}`}>{formatCategoryLabel(category)}</p><p className={`text-sm font-bold ${warn ? "text-red-700" : "text-slate-500"}`}>Used {categoryUsed.toFixed(0)}%</p></div>
-                  <div className="mt-2 flex items-center gap-2"><span className="text-xs font-bold text-slate-500">RM</span><input value={budgets[category] || ""} onChange={(e) => setBudgets((p) => ({ ...p, [category]: e.target.value }))} type="number" min="0" placeholder="Budget" className="w-full rounded-xl border bg-white px-3 py-2 text-sm font-bold outline-none" /></div>
-                  <div className={`mt-2 h-2 overflow-hidden rounded-full ${warn ? "bg-red-200" : "bg-slate-200"}`}><div className={`h-full rounded-full ${warn ? "bg-red-600" : "bg-slate-900"}`} style={{ width: `${Math.min(categoryUsed, 100)}%` }} /></div>
-                  <div className="mt-2 flex justify-between text-xs font-semibold text-slate-500"><span>Spent {money(spent)}</span><span>{budget > 0 ? money(budget) : "Not set"}</span></div>
-                </div>
-              );
-            })}
-          </div>
-        </div>
-      )}
-    </Card>
-  );
-}
-
 function MiniPie({ data, emptyText, onClick, selectedName }) {
   if (!data.length) return <div className="flex h-full items-center justify-center rounded-2xl bg-slate-50 text-slate-500">{emptyText}</div>;
   return (
@@ -674,22 +325,6 @@ function MiniPie({ data, emptyText, onClick, selectedName }) {
         <Tooltip formatter={(value) => money(value)} />
       </PieChart>
     </ResponsiveContainer>
-  );
-}
-
-function ForecastCard({ stats, data, month }) {
-  return (
-    <Card>
-      <h2 className="text-xl font-bold">Cash Flow Forecast</h2>
-      <p className="mt-1 text-sm text-slate-500">Projected Balance Trend · {month}</p>
-      <div className="mt-4 grid grid-cols-2 gap-3 text-sm">
-        <div className="rounded-2xl bg-slate-50 p-3 ring-1 ring-slate-100"><p className="text-slate-500">Current balance</p><p className="mt-1 font-bold text-slate-900">{money(stats.currentBalance)}</p></div>
-        <div className="rounded-2xl bg-slate-50 p-3 ring-1 ring-slate-100"><p className="text-slate-500">Avg daily expense</p><p className="mt-1 font-bold text-slate-900">{money(stats.avgDailyExpense)}</p></div>
-        <div className="rounded-2xl bg-slate-50 p-3 ring-1 ring-slate-100"><p className="text-slate-500">Days left</p><p className="mt-1 font-bold text-slate-900">{stats.daysLeft}</p></div>
-        <div className={`rounded-2xl p-3 ring-1 ${stats.predictedBalance < 1500 ? "bg-red-50 text-red-700 ring-red-200" : "bg-green-50 text-green-700 ring-green-200"}`}><p>Predicted balance</p><p className="mt-1 font-bold">{money(stats.predictedBalance)}</p></div>
-      </div>
-      <div className="mt-4 h-44">{data.length ? <ResponsiveContainer width="100%" height="100%"><LineChart data={data}><CartesianGrid strokeDasharray="3 3" /><XAxis dataKey="day" /><YAxis /><Tooltip formatter={(v) => money(v)} /><Line type="monotone" dataKey="balance" name="Projected Balance" stroke={stats.predictedBalance < 1500 ? "#ef4444" : "#22c55e"} strokeWidth={3} dot={{ r: 3 }} /></LineChart></ResponsiveContainer> : <div className="flex h-full items-center justify-center text-slate-500">No forecast data.</div>}</div>
-    </Card>
   );
 }
 
@@ -798,353 +433,6 @@ function TodaySummaryCard({ stats }) {
     </Card>
   );
 }
-function CustomPersonalCard({ text, setText, image, setImage }) {
-  const [imageError, setImageError] = useState("");
-
-  function resizeImageToDataUrl(file, maxWidth = 900, quality = 0.72) {
-    return new Promise((resolve, reject) => {
-      const reader = new FileReader();
-
-      reader.onload = () => {
-        const img = new Image();
-
-        img.onload = () => {
-          const scale = Math.min(1, maxWidth / img.width);
-          const canvas = document.createElement("canvas");
-          canvas.width = Math.round(img.width * scale);
-          canvas.height = Math.round(img.height * scale);
-
-          const ctx = canvas.getContext("2d");
-          ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-
-          const compressedDataUrl = canvas.toDataURL("image/jpeg", quality);
-          resolve(compressedDataUrl);
-        };
-
-        img.onerror = reject;
-        img.src = reader.result;
-      };
-
-      reader.onerror = reject;
-      reader.readAsDataURL(file);
-    });
-  }
-
-  async function handleImageUpload(event) {
-    const file = event.target.files?.[0];
-    if (!file) return;
-
-    setImageError("");
-
-    if (!file.type.startsWith("image/")) {
-      setImageError("Please upload an image file.");
-      event.target.value = "";
-      return;
-    }
-
-    if (file.size > 8 * 1024 * 1024) {
-      setImageError("Image is too large. Please choose an image below 8MB.");
-      event.target.value = "";
-      return;
-    }
-
-    try {
-      const compressedImage = await resizeImageToDataUrl(file);
-      setImage(compressedImage);
-    } catch {
-      setImageError("Failed to process image. Please try another image.");
-    }
-
-    event.target.value = "";
-  }
-
-  return (
-    <Card>
-      <div className="flex items-start justify-between gap-3">
-        <div>
-          <h2 className="text-xl font-bold">Custom Card</h2>
-          <p className="mt-1 text-sm text-slate-500">Write notes and place your own image.</p>
-        </div>
-        <div className="rounded-2xl bg-slate-100 px-3 py-2 text-xl">🖼️</div>
-      </div>
-
-      <textarea
-        value={text}
-        onChange={(event) => setText(event.target.value)}
-        rows={6}
-        placeholder="Write anything here..."
-        className="mt-4 min-h-[150px] w-full resize-none rounded-2xl border border-slate-200 bg-slate-50 px-5 py-8 text-center text-lg font-semibold leading-relaxed text-slate-800 outline-none focus:bg-white"
-      />
-
-      <div className="mt-4 rounded-2xl border border-dashed border-slate-300 bg-slate-50 p-3">
-        {image ? (
-          <div className="space-y-3">
-            <img
-              src={image}
-              alt="Custom card upload"
-              className="h-56 w-full rounded-2xl object-cover ring-1 ring-slate-200"
-            />
-
-            <div className="flex gap-2">
-              <label className="flex-1 cursor-pointer rounded-xl bg-slate-900 px-3 py-2 text-center text-xs font-bold text-white">
-                Change Image
-                <input
-                  type="file"
-                  accept="image/*"
-                  className="hidden"
-                  onChange={handleImageUpload}
-                />
-              </label>
-
-              <button
-                type="button"
-                onClick={() => {
-                  setImage("");
-                  setImageError("");
-                }}
-                className="rounded-xl bg-red-50 px-3 py-2 text-xs font-bold text-red-700 ring-1 ring-red-100"
-              >
-                Remove
-              </button>
-            </div>
-          </div>
-        ) : (
-          <label className="flex h-56 cursor-pointer flex-col items-center justify-center rounded-2xl bg-white text-center text-sm text-slate-500 ring-1 ring-slate-100">
-            <span className="text-3xl">＋</span>
-            <span className="mt-2 font-semibold">Upload your image</span>
-            <span className="mt-1 text-xs">PNG / JPG / WebP · will be compressed</span>
-            <input
-              type="file"
-              accept="image/*"
-              className="hidden"
-              onChange={handleImageUpload}
-            />
-          </label>
-        )}
-      </div>
-
-      {imageError && (
-        <p className="mt-3 rounded-xl bg-red-50 px-3 py-2 text-xs font-bold text-red-700 ring-1 ring-red-100">
-          {imageError}
-        </p>
-      )}
-    </Card>
-  );
-}
-function TransferCard({
-  transferForm,
-  setTransferForm,
-  methodOptions,
-  transfers,
-  onTransfer,
-}) {
-  return (
-    <Card>
-      <div className="flex items-start justify-between gap-3">
-        <div>
-          <h2 className="text-xl font-bold">Money Transfer</h2>
-          <p className="mt-1 text-sm text-slate-500">
-            Move money between methods. This will not count as income or expense.
-          </p>
-        </div>
-        <div className="rounded-2xl bg-blue-50 px-3 py-2 text-xl">🔁</div>
-      </div>
-
-      <form onSubmit={onTransfer} className="mt-4 space-y-3">
-        <div className="grid gap-3 md:grid-cols-2">
-          <label className="block">
-            <span className="text-sm font-medium text-slate-600">From Method</span>
-            <select
-              value={transferForm.fromMethod}
-              onChange={(event) =>
-                setTransferForm((previous) => ({
-                  ...previous,
-                  fromMethod: event.target.value,
-                }))
-              }
-              className="mt-1 w-full rounded-2xl border border-slate-200 px-4 py-3 outline-none"
-            >
-              {methodOptions.map((method) => (
-                <option key={method} value={method}>
-                  {method}
-                </option>
-              ))}
-            </select>
-          </label>
-
-          <label className="block">
-            <span className="text-sm font-medium text-slate-600">To Method</span>
-            <select
-              value={transferForm.toMethod}
-              onChange={(event) =>
-                setTransferForm((previous) => ({
-                  ...previous,
-                  toMethod: event.target.value,
-                }))
-              }
-              className="mt-1 w-full rounded-2xl border border-slate-200 px-4 py-3 outline-none"
-            >
-              {methodOptions.map((method) => (
-                <option key={method} value={method}>
-                  {method}
-                </option>
-              ))}
-            </select>
-          </label>
-        </div>
-
-        <label className="block">
-          <span className="text-sm font-medium text-slate-600">Amount</span>
-          <input
-            value={transferForm.amount}
-            onChange={(event) =>
-              setTransferForm((previous) => ({
-                ...previous,
-                amount: formatMoneyTyping(event.target.value),
-              }))
-            }
-            type="text"
-            inputMode="numeric"
-            className="mt-1 w-full rounded-2xl border border-slate-200 px-4 py-3 outline-none"
-          />
-        </label>
-
-        <label className="block">
-          <span className="text-sm font-medium text-slate-600">Date</span>
-          <DateInput
-            value={transferForm.date}
-            onChange={(date) =>
-              setTransferForm((previous) => ({
-                ...previous,
-                date,
-              }))
-            }
-          />
-        </label>
-
-        <label className="block">
-          <span className="text-sm font-medium text-slate-600">Note</span>
-          <input
-            value={transferForm.note}
-            onChange={(event) =>
-              setTransferForm((previous) => ({
-                ...previous,
-                note: event.target.value,
-              }))
-            }
-            placeholder="Example: Top up TNG"
-            className="mt-1 w-full rounded-2xl border border-slate-200 px-4 py-3 outline-none"
-          />
-        </label>
-
-        <button
-          type="submit"
-          className="w-full rounded-2xl bg-blue-600 px-4 py-3 text-sm font-bold text-white transition hover:bg-blue-700"
-        >
-          Transfer Money
-        </button>
-      </form>
-
-      <div className="mt-5">
-        <div className="mb-2 flex items-center justify-between gap-3">
-          <p className="text-sm font-bold text-slate-700">Recent Transfers</p>
-          <p className="text-xs font-semibold text-slate-400">
-            {transfers.length} records
-          </p>
-        </div>
-
-        <div className="max-h-56 space-y-2 overflow-y-auto">
-          {transfers.length ? (
-            transfers.slice(0, 5).map((transfer) => (
-              <div
-                key={transfer.id}
-                className="rounded-2xl bg-slate-50 p-3 text-sm ring-1 ring-slate-100"
-              >
-                <div className="flex items-start justify-between gap-3">
-                  <div>
-                    <p className="font-bold text-slate-900">
-                      {transfer.fromMethod} → {transfer.toMethod}
-                    </p>
-                    <p className="text-xs text-slate-500">
-                      {transfer.date} · {transfer.note || "No note"}
-                    </p>
-                  </div>
-                  <p className="whitespace-nowrap font-bold text-blue-700">
-                    {money(transfer.amount)}
-                  </p>
-                </div>
-              </div>
-            ))
-          ) : (
-            <div className="rounded-2xl bg-slate-50 p-5 text-center text-sm text-slate-500 ring-1 ring-slate-100">
-              No transfer records yet.
-            </div>
-          )}
-        </div>
-      </div>
-    </Card>
-  );
-}
-function MethodBalanceCard({ balances }) {
-  const totalBalance = balances.reduce(
-    (sum, item) => sum + Number(item.balance || 0),
-    0
-  );
-
-  return (
-    <Card>
-      <div className="flex items-start justify-between gap-3">
-        <div>
-          <h2 className="text-xl font-bold">Method Balance</h2>
-          <p className="mt-1 text-sm text-slate-500">
-            Shows where your money is now. Transfers affect this card only.
-          </p>
-        </div>
-        <div className="rounded-2xl bg-emerald-50 px-3 py-2 text-xl">🏦</div>
-      </div>
-
-      <div className="mt-4 rounded-2xl bg-slate-900 p-4 text-white">
-        <p className="text-xs font-semibold text-slate-300">Total Method Balance</p>
-        <p className="mt-1 text-2xl font-bold">{money(totalBalance)}</p>
-      </div>
-
-      <div className="mt-4 space-y-2">
-        {balances.length ? (
-          balances.map((item) => (
-            <div
-              key={item.method}
-              className="rounded-2xl bg-slate-50 p-3 text-sm ring-1 ring-slate-100"
-            >
-              <div className="flex items-start justify-between gap-3">
-                <div>
-                  <p className="font-bold text-slate-900">{item.method}</p>
-                  <p className="mt-1 text-xs text-slate-500">
-                    Income {money(item.income)} · Expense {money(item.expense)}
-                  </p>
-                  <p className="mt-1 text-xs text-slate-500">
-                    Transfer in {money(item.transferIn)} · Transfer out {money(item.transferOut)}
-                  </p>
-                </div>
-
-                <p
-                  className={`whitespace-nowrap font-bold ${
-                    item.balance < 0 ? "text-red-700" : "text-emerald-700"
-                  }`}
-                >
-                  {money(item.balance)}
-                </p>
-              </div>
-            </div>
-          ))
-        ) : (
-          <div className="rounded-2xl bg-slate-50 p-5 text-center text-sm text-slate-500 ring-1 ring-slate-100">
-            No method balance data.
-          </div>
-        )}
-      </div>
-    </Card>
-  );
-}
 function EditableCell({ value, field, recordType, onSave, categoryOptionsFor, methodOptionsFor }) {
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState(value ?? "");
@@ -1233,45 +521,6 @@ function TrendTooltip({ active, payload, records, category }) {
   );
 }
 
-function normalizeRecord(row) {
-  return {
-    id: row.id,
-    type: row.type,
-    amount: Number(row.amount || 0),
-    category: row.category,
-    method: row.method,
-    note: row.note || "",
-    date: row.date,
-    version: Number(row.version || 1),
-    updated_at: row.updated_at || row.created_at,
-    deleted_at: row.deleted_at || null,
-  };
-}
-function normalizeTransfer(row) {
-  return {
-    id: row.id,
-    fromMethod: row.from_method,
-    toMethod: row.to_method,
-    amount: Number(row.amount || 0),
-    note: row.note || "",
-    date: row.date,
-    version: Number(row.version || 1),
-    deleted_at: row.deleted_at || null,
-    updated_at: row.updated_at || row.created_at,
-  };
-}
-function toRecordPayload(record, userId) {
-  return {
-    user_id: userId,
-    type: record.type,
-    amount: Number(record.amount || 0),
-    category: record.category,
-    method: record.method,
-    note: record.note || "",
-    date: record.date,
-  };
-}
-
 function AuthScreen() {
   const [mode, setMode] = useState("signIn");
   const [email, setEmail] = useState("");
@@ -1353,6 +602,8 @@ export default function FinanceVisualizerApp() {
   const [syncProgress, setSyncProgress] = useState("");
   const [settingsVersion, setSettingsVersion] = useState(null);
   const [initialDataReady, setInitialDataReady] = useState(false);
+  const [importOpen, setImportOpen] = useState(false);
+  const [exportOpen, setExportOpen] = useState(false);
   const budgetsRef = useRef(DEFAULT_BUDGETS);
   const settingsVersionRef = useRef(null);
   const settingsQueueRef = useRef(Promise.resolve());
@@ -1562,77 +813,40 @@ useEffect(() => {
 }, [form.type, customOptions]);
 
   async function loadCloudData({ background = false } = {}) {
-    const accountId = user?.id;
-    if (!accountId || !supabase) return;
-    const requestId = ++recordsLoadCounterRef.current;
-    const isCurrent = () => requestId === recordsLoadCounterRef.current && liveUserIdRef.current === accountId;
-    if (!background) setInitialDataReady(false);
-    setDataLoading(true);
-    setSyncProgress("");
-    setSyncStatus(background ? "Refreshing finance data..." : "Loading complete cloud data...");
+    const accountId=user?.id;
+    if(!accountId||!supabase)return;
+    const requestId=++recordsLoadCounterRef.current;
+    const isCurrent=()=>requestId===recordsLoadCounterRef.current&&liveUserIdRef.current===accountId;
+    if(!background)setInitialDataReady(false);
+    setDataLoading(true);setSyncProgress("");
+    setSyncStatus(background?"Refreshing finance data...":"Loading complete cloud data...");
     try {
-      const progress = (loaded, total, table) => {
-        if (isCurrent()) setSyncProgress(table + ": " + loaded + " / " + total);
-      };
-      const recordRows = await loadEveryOwnedRow(
-        supabase, "records",
-        "id,type,amount,category,method,note,date,created_at,updated_at,version,deleted_at",
-        accountId, progress
-      );
-      if (!isCurrent()) return;
-      const transferRows = await loadEveryOwnedRow(
-        supabase, "transfers",
-        "id,from_method,to_method,amount,note,date,created_at,updated_at,version,deleted_at",
-        accountId, progress
-      );
-      if (!isCurrent()) return;
-      const { data: settingsRow, error: settingsError } = await supabase
-        .from("user_settings")
-        .select("category_budgets,custom_options,version,forecast_plans")
-        .eq("user_id", accountId)
-        .maybeSingle();
-      if (settingsError) throw settingsError;
-      if (!isCurrent()) return;
-      const { data: savedMonths, error: monthError } = await supabase
-        .from("monthly_budgets")
-        .select("user_id,month,category_budgets,version,updated_at")
-        .eq("user_id",accountId)
-        .order("month",{ascending:false})
-        .limit(1000);
-      if (monthError) throw monthError;
-      if ((savedMonths || []).length === 1000) throw new Error("Monthly budget history reached the read cap; refusing incomplete results.");
-      if (!isCurrent()) return;
-      const byNewest = (a, b) => String(b.date || "").localeCompare(String(a.date || ""))
-        || new Date(b.created_at || 0) - new Date(a.created_at || 0);
-      const { active, deleted } = splitRecordStatus(recordRows.slice().sort(byNewest).map(normalizeRecord));
-      // A complete, count-checked snapshot replaces all three states together.
-      setRecords(active);
-      setDeletedRecords(deleted);
-      const {active:activeTransfers,deleted:trashTransfers} = splitRecordStatus(transferRows.slice().sort(byNewest).map(normalizeTransfer));
-      setTransfers(activeTransfers);
-      setDeletedTransfers(trashTransfers);
-      setMonthRows(savedMonths || []);
-      const nextBudgets = settingsRow?.category_budgets
-        ? { ...DEFAULT_BUDGETS, ...settingsRow.category_budgets }
+      const snapshot=await fetchFinanceSnapshot(supabase,accountId,(loaded,total,table)=>{
+        if(isCurrent())setSyncProgress(table+": "+loaded+" / "+total);
+      });
+      if(!isCurrent())return;
+      setRecords(snapshot.records);
+      setDeletedRecords(snapshot.deletedRecords);
+      setTransfers(snapshot.transfers);
+      setDeletedTransfers(snapshot.deletedTransfers);
+      setMonthRows(snapshot.monthRows);
+      const settingsRow=snapshot.settingsRow;
+      const nextBudgets=settingsRow?.category_budgets
+        ? {...DEFAULT_BUDGETS,...settingsRow.category_budgets}
         : DEFAULT_BUDGETS;
-      budgetsRef.current = nextBudgets;
-      setBudgets(nextBudgets);
+      budgetsRef.current=nextBudgets;setBudgets(nextBudgets);
       setCustomOptions(settingsRow?.custom_options
-        ? { ...DEFAULT_CUSTOM_OPTIONS, ...settingsRow.custom_options }
+        ? {...DEFAULT_CUSTOM_OPTIONS,...settingsRow.custom_options}
         : DEFAULT_CUSTOM_OPTIONS);
-      setForecastPlans(Array.isArray(settingsRow?.forecast_plans) ? settingsRow.forecast_plans : []);
-      const version = settingsRow ? Number(settingsRow.version || 1) : null;
-      settingsVersionRef.current = version;
-      setSettingsVersion(version);
+      setForecastPlans(Array.isArray(settingsRow?.forecast_plans)?settingsRow.forecast_plans:[]);
+      const version=settingsRow?Number(settingsRow.version||1):null;
+      settingsVersionRef.current=version;setSettingsVersion(version);
       setSyncStatus("Cloud synced — all records loaded");
-      setSyncProgress("");
-      setInitialDataReady(true);
-      setDataLoading(false);
-    } catch (error) {
-      if (!isCurrent()) return;
-      setSyncStatus("Cloud sync failed: " + (error.message || "unknown error") + ". No partial totals were applied.");
-      setSyncProgress("");
-      setDataLoading(false);
+      setSyncProgress("");setInitialDataReady(true);setDataLoading(false);
+    }catch(error){
+      if(!isCurrent())return;
+      setSyncStatus("Cloud sync failed: "+(error.message||"unknown error")+". No partial totals were applied.");
+      setSyncProgress("");setDataLoading(false);
     }
   }
 
@@ -2471,86 +1685,6 @@ if (insertedRecord.type === "expense") {
     }
   }
 
-  function toExcelDate(dateString) {
-  if (!dateString) return "";
-
-  const [year, month, day] = String(dateString).split("-").map(Number);
-  if (!year || !month || !day) return dateString;
-
-  return new Date(year, month - 1, day);
-}
-
-function exportExcel() {
-  const headers = ["Date", "Type", "Category", "Method", "Amount", "Note"];
-
-  const rows = records.map((record) => [
-    toExcelDate(record.date),
-    record.type,
-    record.category,
-    recordMethod(record),
-    Number(record.amount || 0),
-    record.note || "",
-  ]);
-
-  const worksheet = XLSX.utils.aoa_to_sheet([headers, ...rows], {
-    cellDates: true,
-  });
-
-  const range = XLSX.utils.decode_range(worksheet["!ref"]);
-
-  worksheet["!autofilter"] = {
-    ref: XLSX.utils.encode_range(range),
-  };
-
-  worksheet["!cols"] = [
-    { wch: 14 },
-    { wch: 12 },
-    { wch: 16 },
-    { wch: 18 },
-    { wch: 12 },
-    { wch: 40 },
-  ];
-
-  for (let row = 2; row <= rows.length + 1; row += 1) {
-    const dateCell = worksheet[`A${row}`];
-    if (dateCell) dateCell.z = "yyyy-mm-dd";
-
-    const amountCell = worksheet[`E${row}`];
-    if (amountCell) amountCell.z = "#,##0.00";
-  }
-
-  const workbook = XLSX.utils.book_new();
-  XLSX.utils.book_append_sheet(workbook, worksheet, "Finance Records");
-
-  XLSX.writeFile(workbook, `finance-records-${today()}.xlsx`);
-}
-  function importCsv(event) {
-    const file = event.target.files?.[0];
-    if (!file || !user) return;
-    const reader = new FileReader();
-    reader.onload = async (e) => {
-      try {
-      const lines = String(e.target.result || "").split(/\r?\n/).slice(1).filter(Boolean);
-        const imported = lines.map((line) => {
-          const match = line.match(/^([^,]*),([^,]*),([^,]*),([^,]*),([^,]*),(.*)$/);
-          if (!match) return null;
-          const [, date, type, category, method, amount, note] = match;
-          return { date: date.trim(), type: type.trim(), category: category.trim(), method: method.trim(), amount: Number(amount), note: note.replace(/^"|"$/g, "").trim() };
-        }).filter(Boolean);
-        if (!imported.length) return alert("No valid records found in CSV.");
-        const payloads = imported.map((record) => toRecordPayload(record, user.id));
-        const { data, error } = await supabase.from("records").insert(payloads).select("id,type,amount,category,method,note,date,created_at");
-        if (error) return alert(error.message);
-        setRecords((p) => [...(data || []).map(normalizeRecord), ...p]);
-        setSyncStatus(`Imported ${data?.length || 0} records to cloud`);
-      } catch {
-        alert("Failed to parse CSV.");
-      }
-    };
-    reader.readAsText(file);
-    event.target.value = "";
-  }
-
   async function signOut() {
     await supabase.auth.signOut();
   }
@@ -2605,8 +1739,21 @@ return (
       <div className="mx-auto max-w-7xl space-y-6">
         <header className="flex flex-col gap-4 rounded-3xl bg-slate-900 p-6 text-white md:flex-row md:items-center md:justify-between">
           <div><p className="text-sm font-medium text-slate-300">Personal Finance Dashboard</p><h1 className="mt-2 text-3xl font-bold md:text-4xl">记账可视化软件</h1><p className="mt-2 text-sm text-slate-300">记录收入与支出，自动生成统计、分类比例、每日趋势和预算使用情况。</p></div>
-          <div className="flex flex-wrap gap-3"><button onClick={() => setSoundEnabled((v) => !v)} className="rounded-2xl bg-slate-800 px-4 py-3 text-sm font-semibold text-white ring-1 ring-slate-600">{soundEnabled ? "🔊" : "🔇"} Sound</button><button onClick={exportExcel} className="rounded-2xl bg-white px-4 py-3 text-sm font-semibold text-slate-900">⬇ Export Excel</button><label className="cursor-pointer rounded-2xl bg-slate-700 px-4 py-3 text-sm font-semibold text-white ring-1 ring-slate-600">⬆ Import CSV<input type="file" accept=".csv" className="hidden" onChange={importCsv} /></label><button onClick={signOut} className="rounded-2xl bg-white px-4 py-3 text-sm font-semibold text-slate-900">Sign out</button></div>
+          <div className="flex flex-wrap gap-3"><button onClick={() => setSoundEnabled((v) => !v)} className="rounded-2xl bg-slate-800 px-4 py-3 text-sm font-semibold text-white ring-1 ring-slate-600">{soundEnabled ? "🔊" : "🔇"} Sound</button><button type="button" disabled={!initialDataReady || dataLoading} onClick={() => { setExportOpen((v) => !v); setImportOpen(false); }} className="rounded-2xl bg-white px-4 py-3 text-sm font-semibold text-slate-900 disabled:opacity-50">⬇ Export Excel</button><button type="button" disabled={!initialDataReady || dataLoading} onClick={() => { setImportOpen((v) => !v); setExportOpen(false); }} className="rounded-2xl bg-slate-700 px-4 py-3 text-sm font-semibold text-white ring-1 ring-slate-600 disabled:opacity-50">⬆ Import CSV</button><button onClick={signOut} className="rounded-2xl bg-white px-4 py-3 text-sm font-semibold text-slate-900">Sign out</button></div>
         </header>
+        {importOpen && <FinanceCsvImportPanel
+          supabase={supabase} user={user}
+          existingRecords={[...records,...deletedRecords]}
+          onClose={() => setImportOpen(false)}
+          onImported={() => loadCloudData({background:true})}
+        />}
+        {exportOpen && <FinanceExcelExportPanel
+          records={records} deletedRecords={deletedRecords}
+          transfers={transfers} deletedTransfers={deletedTransfers}
+          monthRows={monthRows} budgetTemplate={budgets}
+          forecastPlans={forecastPlans} dataReady={initialDataReady}
+          dataLoading={dataLoading} onClose={() => setExportOpen(false)}
+        />}
         <div className="rounded-2xl bg-white px-4 py-3 text-sm text-slate-600 ring-1 ring-slate-200">
           Signed in as <b>{user?.email}</b> · {dataLoading ? "Syncing..." : syncStatus || "Cloud ready"}
           {syncProgress && <span className="ml-2 font-semibold text-blue-700">{syncProgress}</span>}

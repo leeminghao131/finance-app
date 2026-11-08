@@ -2,6 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import vm from "node:vm";
+import { normalizeRecord, normalizeTransfer, toRecordPayload } from "../src/financeRecords.js";
 
 // Evaluate the actual small pure functions from the current app source.
 // No database connection, browser session, credentials, or real finance data.
@@ -38,8 +39,6 @@ test("money parser preserves cents from keypad input and decimals", () => {
 });
 
 test("normalize record and transfer map Postgres numeric text to numbers", () => {
-  const normalizeRecord = loadPureFunction("normalizeRecord");
-  const normalizeTransfer = loadPureFunction("normalizeTransfer");
   const record = normalizeRecord({ id: 15, type: "expense", amount: "24.55", category: "Food", method: "CASH", note: null, date: "2026-11-08" });
   assert.equal(record.amount, 24.55);
   assert.equal(record.note, "");
@@ -51,8 +50,7 @@ test("normalize record and transfer map Postgres numeric text to numbers", () =>
 });
 
 test("record payload retains owner, amount, and original payment method", () => {
-  const payloadFor = loadPureFunction("toRecordPayload");
-  const out = payloadFor({ type: "income", amount: "12.30", category: "Salary", method: "BANK IN", note: null, date: "2026-11-08" }, "user-fixture");
+  const out = toRecordPayload({ type: "income", amount: "12.30", category: "Salary", method: "BANK IN", note: null, date: "2026-11-08" }, "user-fixture");
   assert.equal(out.user_id, "user-fixture");
   assert.equal(out.amount, 12.3);
   assert.equal(out.method, "BANK IN"); // older original record label stays unchanged

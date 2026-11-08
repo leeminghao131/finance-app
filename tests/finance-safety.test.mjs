@@ -55,8 +55,10 @@ test("Record edits and soft deletes require owner and optimistic version checks"
 
 test("Realtime, count-checked paging and recycle bin remain enabled", () => {
   assert.match(app, /channel\.on\("postgres_changes"/);
-  assert.match(app, /loadEveryOwnedRow\(/);
-  assert.match(app, /splitRecordStatus\(/);
+  assert.match(app, /fetchFinanceSnapshot\(/);
+  const cloud = readFileSync(new URL("../src/financeCloudService.js", import.meta.url), "utf8");
+  assert.match(cloud, /loadEveryOwnedRow\(/);
+  assert.match(cloud, /splitRecordStatus\(/);
   assert.match(app, /Recycle Bin/);
   assert.match(app, /setUndoDeleted\(removed\)/);
 });
