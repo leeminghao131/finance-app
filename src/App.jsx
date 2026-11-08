@@ -617,47 +617,115 @@ function DateInput({ value, onChange }) {
   return <input type="date" value={value} onChange={(e) => onChange(e.target.value)} className="w-full cursor-pointer rounded-2xl border border-slate-200 bg-white px-4 py-3 outline-none" />;
 }
 
-function BudgetCard({ totalBudget, used, budgets, setBudgets, spentMap, expenseCategoryOptions }) {
-  const [open, setOpen] = useState(false);
-  const warning = used >= 75;
+function BudgetCard({
+  selectedBudgetMonth,setBudgetMonth,budgetRecord,summary,templateBudgets,
+  onCreateBudget,onSaveCategory,onSaveTemplate,expenseCategoryOptions,
+}) {
+  const [open,setOpen]=useState(false);
+  const [templateOpen,setTemplateOpen]=useState(false);
+  const [drafts,setDrafts]=useState({});
+  const [templateDrafts,setTemplateDrafts]=useState({});
+  useEffect(()=>{
+    setDrafts({...budgetRecord?.category_budgets});
+  },[selectedBudgetMonth,budgetRecord?.version]);
+  useEffect(()=>setTemplateDrafts({...templateBudgets}),[templateBudgets]);
+  const active=Boolean(budgetRecord);
+  const used=summary.percentage;
+  const warn=used!==null && used>=75;
+  const controls="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-semibold outline-none";
+  function saveBudget(category) {
+    const input=String(drafts[category]??"").trim();
+    if(!budgetRecord)return;
+    if(input && (!/^\d+(?:\.\d{1,2})?$/.test(input)||Number(input)<0)){
+      alert("Enter a valid budget of RM0 or above with up to two decimal places.");
+      setDrafts({...budgetRecord.category_budgets});
+      return;
+    }
+    const old=String(budgetRecord.category_budgets?.[category]??"");
+    if(old!==input)onSaveCategory(budgetRecord,category,input);
+  }
+  function saveTemplate(category) {
+    const input=String(templateDrafts[category]??"").trim();
+    if(input && (!/^\d+(?:\.\d{1,2})?$/.test(input)||Number(input)<0)){
+      alert("Enter a valid template budget.");
+      setTemplateDrafts({...templateBudgets});return;
+    }
+    if(String(templateBudgets[category]??"")!==input)
+      onSaveTemplate(category,input);
+  }
   return (
-    <Card className={`relative ${warning ? "bg-red-50 ring-red-300" : ""}`}>
-      <div className="flex items-start justify-between gap-3">
-        <p className={`text-sm font-medium ${warning ? "text-red-700" : "text-slate-500"}`}>Total Budget</p>
-        <button type="button" onClick={() => setOpen((v) => !v)} className={`rounded-xl px-3 py-1 text-xs font-bold ${warning ? "bg-red-100 text-red-700" : "bg-slate-100 text-slate-600"}`}>Category Budget</button>
+    <Card className={warn?"ring-red-300":""}>
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <div><p className="text-sm font-semibold text-slate-700">Monthly Budget / 月度预算</p>
+          <p className="text-xs text-slate-500">Calendar month only · independent of transaction filters</p></div>
+        <input type="month" value={selectedBudgetMonth} onChange={e=>setBudgetMonth(e.target.value)}
+          aria-label="Budget month" className="rounded-xl border border-slate-300 px-2 py-2 text-xs"/>
       </div>
-      <div className="mt-2 flex items-center gap-2">
-        <span className={`text-sm font-semibold ${warning ? "text-red-700" : "text-slate-500"}`}>RM</span>
-        <div className={`w-full rounded-xl border bg-slate-50 px-3 py-2 text-lg font-bold ${warning ? "border-red-300 text-red-700" : "border-slate-200 text-slate-900"}`}>{totalBudget.toFixed(2)}</div>
-      </div>
-      <div className={`mt-3 h-3 overflow-hidden rounded-full ${warning ? "bg-red-200" : "bg-slate-100"}`}>
-        <div className={`h-full rounded-full ${warning ? "bg-red-600" : "bg-slate-900"}`} style={{ width: `${Math.min(used, 100)}%` }} />
-      </div>
-      <p className={`mt-1 text-sm font-medium ${warning ? "text-red-700" : "text-slate-500"}`}>Used {used.toFixed(0)}%</p>
-      {open && (
-        <div className="absolute right-0 top-full z-50 mt-3 max-h-[70vh] w-[760px] max-w-[90vw] overflow-y-auto rounded-2xl bg-white p-4 shadow-xl ring-1 ring-slate-200">
-          <div className="mb-3 flex items-center justify-between gap-3">
-            <div><p className="text-base font-bold text-slate-900">Category Budget / 分类预算</p><p className="text-xs text-slate-500">Calculated from current filtered expense.</p></div>
-            <button type="button" onClick={() => setOpen(false)} className="rounded-xl bg-slate-100 px-3 py-2 text-sm font-bold text-slate-600">×</button>
+      {!active?(
+        <div className="mt-3 space-y-2">
+          <p className="rounded-xl bg-amber-50 p-3 text-sm text-amber-900">
+            No saved budget for {selectedBudgetMonth}. Old months are never assigned an invented budget.
+          </p>
+          <div className="flex flex-wrap gap-2">
+            <button type="button" onClick={()=>onCreateBudget(selectedBudgetMonth,"template")} className="rounded-lg bg-slate-900 px-3 py-2 text-xs font-bold text-white">Apply template to this month</button>
+            <button type="button" onClick={()=>onCreateBudget(selectedBudgetMonth,"empty")} className="rounded-lg bg-slate-100 px-3 py-2 text-xs font-bold">Start blank month</button>
           </div>
-          <div className="grid gap-3 md:grid-cols-2">
-            {expenseCategoryOptions.map((category) => {
-              const budget = Number(budgets[category] || 0);
-              const spent = Number(spentMap[category] || 0);
-              const categoryUsed = budget > 0 ? (spent / budget) * 100 : 0;
-              const warn = categoryUsed >= 75;
-              return (
-                <div key={category} className={`rounded-2xl p-3 ring-1 ${warn ? "bg-red-50 ring-red-200" : "bg-slate-50 ring-slate-200"}`}>
-                  <div className="flex items-center justify-between gap-3"><p className={`font-bold ${warn ? "text-red-700" : "text-slate-800"}`}>{formatCategoryLabel(category)}</p><p className={`text-sm font-bold ${warn ? "text-red-700" : "text-slate-500"}`}>Used {categoryUsed.toFixed(0)}%</p></div>
-                  <div className="mt-2 flex items-center gap-2"><span className="text-xs font-bold text-slate-500">RM</span><input value={budgets[category] || ""} onChange={(e) => setBudgets((p) => ({ ...p, [category]: e.target.value }))} type="number" min="0" placeholder="Budget" className="w-full rounded-xl border bg-white px-3 py-2 text-sm font-bold outline-none" /></div>
-                  <div className={`mt-2 h-2 overflow-hidden rounded-full ${warn ? "bg-red-200" : "bg-slate-200"}`}><div className={`h-full rounded-full ${warn ? "bg-red-600" : "bg-slate-900"}`} style={{ width: `${Math.min(categoryUsed, 100)}%` }} /></div>
-                  <div className="mt-2 flex justify-between text-xs font-semibold text-slate-500"><span>Spent {money(spent)}</span><span>{budget > 0 ? money(budget) : "Not set"}</span></div>
-                </div>
-              );
-            })}
-          </div>
+          <p className="text-xs text-slate-500">Expenses this month: {money(summary.unbudgetedSpent)} · no limit was set.</p>
         </div>
+      ):(
+        <>
+          <div className="mt-3 text-xl font-bold">{money(summary.budget)} total budget</div>
+          <div className="mt-2 h-3 overflow-hidden rounded-full bg-slate-100">
+            <div className={`h-full rounded-full ${warn?"bg-red-600":"bg-emerald-600"}`} style={{width:`${Math.min(100,used||0)}%`}}/>
+          </div>
+          <p className="mt-1 text-xs text-slate-600">
+            {used===null?"No positive budgets set":`Used ${used.toFixed(0)}% · `}
+            Budgeted spending {money(summary.spent)} · Remaining {money(summary.remaining)}
+          </p>
+          <p className="mt-1 text-xs text-slate-500">Unbudgeted categories spending: {money(summary.unbudgetedSpent)}</p>
+          <button type="button" onClick={()=>setOpen(p=>!p)} className="mt-3 rounded-lg bg-slate-100 px-3 py-2 text-xs font-bold">
+            {open?"Hide categories":"Edit category budgets"}
+          </button>
+          {open && <div className="mt-3 space-y-3">
+            {expenseCategoryOptions.map(category=>{
+              const current=summary.categories.find(row=>row.name===category)||{budget:null,spent:0,percentage:null,remaining:null};
+              const caution=current.percentage!==null&&current.percentage>=100;
+              return <div key={category} className={`rounded-xl p-3 ring-1 ${caution?"bg-red-50 ring-red-200":"bg-slate-50 ring-slate-200"}`}>
+                <div className="flex flex-wrap items-center justify-between gap-2 text-sm">
+                  <b>{formatCategoryLabel(category)}</b>
+                  <span>{current.budget===null?"Not set":`${current.percentage.toFixed(0)}% used`}</span>
+                </div>
+                <label className="mt-2 block text-xs text-slate-500">Monthly limit (RM)
+                  <input type="text" inputMode="decimal" className={controls}
+                    placeholder="Not set" value={drafts[category]??""}
+                    onChange={e=>setDrafts(p=>({...p,[category]:e.target.value}))}
+                    onBlur={()=>saveBudget(category)}
+                    onKeyDown={e=>{if(e.key==="Enter"){e.preventDefault();e.target.blur();}}}/>
+                </label>
+                <p className="mt-2 text-xs text-slate-600">
+                  Spent {money(current.spent)} · {current.remaining===null?"No budget":`Remaining ${money(current.remaining)}`}
+                </p>
+              </div>;
+            })}
+          </div>}
+        </>
       )}
+      <div className="mt-3 border-t border-slate-200 pt-3">
+        <button type="button" onClick={()=>setTemplateOpen(p=>!p)} className="rounded-lg bg-white px-3 py-2 text-xs font-semibold text-slate-600 ring-1 ring-slate-200">
+          {templateOpen?"Hide default template":"Edit default monthly template"}
+        </button>
+        {templateOpen && <div className="mt-3 grid gap-2 sm:grid-cols-2">
+          {expenseCategoryOptions.map(category=><label key={category} className="text-xs font-semibold text-slate-600">
+            {formatCategoryLabel(category)}
+            <input type="text" inputMode="decimal" className={controls} placeholder="Not set"
+              value={templateDrafts[category]??""}
+              onChange={e=>setTemplateDrafts(p=>({...p,[category]:e.target.value}))}
+              onBlur={()=>saveTemplate(category)}
+              onKeyDown={e=>{if(e.key==="Enter"){e.preventDefault();e.target.blur();}}}/>
+          </label>)}
+          <p className="text-xs text-slate-500 sm:col-span-2">Template edits only affect future months when you explicitly apply the template. Saved historic budgets never change.</p>
+        </div>}
+      </div>
     </Card>
   );
 }
