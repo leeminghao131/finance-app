@@ -6,6 +6,7 @@ on:
   push:
     branches:
       - "safety/**"
+      - "feature/**"
   workflow_dispatch:
 
 permissions:
