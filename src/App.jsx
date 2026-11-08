@@ -6,6 +6,7 @@ import { normalizeBudgetsInput } from "./financeInsights.js";
 import FinanceTransferPanel from "./FinanceTransferPanel.jsx";
 import FinanceBudgetPanel from "./FinanceBudgetPanel.jsx";
 import FinanceForecastPanel from "./FinanceForecastPanel.jsx";
+import FinanceOverlay from "./FinanceOverlay.jsx";
 import FinanceCsvImportPanel from "./FinanceCsvImportPanel.jsx";
 import FinanceExcelExportPanel from "./FinanceExcelExportPanel.jsx";
 import { normalizeRecord, normalizeTransfer, toRecordPayload } from "./financeRecords.js";
@@ -212,7 +213,7 @@ function filterRecords(records, mode, month, year, keyword) {
 function Card({ children, className = "" }) {
   return <div className={`rounded-2xl bg-white p-5 shadow-sm ring-1 ring-slate-200 ${className}`}>{children}</div>;
 }
-function StatCard({ title, value, icon, desc }) {
+function StatCard({ title, value, icon, desc, action }) {
   return (
     <Card>
       <div className="flex items-start justify-between gap-3">
@@ -221,7 +222,7 @@ function StatCard({ title, value, icon, desc }) {
           <p className="mt-2 text-2xl font-bold text-slate-900">{value}</p>
           <p className="mt-1 text-sm text-slate-500">{desc}</p>
         </div>
-        <div className="rounded-2xl bg-slate-100 px-3 py-2 text-xl">{icon}</div>
+        {action || <div className="rounded-2xl bg-slate-100 px-3 py-2 text-xl">{icon}</div>}
       </div>
     </Card>
   );
@@ -598,6 +599,8 @@ export default function FinanceVisualizerApp() {
   const [undoTransfer, setUndoTransfer] = useState(null);
   const [monthRows, setMonthRows] = useState([]);
   const [budgetMonth, setBudgetMonth] = useState(monthNow());
+  const [budgetOpen, setBudgetOpen] = useState(false);
+  const [budgetDraftDirty, setBudgetDraftDirty] = useState(false);
   const [forecastPlans, setForecastPlans] = useState([]);
   const [undoDeleted, setUndoDeleted] = useState(null);
   const [trashOpen, setTrashOpen] = useState(false);
@@ -1975,19 +1978,36 @@ return (
             <Card><div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between"><h2 className="text-xl font-bold">Filters</h2><div className="flex flex-col gap-3 md:flex-row md:flex-wrap md:justify-end"><select value={filterMode} onChange={(e) => setFilterMode(e.target.value)} className="rounded-2xl border border-slate-200 px-4 py-3 outline-none"><option value="all">全部</option><option value="month">按月份</option><option value="year">按年份</option><option value="recent30">最近 30 天</option><option value="recent7">最近 7 天</option><option value="recent3">最近 3 天</option></select>{filterMode === "month" && <input type="month" value={selectedMonth} onChange={(e) => setSelectedMonth(e.target.value)} className="rounded-2xl border border-slate-200 px-4 py-3 outline-none" />}{filterMode === "year" && <input type="number" value={selectedYear} onChange={(e) => setSelectedYear(e.target.value)} className="rounded-2xl border border-slate-200 px-4 py-3 outline-none" />}<input value={keyword} onChange={(e) => setKeyword(e.target.value)} placeholder="Search category, method or note" className="rounded-2xl border border-slate-200 px-4 py-3 outline-none" /></div></div></Card>
             <section className="grid gap-4 md:grid-cols-3">
               <StatCard title="Filtered Income" value={money(filteredIncome)} icon="📈" desc={"Current filter: " + filterLabel} />
-              <StatCard title="Filtered Expense" value={money(filteredExpense)} icon="📉" desc={"Current filter: " + filterLabel} />
+              <StatCard title="Filtered Expense" value={money(filteredExpense)} icon="📉" desc={"Current filter: " + filterLabel}
+                action={<button type="button" aria-label="Open Monthly Budget" aria-haspopup="dialog"
+                  aria-expanded={budgetOpen} title="Monthly Budget / 分类预算"
+                  onClick={() => setBudgetOpen(true)}
+                  className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-amber-50 text-xl text-amber-900 ring-1 ring-amber-200 transition hover:bg-amber-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-amber-600">
+                    📊
+                </button>}
+              />
               <BalanceCard title="Filtered Balance" value={filteredIncome - filteredExpense} desc={"Current filter: " + filterLabel} limit={balanceLimit} />
             </section>
-            <FinanceBudgetPanel
-              records={records}
-              budgetMonth={budgetMonth}
-              setBudgetMonth={setBudgetMonth}
-              monthRows={monthRows}
-              budgetTemplate={budgets}
-              categories={expenseCategoryOptions}
-              onSaveMonthly={saveMonthlyBudget}
-              onSaveTemplate={saveTemplateBudget}
-            />
+            <FinanceOverlay open={budgetOpen} title="Monthly Budget / 分类预算"
+              onClose={() => {
+                if (budgetDraftDirty && !window.confirm("Discard unsaved budget changes?")) return;
+                setBudgetDraftDirty(false);
+                setBudgetOpen(false);
+              }}
+              widthClass="max-w-3xl">
+              <FinanceBudgetPanel
+                embedded
+                records={records}
+                budgetMonth={budgetMonth}
+                setBudgetMonth={setBudgetMonth}
+                monthRows={monthRows}
+                budgetTemplate={budgets}
+                categories={expenseCategoryOptions}
+                onSaveMonthly={saveMonthlyBudget}
+                onSaveTemplate={saveTemplateBudget}
+                onDirtyChange={setBudgetDraftDirty}
+              />
+            </FinanceOverlay>
             <section className="grid gap-6 xl:grid-cols-2">
               <FinanceForecastPanel
                 records={records}
