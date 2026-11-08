@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import * as XLSX from "xlsx";
-import { supabase, hasSupabaseEnv } from "./supabaseClient";
+import { supabase, hasSupabaseEnv, isTestEnvironment } from "./supabaseClient";
 import { parseEditedAmount, splitRecordStatus, loadEveryOwnedRow } from "./financeData";
 import {
   BarChart, Bar, PieChart, Pie, Cell, XAxis, YAxis, Tooltip,
@@ -1311,7 +1311,7 @@ function AuthScreen() {
       <div className="min-h-screen bg-slate-50 p-6 text-slate-900">
         <div className="mx-auto mt-16 max-w-xl rounded-3xl bg-white p-8 shadow-sm ring-1 ring-red-200">
           <h1 className="text-2xl font-bold text-red-700">Supabase is not configured</h1>
-          <p className="mt-3 text-sm text-slate-600">Please add VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY in Vercel Environment Variables, then redeploy.</p>
+          <p className="mt-3 text-sm text-slate-600">This unapproved development build only allows the isolated MH Finance Test database. The live Finance App database is blocked. Please check the Preview environment variables.</p>
         </div>
       </div>
     );
@@ -2446,6 +2446,12 @@ return (
           Signed in as <b>{user?.email}</b> · {dataLoading ? "Syncing..." : syncStatus || "Cloud ready"}
           {syncProgress && <span className="ml-2 font-semibold text-blue-700">{syncProgress}</span>}
         </div>
+        {isTestEnvironment && (
+          <div className="rounded-2xl border border-amber-300 bg-amber-50 px-4 py-3 text-sm font-semibold text-amber-900">
+            <span className="mr-2">🧪 TEST MODE / 测试环境</span>
+            Only fake transactions. This development build cannot connect to the production database.
+          </div>
+        )}
         {undoDeleted && (
           <div role="status" className="flex flex-wrap items-center justify-between gap-3 rounded-2xl bg-blue-50 p-4 text-sm text-blue-900 ring-1 ring-blue-200">
             <span><b>Moved to Recycle Bin:</b> {undoDeleted.category} · {money(undoDeleted.amount)}</span>
