@@ -1254,6 +1254,9 @@ function normalizeTransfer(row) {
     amount: Number(row.amount || 0),
     note: row.note || "",
     date: row.date,
+    version: Number(row.version || 1),
+    deleted_at: row.deleted_at || null,
+    updated_at: row.updated_at || row.created_at,
   };
 }
 function toRecordPayload(record, userId) {
@@ -1464,7 +1467,7 @@ const [customCardImage, setCustomCardImage] = useState(() => {
       }, 350);
     };
     const channel = supabase.channel("finance-updates-" + accountId);
-    for (const table of ["records", "transfers", "user_settings"]) {
+    for (const table of ["records", "transfers", "user_settings", "monthly_budgets"]) {
       channel.on("postgres_changes", {
         event: "*", schema: "public", table, filter: "user_id=eq." + accountId,
       }, scheduleRefresh);
@@ -1502,6 +1505,18 @@ const [customCardImage, setCustomCardImage] = useState(() => {
     }), 30000);
     return () => window.clearInterval(timer);
   }, []);
+  const prevClockMonthRef = useRef(clockDate.slice(0,7));
+  useEffect(() => {
+    const currentMonth = clockDate.slice(0,7);
+    const previousMonth = prevClockMonthRef.current;
+    if(currentMonth!==previousMonth){
+      setSelectedMonth(prev => prev===previousMonth?currentMonth:prev);
+      setBudgetMonth(prev => prev===previousMonth?currentMonth:prev);
+      setForm(prev=>({...prev,date:prev.date===shiftCalendarDate(clockDate,-1)?clockDate:prev.date}));
+      setTransferForm(prev=>({...prev,date:prev.date===shiftCalendarDate(clockDate,-1)?clockDate:prev.date}));
+    }
+    prevClockMonthRef.current=currentMonth;
+  },[clockDate]);
   useEffect(() => localStorage.setItem(SOUND_KEY, String(soundEnabled)), [soundEnabled]);
   useEffect(() => {
   localStorage.setItem(BALANCE_LIMIT_KEY, String(balanceLimit || "1500"));
@@ -1558,13 +1573,25 @@ useEffect(() => {
       if (!isCurrent()) return;
       const transferRows = await loadEveryOwnedRow(
         supabase, "transfers",
-        "id,from_method,to_method,amount,note,date,created_at",
+        "id,from_method,to_method,amount,note,date,created_at,updated_at,version,deleted_at",
         accountId, progress
       );
       if (!isCurrent()) return;
+      const monthlyRows = [];
+      for (let page = 0; ; page += 1) {
+        const { data, error } = await supabase.from("monthly_budgets")
+          .select("month,category_budgets,version")
+          .eq("user_id", accountId).order("month",{ascending:true})
+          .range(page*500,page*500+499);
+        if(error) throw error;
+        monthlyRows.push(...(data || []));
+        if(!data || data.length<500) break;
+        if(page>100) throw new Error("Too many monthly budget records.");
+      }
+      if (!isCurrent()) return;
       const { data: settingsRow, error: settingsError } = await supabase
         .from("user_settings")
-        .select("category_budgets,custom_options,version")
+        .select("category_budgets,custom_options,forecast_plans,version")
         .eq("user_id", accountId)
         .maybeSingle();
       if (settingsError) throw settingsError;
@@ -1575,7 +1602,11 @@ useEffect(() => {
       // A complete, count-checked snapshot replaces all three states together.
       setRecords(active);
       setDeletedRecords(deleted);
-      setTransfers(transferRows.slice().sort(byNewest).map(normalizeTransfer));
+      const transferSplit=splitRecordStatus(transferRows.slice().sort(byNewest).map(normalizeTransfer));
+      setTransfers(transferSplit.active);
+      setDeletedTransfers(transferSplit.deleted);
+      setMonthlyBudgetRows(monthlyRows);
+      setForecastPlans(Array.isArray(settingsRow?.forecast_plans)?settingsRow.forecast_plans:[]);
       const nextBudgets = settingsRow?.category_budgets
         ? { ...DEFAULT_BUDGETS, ...settingsRow.category_budgets }
         : DEFAULT_BUDGETS;
