@@ -2377,6 +2377,12 @@ if (insertedRecord.type === "expense") {
   if (transferForm.fromMethod === transferForm.toMethod) {
     return alert("From Method and To Method cannot be the same.");
   }
+  if (!validCalendarDate(transferForm.date)) return alert("Select a valid transfer date.");
+  const available=methodBalances.find(row=>row.method===normalizeMethodForBalance(transferForm.fromMethod))?.balance??0;
+  if(amount>available && !window.confirm(
+    "This transfer exceeds the ledger-derived balance for "+transferForm.fromMethod+
+    " ("+money(available)+"). Opening balances may be missing. Continue anyway?"
+  )) return;
 
   const payload = {
     user_id: user.id,
@@ -2417,6 +2423,16 @@ if (insertedRecord.type === "expense") {
       if(draft.fromMethod===draft.toMethod)throw Error("From and To cannot be the same.");
       if(!validCalendarDate(draft.date))throw Error("Select a valid transfer date.");
     }catch(error){alert(error.message);return false;}
+    const fromBalance=methodBalances.find(row=>row.method===normalizeMethodForBalance(draft.fromMethod))?.balance??0;
+    const originalFrom=normalizeMethodForBalance(transfer.fromMethod);
+    const originalTo=normalizeMethodForBalance(transfer.toMethod);
+    const updatedFrom=normalizeMethodForBalance(draft.fromMethod);
+    const available=fromBalance + (originalFrom===updatedFrom?transfer.amount:0)
+      - (originalTo===updatedFrom?transfer.amount:0);
+    if(amount>available && !window.confirm(
+      "Proposed transfer exceeds the ledger-derived amount available in "+draft.fromMethod+
+      " ("+money(available)+"). Opening balances may be missing. Continue?"
+    ))return false;
     pendingTransfersRef.current.add(transfer.id);
     try{
       const {data,error}=await supabase.from("transfers")
