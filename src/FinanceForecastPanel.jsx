@@ -3,6 +3,7 @@ import { CartesianGrid, Legend, Line, LineChart, ResponsiveContainer, Tooltip, X
 import { localDateMY, shiftCalendarDay, requireCalendarDate } from "./financeCalendar.js";
 import { calculateCashForecast } from "./financeInsights.js";
 import { parseEditedAmount } from "./financeData.js";
+import FinanceOverlay from "./FinanceOverlay.jsx";
 
 const money = n => new Intl.NumberFormat("en-MY",{style:"currency",currency:"MYR"}).format(Number(n||0));
 
@@ -11,6 +12,7 @@ export default function FinanceForecastPanel({records,selectedMonth,asOfDate,pla
   const [trailingDays,setTrailingDays] = useState(30);
   const [editForm,setEditForm] = useState({date:shiftCalendarDay(localDateMY(),1),amount:"",note:""});
   const [busy,setBusy] = useState(false);
+  const [incomePlannerOpen,setIncomePlannerOpen] = useState(false);
 
   const outcome = useMemo(()=>{
     try {return {data:calculateCashForecast(records,{asOfDate,selectedMonth,horizon,trailingDays,plannedIncomes})};}
@@ -81,7 +83,15 @@ export default function FinanceForecastPanel({records,selectedMonth,asOfDate,pla
               <p className="mt-1 font-bold">{money(data.averageDailyExpense)}</p>
             </div>
             <div className="rounded-xl bg-green-50 p-3">
-              <p className="text-xs text-green-700">Expected future income (not real)</p>
+              <div className="flex items-start justify-between gap-2">
+                <p className="text-xs text-green-700">Expected future income (not real)</p>
+                <button type="button" aria-label="Manage Expected Income" title="Expected Income / 预计收入"
+                  aria-haspopup="dialog" aria-expanded={incomePlannerOpen}
+                  onClick={() => setIncomePlannerOpen(true)}
+                  className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-green-200 bg-white text-xl font-bold text-green-800 shadow-sm hover:bg-green-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-green-700">
+                  ＋
+                </button>
+              </div>
               <p className="mt-1 font-bold text-green-800">{money(data.expectedIncome)}</p>
             </div>
             <div className="rounded-xl bg-red-50 p-3">
@@ -110,8 +120,9 @@ export default function FinanceForecastPanel({records,selectedMonth,asOfDate,pla
         </>
       }
 
-      <div className="mt-5 border-t border-slate-200 pt-4">
-        <h3 className="font-bold">Expected Income / 预计收入</h3>
+      <FinanceOverlay open={incomePlannerOpen} title="Expected Income / 预计收入"
+        onClose={() => setIncomePlannerOpen(false)} widthClass="max-w-xl">
+      <div className="space-y-3">
         <p className="mt-1 text-xs text-slate-500">Manual planning only. This does not create an actual Income record.</p>
         <form onSubmit={addPlan} className="mt-3 grid grid-cols-2 gap-2">
           <label className="text-xs text-slate-600">Expected date
@@ -144,6 +155,8 @@ export default function FinanceForecastPanel({records,selectedMonth,asOfDate,pla
           {visiblePlans.length===0&&<p className="text-sm text-slate-500">No planned incomes yet.</p>}
         </div>
       </div>
+
+      </FinanceOverlay>
     </div>
   );
 }
