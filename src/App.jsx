@@ -2040,6 +2040,21 @@ function renderDeleteCustomOptionPanel(kind, type) {
     setForecastPlans(next);
     queueSettingsField("forecast_plans",next);
   }
+  function addExpectedIncome(draft) {
+    try {
+      const amount=parseEditedAmount(draft.amount);
+      const date=String(draft.date||"");
+      const label=String(draft.label||"").trim().slice(0,80);
+      if(!validCalendarDate(date)||date<=today())throw Error("Choose a future Malaysia calendar date.");
+      if(!label)throw Error("Enter a label for expected income.");
+      const plan={id:crypto.randomUUID(),date,label,amount};
+      saveForecastPlans([...forecastPlans,plan]);return true;
+    }catch(error){alert(error.message);return false;}
+  }
+  function removeExpectedIncome(planId) {
+    if(!window.confirm("Remove this expected income plan? Actual transactions will be unchanged."))return;
+    saveForecastPlans(forecastPlans.filter(p=>p.id!==planId));
+  }
 
 const expenseCategoryOptions = useMemo(
   () => uniqueOptions(EXPENSE_CATEGORIES, customOptions.expenseCategories),
@@ -2068,7 +2083,7 @@ const incomeMethodOptions = useMemo(
 
 const categoryOptionsFor = (type) => (type === "expense" ? expenseCategoryOptions : incomeCategoryOptions);
 const methodOptionsFor = () => expenseMethodOptions;
-  const filteredRecords = useMemo(() => filterRecords(records, filterMode, selectedMonth, selectedYear, keyword), [records, filterMode, selectedMonth, selectedYear, keyword]);
+  const filteredRecords = useMemo(() => filterRecords(records, filterMode, selectedMonth, selectedYear, keyword), [records, filterMode, selectedMonth, selectedYear, keyword, clockDate]);
   const expenseRecords = filteredRecords.filter((r) => r.type === "expense");
   const income = sumType(records, "income");
   const expense = sumType(records, "expense");
@@ -2219,7 +2234,7 @@ return { ...row, balanceGreen: balance > limit ? balance : null, balanceRed: bal
     else if (filterMode === "recent3") dates = dateRange(recentStart(3), 3);
     else dates = Array.from(new Set(filteredRecords.map((r) => r.date))).sort((a, b) => new Date(a) - new Date(b)).slice(-35);
     return dates.map((date) => ({ date, amount: Number(amounts[date] || 0) }));
-  }, [expenseRecords, filteredRecords, filterMode, selectedMonth]);
+  }, [expenseRecords, filteredRecords, filterMode, selectedMonth, clockDate]);
 
   const topExpenses = useMemo(() => {
   const source = topExpenseCategory === "all"
@@ -2249,7 +2264,7 @@ return { ...row, balanceGreen: balance > limit ? balance : null, balanceRed: bal
     count: todayRecords.length,
     topCategory,
   };
-}, [records]);
+}, [records, clockDate]);
   const groupedTransactionRecords = useMemo(() => {
   const grouped = {};
 
