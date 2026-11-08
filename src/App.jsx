@@ -744,18 +744,90 @@ function MiniPie({ data, emptyText, onClick, selectedName }) {
   );
 }
 
-function ForecastCard({ stats, data, month }) {
+function ForecastCard({ forecast, month, horizon, setHorizon, windowDays, setWindowDays, plans, onAddPlan, onRemovePlan }) {
+  const {currentBalance,predictedBalance,avgDailyExpense,daysLeft,expectedIncome,historic,entries}=forecast;
+  const [showPlans,setShowPlans]=useState(false);
+  const [planDraft,setPlanDraft]=useState({date:shiftCalendarDate(today(),1),amount:"",label:""});
+  const inputClass="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm";
+  function submit(event) {
+    event.preventDefault();
+    if(onAddPlan(planDraft))setPlanDraft({date:shiftCalendarDate(today(),1),amount:"",label:""});
+  }
   return (
     <Card>
-      <h2 className="text-xl font-bold">Cash Flow Forecast</h2>
-      <p className="mt-1 text-sm text-slate-500">Projected Balance Trend · {month}</p>
+      <h2 className="text-xl font-bold">{historic?"Historic Cash Flow / 历史余额":"Cash Flow Forecast / 现金流预测"}</h2>
+      <p className="mt-1 text-xs text-slate-500">
+        {historic?`Actual closing balances for ${month}`:"Forecast uses all actual records through today + separately entered future income."}
+      </p>
+      {!historic && <div className="mt-3 grid grid-cols-2 gap-2">
+        <label className="text-xs text-slate-600">Forecast horizon
+          <select className={inputClass} value={horizon} onChange={e=>setHorizon(e.target.value)}>
+            <option value="month">Until month-end</option>
+            <option value="30">Next 30 days</option>
+            <option value="90">Next 90 days</option>
+          </select>
+        </label>
+        <label className="text-xs text-slate-600">Expense average
+          <select className={inputClass} value={windowDays} onChange={e=>setWindowDays(Number(e.target.value))}>
+            <option value="7">Last 7 days</option>
+            <option value="30">Last 30 days</option>
+            <option value="60">Last 60 days</option>
+          </select>
+        </label>
+      </div>}
       <div className="mt-4 grid grid-cols-2 gap-3 text-sm">
-        <div className="rounded-2xl bg-slate-50 p-3 ring-1 ring-slate-100"><p className="text-slate-500">Current balance</p><p className="mt-1 font-bold text-slate-900">{money(stats.currentBalance)}</p></div>
-        <div className="rounded-2xl bg-slate-50 p-3 ring-1 ring-slate-100"><p className="text-slate-500">Avg daily expense</p><p className="mt-1 font-bold text-slate-900">{money(stats.avgDailyExpense)}</p></div>
-        <div className="rounded-2xl bg-slate-50 p-3 ring-1 ring-slate-100"><p className="text-slate-500">Days left</p><p className="mt-1 font-bold text-slate-900">{stats.daysLeft}</p></div>
-        <div className={`rounded-2xl p-3 ring-1 ${stats.predictedBalance < 1500 ? "bg-red-50 text-red-700 ring-red-200" : "bg-green-50 text-green-700 ring-green-200"}`}><p>Predicted balance</p><p className="mt-1 font-bold">{money(stats.predictedBalance)}</p></div>
+        <div className="rounded-xl bg-slate-50 p-3"><p className="text-xs text-slate-500">{historic?"Actual closing balance":"Ledger balance today"}</p><p className="font-bold">{money(currentBalance)}</p></div>
+        <div className="rounded-xl bg-slate-50 p-3"><p className="text-xs text-slate-500">Avg daily expense</p><p className="font-bold">{money(avgDailyExpense)}</p></div>
+        <div className="rounded-xl bg-slate-50 p-3"><p className="text-xs text-slate-500">Future planned income</p><p className="font-bold">{money(historic?0:expectedIncome)}</p></div>
+        <div className="rounded-xl bg-emerald-50 p-3"><p className="text-xs text-emerald-700">{historic?"Historic actual":"Projected closing balance"}</p><p className="font-bold text-emerald-800">{money(predictedBalance)}</p></div>
       </div>
-      <div className="mt-4 h-44">{data.length ? <ResponsiveContainer width="100%" height="100%"><LineChart data={data}><CartesianGrid strokeDasharray="3 3" /><XAxis dataKey="day" /><YAxis /><Tooltip formatter={(v) => money(v)} /><Line type="monotone" dataKey="balance" name="Projected Balance" stroke={stats.predictedBalance < 1500 ? "#ef4444" : "#22c55e"} strokeWidth={3} dot={{ r: 3 }} /></LineChart></ResponsiveContainer> : <div className="flex h-full items-center justify-center text-slate-500">No forecast data.</div>}</div>
+      <p className="mt-2 text-xs text-slate-500">
+        {historic?"Historical facts only; no hypothetical projection.":`Days projected: ${daysLeft} · Expected income is NOT an actual transaction.`}
+      </p>
+      <div className="mt-4 h-48">
+        {entries.length ? <ResponsiveContainer width="100%" height="100%">
+          <LineChart data={entries}>
+            <CartesianGrid strokeDasharray="3 3"/>
+            <XAxis dataKey="day" tickFormatter={v=>v.slice(5)} minTickGap={20}/>
+            <YAxis width={54}/>
+            <Tooltip formatter={value=>value===null?"—":money(value)}/>
+            <Legend/>
+            <Line dataKey="actual" name="Actual balance" type="monotone" stroke="#16a34a" strokeWidth={2} dot={false} connectNulls={false}/>
+            {!historic && <Line dataKey="projected" name="Forecast (estimate)" type="monotone" stroke="#6366f1" strokeDasharray="6 4" strokeWidth={2} dot={false} connectNulls={false}/>}
+          </LineChart>
+        </ResponsiveContainer>: <p className="text-xs text-slate-500">No forecast data.</p>}
+      </div>
+      <p className="mt-1 text-xs text-slate-500">Ledger-derived balance, not verified bank cash; existing opening balances are unknown. Estimates are not guaranteed.</p>
+      {!historic && <div className="mt-3 border-t border-slate-200 pt-3">
+        <button type="button" onClick={()=>setShowPlans(p=>!p)} className="rounded-xl bg-slate-100 px-3 py-2 text-xs font-bold">
+          {showPlans?"Hide future incomes":"Add / manage expected incomes"}
+        </button>
+        {showPlans && <>
+          <form onSubmit={submit} className="mt-3 space-y-2">
+            <label className="block text-xs">Expected date
+              <input type="date" min={shiftCalendarDate(today(),1)} required className={inputClass}
+                value={planDraft.date} onChange={e=>setPlanDraft(p=>({...p,date:e.target.value}))}/>
+            </label>
+            <label className="block text-xs">Expected amount (RM)
+              <input type="text" required inputMode="decimal" placeholder="2500.00" className={inputClass}
+                value={planDraft.amount} onChange={e=>setPlanDraft(p=>({...p,amount:e.target.value}))}/>
+            </label>
+            <label className="block text-xs">Label
+              <input type="text" maxLength={80} required placeholder="Salary / Allowance" className={inputClass}
+                value={planDraft.label} onChange={e=>setPlanDraft(p=>({...p,label:e.target.value}))}/>
+            </label>
+            <button type="submit" className="rounded-xl bg-indigo-600 px-4 py-2 text-xs font-bold text-white">Save expected income (not a transaction)</button>
+          </form>
+          <div className="mt-3 max-h-44 space-y-2 overflow-y-auto">
+            {plans.length===0?<p className="text-xs text-slate-500">No expected income plans.</p>
+              :plans.slice().sort((a,b)=>a.date.localeCompare(b.date)).map(plan=>
+                <div key={plan.id} className="flex flex-wrap items-center justify-between gap-2 rounded-xl bg-slate-50 p-2 text-xs">
+                  <span>{plan.date} · {plan.label} · {money(plan.amount)}</span>
+                  <button type="button" className="rounded-lg bg-red-50 px-2 py-1 text-red-700" onClick={()=>onRemovePlan(plan.id)}>Remove</button>
+                </div>)}
+          </div>
+        </>}
+      </div>}
     </Card>
   );
 }
@@ -2131,18 +2203,11 @@ return { ...row, balanceGreen: balance > limit ? balance : null, balanceRed: bal
     });
 }, [filteredRecords, expenseRecords, trendCategory, filterMode, balanceLimit]);
 
-  const forecastMonth = filterMode === "month" ? selectedMonth : monthNow();
-  const forecast = useMemo(() => {
-    const totalDays = daysInMonth(forecastMonth);
-    const currentDay = forecastMonth === monthNow() ? Number(today().slice(8)) : totalDays;
-    const monthRecords = records.filter((r) => r.date.startsWith(forecastMonth) && Number(r.date.slice(8)) <= currentDay);
-    const currentBalance = sumType(monthRecords, "income") - sumType(monthRecords, "expense");
-    const avgDailyExpense = sumType(monthRecords, "expense") / Math.max(currentDay, 1);
-    const daysLeft = Math.max(totalDays - currentDay, 0);
-    const predictedBalance = currentBalance - avgDailyExpense * daysLeft;
-    const data = Array.from({ length: daysLeft + 1 }, (_, i) => ({ day: pad(currentDay + i), balance: Math.round((currentBalance - avgDailyExpense * i) * 100) / 100 }));
-    return { stats: { currentBalance, avgDailyExpense, daysLeft, predictedBalance }, data };
-  }, [records, forecastMonth]);
+  const forecastMonth = filterMode === "month" ? selectedMonth : clockDate.slice(0,7);
+  const forecast = useMemo(() => forecastCashFlow({
+    records,expectedIncome:forecastPlans,selectedMonth:forecastMonth,
+    referenceDate:clockDate,daysWindow:forecastWindow,horizon:forecastHorizon,
+  }), [records,forecastPlans,forecastMonth,clockDate,forecastWindow,forecastHorizon]);
 
   const heatmapDays = useMemo(() => {
     const amounts = {};
@@ -2837,7 +2902,10 @@ methodOptions={accountMethodOptions}
   onSaveTemplate={saveTemplateBudgetCategory}
   expenseCategoryOptions={expenseCategoryOptions}
 />}</section>
-            <section className="grid gap-6 xl:grid-cols-3"><ForecastCard stats={forecast.stats} data={forecast.data} month={forecastMonth} /><HeatmapCard days={heatmapDays} label={filterLabel} /><TopExpensesCard
+            <section className="grid gap-6 xl:grid-cols-3"><ForecastCard forecast={forecast} month={forecastMonth}
+  horizon={forecastHorizon} setHorizon={setForecastHorizon}
+  windowDays={forecastWindow} setWindowDays={setForecastWindow}
+  plans={forecastPlans} onAddPlan={addExpectedIncome} onRemovePlan={removeExpectedIncome}/><HeatmapCard days={heatmapDays} label={filterLabel} /><TopExpensesCard
   records={topExpenses}
   label={filterLabel}
   category={topExpenseCategory}
