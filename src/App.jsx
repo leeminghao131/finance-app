@@ -1735,7 +1735,7 @@ useEffect(() => {
         amount:parseEditedAmount(plan.amount),
         note:String(plan.note||"").trim().slice(0,300),
       }));
-      if (normalized.some(plan=>plan.date<=today())) throw new Error("Only future dates are valid for expected income plans.");
+      // Existing past-dated plans may remain visible/removable; they are excluded from future forecasts.
       const ok=await queueSettingsField("forecast_plans",normalized);
       if (ok) setForecastPlans(normalized);
       else alert("Expected income was not saved. Refresh and try again.");
