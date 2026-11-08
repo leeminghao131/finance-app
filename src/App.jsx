@@ -631,7 +631,8 @@ function BudgetCard({
   useEffect(()=>setTemplateDrafts({...templateBudgets}),[templateBudgets]);
   const active=Boolean(budgetRecord);
   const used=summary.percentage;
-  const warn=used!==null && used>=75;
+  const nearing=used!==null && used>=75 && used<100;
+  const overspent=used!==null && used>=100;
   const controls="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-semibold outline-none";
   function saveBudget(category) {
     const input=String(drafts[category]??"").trim();
@@ -654,7 +655,7 @@ function BudgetCard({
       onSaveTemplate(category,input);
   }
   return (
-    <Card className={warn?"ring-red-300":""}>
+    <Card className={overspent?"ring-red-300":nearing?"ring-amber-300":""}>
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div><p className="text-sm font-semibold text-slate-700">Monthly Budget / 月度预算</p>
           <p className="text-xs text-slate-500">Calendar month only · independent of transaction filters</p></div>
@@ -676,7 +677,7 @@ function BudgetCard({
         <>
           <div className="mt-3 text-xl font-bold">{money(summary.budget)} total budget</div>
           <div className="mt-2 h-3 overflow-hidden rounded-full bg-slate-100">
-            <div className={`h-full rounded-full ${warn?"bg-red-600":"bg-emerald-600"}`} style={{width:`${Math.min(100,used||0)}%`}}/>
+            <div className={`h-full rounded-full ${overspent?"bg-red-600":nearing?"bg-amber-500":"bg-emerald-600"}`} style={{width:`${Math.min(100,used||0)}%`}}/>
           </div>
           <p className="mt-1 text-xs text-slate-600">
             {used===null?"No positive budgets set":`Used ${used.toFixed(0)}% · `}
