@@ -2,6 +2,11 @@ import React, { useEffect, useMemo, useRef, useState } from "react";
 import * as XLSX from "xlsx";
 import { supabase, hasSupabaseEnv, isTestEnvironment } from "./supabaseClient";
 import { parseEditedAmount, splitRecordStatus, loadEveryOwnedRow } from "./financeData";
+import { localDateMY, localMonthMY, localYearMY, shiftCalendarDay, calendarDaysRange, previousCalendarDays, calendarMonthDays, requireCalendarDate } from "./financeCalendar";
+import { normalizeBudgetsInput } from "./financeInsights.js";
+import FinanceTransferPanel from "./FinanceTransferPanel.jsx";
+import FinanceBudgetPanel from "./FinanceBudgetPanel.jsx";
+import FinanceForecastPanel from "./FinanceForecastPanel.jsx";
 import {
   BarChart, Bar, PieChart, Pie, Cell, XAxis, YAxis, Tooltip,
   ResponsiveContainer, CartesianGrid, Legend, LineChart, Line,
@@ -33,13 +38,9 @@ const DELETE_CATEGORY_VALUE = "__delete_category__";
 const DELETE_METHOD_VALUE = "__delete_method__";
 const COLORS = ["#6366f1", "#22c55e", "#f97316", "#ef4444", "#06b6d4", "#a855f7", "#eab308", "#64748b", "#ec4899"];
 
-const today = () => {
-  const date = new Date();
-  const localDate = new Date(date.getTime() - date.getTimezoneOffset() * 60000);
-  return localDate.toISOString().slice(0, 10);
-};
-const monthNow = () => new Date().toISOString().slice(0, 7);
-const yearNow = () => String(new Date().getFullYear());
+const today = localDateMY;
+const monthNow = localMonthMY;
+const yearNow = localYearMY;
 const makeId = () => (crypto?.randomUUID ? crypto.randomUUID() : `${Date.now()}-${Math.random()}`);
 const pad = (n) => String(n).padStart(2, "0");
 const money = (v) => new Intl.NumberFormat("en-MY", { style: "currency", currency: "MYR" }).format(Number(v || 0));
@@ -100,26 +101,10 @@ const recordTypeStyle = (type) =>
         label: "🔥 Expense",
       };
 
-function daysInMonth(ym) {
-  const [y, m] = ym.split("-").map(Number);
-  return new Date(y, m, 0).getDate();
-}
-
-function addDays(dateString, amount) {
-  const d = new Date(dateString);
-  d.setDate(d.getDate() + amount);
-  return d.toISOString().slice(0, 10);
-}
-
-function dateRange(start, count) {
-  return Array.from({ length: count }, (_, i) => addDays(start, i));
-}
-
-function recentStart(days) {
-  const d = new Date();
-  d.setDate(d.getDate() - (days - 1));
-  return d.toISOString().slice(0, 10);
-}
+const daysInMonth = calendarMonthDays;
+const addDays = shiftCalendarDay;
+const dateRange = calendarDaysRange;
+const recentStart = previousCalendarDays;
 
 function sumType(records, type) {
   return records.filter((r) => r.type === type).reduce((s, r) => s + Number(r.amount || 0), 0);
@@ -1270,6 +1255,9 @@ function normalizeTransfer(row) {
     amount: Number(row.amount || 0),
     note: row.note || "",
     date: row.date,
+    version: Number(row.version || 1),
+    deleted_at: row.deleted_at || null,
+    updated_at: row.updated_at || row.created_at,
   };
 }
 function toRecordPayload(record, userId) {
@@ -1349,11 +1337,17 @@ export default function FinanceVisualizerApp() {
   const [session, setSession] = useState(null);
   const [user, setUser] = useState(null);
   const [authLoading, setAuthLoading] = useState(true);
+  const [localToday, setLocalToday] = useState(today());
   const [dataLoading, setDataLoading] = useState(false);
   const [syncStatus, setSyncStatus] = useState("");
   const [records, setRecords] = useState([]);
   const [deletedRecords, setDeletedRecords] = useState([]);
   const [transfers, setTransfers] = useState([]);
+  const [deletedTransfers, setDeletedTransfers] = useState([]);
+  const [undoTransfer, setUndoTransfer] = useState(null);
+  const [monthRows, setMonthRows] = useState([]);
+  const [budgetMonth, setBudgetMonth] = useState(monthNow());
+  const [forecastPlans, setForecastPlans] = useState([]);
   const [undoDeleted, setUndoDeleted] = useState(null);
   const [trashOpen, setTrashOpen] = useState(false);
   const [syncProgress, setSyncProgress] = useState("");
@@ -1366,6 +1360,9 @@ export default function FinanceVisualizerApp() {
   const recordsLoadCounterRef = useRef(0);
   const liveUserIdRef = useRef(null);
   const undoTimeoutRef = useRef(null);
+  const undoTransferTimeoutRef = useRef(null);
+  const pendingTransfersRef = useRef(new Set());
+  const transferCreationPendingRef = useRef(false);
   const pendingRecordsRef = useRef(new Set());
   const reloadDebounceRef = useRef(null);
   const [budgets, setBudgets] = useState(DEFAULT_BUDGETS);
@@ -1406,6 +1403,31 @@ const [customCardImage, setCustomCardImage] = useState(() => {
 });
 
   useEffect(() => {
+    // Refresh date-sensitive views at local midnight even if the tab stays open.
+    let lastDay = today();
+    const checkDate = () => {
+      const next = today();
+      if (next === lastDay) return;
+      const prior = lastDay;
+      lastDay = next;
+      setLocalToday(next);
+      setForm((v) => v.date === prior ? { ...v, date: next } : v);
+      setTransferForm((v) => v.date === prior ? { ...v, date: next } : v);
+      setSelectedMonth((v) => v === prior.slice(0,7) ? next.slice(0,7) : v);
+      setBudgetMonth((v) => v === prior.slice(0,7) ? next.slice(0,7) : v);
+      setSelectedYear((v) => v === prior.slice(0,4) ? next.slice(0,4) : v);
+    };
+    const id = window.setInterval(checkDate, 30000);
+    window.addEventListener("focus", checkDate);
+    document.addEventListener("visibilitychange", checkDate);
+    return () => {
+      window.clearInterval(id);
+      window.removeEventListener("focus", checkDate);
+      document.removeEventListener("visibilitychange", checkDate);
+    };
+  }, []);
+
+  useEffect(() => {
     if (!hasSupabaseEnv) {
       setAuthLoading(false);
       return;
@@ -1443,6 +1465,10 @@ const [customCardImage, setCustomCardImage] = useState(() => {
       setRecords([]);
       setDeletedRecords([]);
       setTransfers([]);
+      setDeletedTransfers([]);
+      setMonthRows([]);
+      setForecastPlans([]);
+      setUndoTransfer(null);
       setBudgets(DEFAULT_BUDGETS);
       setCustomOptions(DEFAULT_CUSTOM_OPTIONS);
       setUndoDeleted(null);
@@ -1453,6 +1479,7 @@ const [customCardImage, setCustomCardImage] = useState(() => {
       clearTimeout(reloadDebounceRef.current);
       clearTimeout(budgetSaveTimerRef.current);
       clearTimeout(undoTimeoutRef.current);
+      clearTimeout(undoTransferTimeoutRef.current);
     };
   }, [user?.id]);
 
@@ -1469,7 +1496,7 @@ const [customCardImage, setCustomCardImage] = useState(() => {
       }, 350);
     };
     const channel = supabase.channel("finance-updates-" + accountId);
-    for (const table of ["records", "transfers", "user_settings"]) {
+    for (const table of ["records", "transfers", "user_settings", "monthly_budgets"]) {
       channel.on("postgres_changes", {
         event: "*", schema: "public", table, filter: "user_id=eq." + accountId,
       }, scheduleRefresh);
@@ -1555,16 +1582,25 @@ useEffect(() => {
       if (!isCurrent()) return;
       const transferRows = await loadEveryOwnedRow(
         supabase, "transfers",
-        "id,from_method,to_method,amount,note,date,created_at",
+        "id,from_method,to_method,amount,note,date,created_at,updated_at,version,deleted_at",
         accountId, progress
       );
       if (!isCurrent()) return;
       const { data: settingsRow, error: settingsError } = await supabase
         .from("user_settings")
-        .select("category_budgets,custom_options,version")
+        .select("category_budgets,custom_options,version,forecast_plans")
         .eq("user_id", accountId)
         .maybeSingle();
       if (settingsError) throw settingsError;
+      if (!isCurrent()) return;
+      const { data: savedMonths, error: monthError } = await supabase
+        .from("monthly_budgets")
+        .select("user_id,month,category_budgets,version,updated_at")
+        .eq("user_id",accountId)
+        .order("month",{ascending:false})
+        .limit(1000);
+      if (monthError) throw monthError;
+      if ((savedMonths || []).length === 1000) throw new Error("Monthly budget history reached the read cap; refusing incomplete results.");
       if (!isCurrent()) return;
       const byNewest = (a, b) => String(b.date || "").localeCompare(String(a.date || ""))
         || new Date(b.created_at || 0) - new Date(a.created_at || 0);
@@ -1572,7 +1608,10 @@ useEffect(() => {
       // A complete, count-checked snapshot replaces all three states together.
       setRecords(active);
       setDeletedRecords(deleted);
-      setTransfers(transferRows.slice().sort(byNewest).map(normalizeTransfer));
+      const {active:activeTransfers,deleted:trashTransfers} = splitRecordStatus(transferRows.slice().sort(byNewest).map(normalizeTransfer));
+      setTransfers(activeTransfers);
+      setDeletedTransfers(trashTransfers);
+      setMonthRows(savedMonths || []);
       const nextBudgets = settingsRow?.category_budgets
         ? { ...DEFAULT_BUDGETS, ...settingsRow.category_budgets }
         : DEFAULT_BUDGETS;
@@ -1581,6 +1620,7 @@ useEffect(() => {
       setCustomOptions(settingsRow?.custom_options
         ? { ...DEFAULT_CUSTOM_OPTIONS, ...settingsRow.custom_options }
         : DEFAULT_CUSTOM_OPTIONS);
+      setForecastPlans(Array.isArray(settingsRow?.forecast_plans) ? settingsRow.forecast_plans : []);
       const version = settingsRow ? Number(settingsRow.version || 1) : null;
       settingsVersionRef.current = version;
       setSettingsVersion(version);
@@ -1600,9 +1640,9 @@ useEffect(() => {
   // This prevents a budget update from overwriting someone else's custom-options edits.
   function queueSettingsField(column, value) {
     const accountId = user?.id;
-    if (!accountId) return;
-    settingsQueueRef.current = settingsQueueRef.current.catch(() => {}).then(async () => {
-      if (liveUserIdRef.current !== accountId) return;
+    if (!accountId) return Promise.resolve(false);
+    settingsQueueRef.current = settingsQueueRef.current.catch(() => false).then(async () => {
+      if (liveUserIdRef.current !== accountId) return false;
       const currentVersion = settingsVersionRef.current;
       let request;
       if (currentVersion === null) {
@@ -1615,22 +1655,25 @@ useEffect(() => {
       }
       try {
         const { data, error } = await request.select("version").maybeSingle();
-        if (liveUserIdRef.current !== accountId) return;
+        if (liveUserIdRef.current !== accountId) return false;
         if (error) throw error;
         if (!data) {
           setSyncStatus("Settings conflict — another device updated settings; reloading.");
           await loadCloudData({ background: true });
           alert("Settings were changed on another device. Your change was not saved. Latest settings have been loaded.");
-          return;
+          return false;
         }
         const nextVersion = Number(data.version);
         settingsVersionRef.current = nextVersion;
         setSettingsVersion(nextVersion);
         setSyncStatus("Settings synced");
+        return true;
       } catch (error) {
         setSyncStatus("Settings not saved: " + error.message + ". Please retry.");
+        return false;
       }
     });
+    return settingsQueueRef.current;
   }
 
   function saveBudgets(nextBudgets) {
@@ -1639,6 +1682,66 @@ useEffect(() => {
 
   function saveCustomOptions(nextOptions) {
     queueSettingsField("custom_options", nextOptions);
+  }
+
+
+  async function saveMonthlyBudget(month, nextBudgets, expectedVersion) {
+    if (!user) return false;
+    const accountId = user.id;
+    let budgetsToSave;
+    try {
+      if (!/^\d{4}-(0[1-9]|1[0-2])$/.test(month)) throw new Error("Choose a valid budget month.");
+      budgetsToSave = normalizeBudgetsInput(nextBudgets);
+      const query = expectedVersion == null
+        ? supabase.from("monthly_budgets").insert({
+            user_id: accountId, month, category_budgets: budgetsToSave,
+          })
+        : supabase.from("monthly_budgets").update({
+            category_budgets: budgetsToSave,
+          }).eq("user_id", accountId).eq("month", month).eq("version", expectedVersion);
+      const {data,error} = await query.select("user_id,month,category_budgets,version,updated_at").maybeSingle();
+      if (error) throw error;
+      if (liveUserIdRef.current !== accountId) return false;
+      if (!data) {
+        setSyncStatus("Monthly budget conflict; no other device's budget was overwritten.");
+        alert("This month budget was changed on another device. Reopen this month after refreshing.");
+        await loadCloudData({background:true});
+        return false;
+      }
+      setMonthRows(current => [data, ...current.filter(row=>row.month!==month)]);
+      setSyncStatus("Saved monthly budget " + month);
+      return true;
+    } catch(e) {
+      setSyncStatus("Budget not saved: " + e.message);
+      alert("Budget not saved. It may have been changed on another device: " + e.message);
+      await loadCloudData({background:true});
+      return false;
+    }
+  }
+
+  async function saveTemplateBudget(nextBudgets) {
+    const clean = normalizeBudgetsInput(nextBudgets);
+    const ok = await queueSettingsField("category_budgets",clean);
+    if(ok) {budgetsRef.current = clean;setBudgets(clean);}
+    else alert("Default budget template was not saved. Please refresh and try again.");
+    return ok;
+  }
+
+  async function saveExpectedIncomePlans(nextPlans) {
+    try {
+      if (!Array.isArray(nextPlans) || nextPlans.length>200) throw new Error("Too many planned income entries.");
+      const normalized = nextPlans.map(plan => ({
+        id:String(plan.id),
+        date:requireCalendarDate(plan.date),
+        amount:parseEditedAmount(plan.amount),
+        note:String(plan.note||"").trim().slice(0,300),
+      }));
+      // Existing past-dated plans may remain visible/removable; they are excluded from future forecasts.
+      const ok=await queueSettingsField("forecast_plans",normalized);
+      if (ok) setForecastPlans(normalized);
+      else alert("Expected income was not saved. Refresh and try again.");
+      return ok;
+    } catch(e) {alert(e.message);return false;}
   }
 
   function addCustomOption(kind, type) {
@@ -1865,12 +1968,6 @@ const methodOptionsFor = () => expenseMethodOptions;
   const expense = sumType(records, "expense");
   const filteredIncome = sumType(filteredRecords, "income");
   const filteredExpense = sumType(filteredRecords, "expense");
-  const totalBudget = useMemo(
-  () => expenseCategoryOptions.reduce((s, c) => s + Number(budgets[c] || 0), 0),
-  [budgets, expenseCategoryOptions]
-);
-  const budgetUsed = totalBudget > 0 ? (filteredExpense / totalBudget) * 100 : 0;
-  const showBudget = filterMode === "month" || filterMode === "recent30";
   const filterLabel = filterMode === "all" ? "全部" : filterMode === "month" ? selectedMonth : filterMode === "year" ? selectedYear : filterMode === "recent30" ? "最近 30 天" : filterMode === "recent7" ? "最近 7 天" : "最近 3 天";
   const chartLabel = (d) => filterMode === "month" ? d.slice(8) : filterMode === "all" ? d : d.slice(5);
   const categoryData = useMemo(() => group(expenseRecords, (r) => r.category), [expenseRecords]);
@@ -1994,18 +2091,6 @@ return { ...row, balanceGreen: balance > limit ? balance : null, balanceRed: bal
 }, [filteredRecords, expenseRecords, trendCategory, filterMode, balanceLimit]);
 
   const forecastMonth = filterMode === "month" ? selectedMonth : monthNow();
-  const forecast = useMemo(() => {
-    const totalDays = daysInMonth(forecastMonth);
-    const currentDay = forecastMonth === monthNow() ? Number(today().slice(8)) : totalDays;
-    const monthRecords = records.filter((r) => r.date.startsWith(forecastMonth) && Number(r.date.slice(8)) <= currentDay);
-    const currentBalance = sumType(monthRecords, "income") - sumType(monthRecords, "expense");
-    const avgDailyExpense = sumType(monthRecords, "expense") / Math.max(currentDay, 1);
-    const daysLeft = Math.max(totalDays - currentDay, 0);
-    const predictedBalance = currentBalance - avgDailyExpense * daysLeft;
-    const data = Array.from({ length: daysLeft + 1 }, (_, i) => ({ day: pad(currentDay + i), balance: Math.round((currentBalance - avgDailyExpense * i) * 100) / 100 }));
-    return { stats: { currentBalance, avgDailyExpense, daysLeft, predictedBalance }, data };
-  }, [records, forecastMonth]);
-
   const heatmapDays = useMemo(() => {
     const amounts = {};
     expenseRecords.forEach((r) => { amounts[r.date] = (amounts[r.date] || 0) + Number(r.amount || 0); });
@@ -2046,7 +2131,7 @@ return { ...row, balanceGreen: balance > limit ? balance : null, balanceRed: bal
     count: todayRecords.length,
     topCategory,
   };
-}, [records]);
+}, [records, localToday]);
   const groupedTransactionRecords = useMemo(() => {
   const grouped = {};
 
@@ -2146,50 +2231,132 @@ if (insertedRecord.type === "expense") {
 }
 }
   async function addTransfer(event) {
-  event.preventDefault();
+    event.preventDefault();
+    if (!user) {alert("Please sign in first.");return;}
+    if (transferCreationPendingRef.current) return;
+    const amount = parseMoneyInput(transferForm.amount);
+    if (!Number.isFinite(amount) || amount <= 0 || !Number.isSafeInteger(Math.round(amount*100))) {
+      alert("Please enter a valid positive transfer amount."); return;
+    }
+    if (transferForm.fromMethod === transferForm.toMethod) {
+      alert("From Method and To Method cannot be the same."); return;
+    }
+    try {requireCalendarDate(transferForm.date);} catch(e){alert(e.message);return;}
 
-  if (!user) return alert("Please sign in first.");
-
-  const amount = parseMoneyInput(transferForm.amount);
-
-  if (!amount || amount <= 0) {
-    return alert("Please enter a valid transfer amount.");
+    transferCreationPendingRef.current = true;
+    try {
+      const payload = {
+        user_id:user.id,from_method:transferForm.fromMethod,to_method:transferForm.toMethod,
+        amount,note:String(transferForm.note||"").trim(),date:transferForm.date,
+      };
+      const {data,error}=await supabase.from("transfers")
+        .insert(payload)
+        .select("id,from_method,to_method,amount,note,date,created_at,updated_at,version,deleted_at")
+        .single();
+      if (error) throw error;
+      setTransfers(rows => [normalizeTransfer(data),...rows]);
+      setTransferForm(previous => ({
+        ...previous,amount:"0.00",note:"",date:today(),
+      }));
+      setSyncStatus("Transfer added to cloud");
+    }catch(error){
+      setSyncStatus("Transfer could not be saved: "+error.message);
+      alert(error.message);
+    }finally{
+      transferCreationPendingRef.current = false;
+    }
   }
 
-  if (transferForm.fromMethod === transferForm.toMethod) {
-    return alert("From Method and To Method cannot be the same.");
+  async function updateTransfer(transferId, edit) {
+    const current = transfers.find(r=>r.id===transferId);
+    if (!current || !user || pendingTransfersRef.current.has(transferId)) return false;
+    let payload;
+    try {
+      const amount=parseEditedAmount(edit.amount);
+      requireCalendarDate(edit.date);
+      if (!edit.fromMethod || !edit.toMethod || edit.fromMethod===edit.toMethod) {
+        throw new Error("From and To methods must be different.");
+      }
+      payload={
+        from_method:edit.fromMethod,to_method:edit.toMethod,
+        amount, date:edit.date,note:String(edit.note||"").trim(),
+      };
+    } catch(e) {alert(e.message);return false;}
+    const fromBalance=methodBalances.find(x=>x.method===normalizeMethodForBalance(edit.fromMethod))?.balance??0;
+    if (fromBalance < payload.amount) {
+      setSyncStatus("Notice: the recorded source balance is below the transfer amount; opening balances may not be included.");
+    }
+    pendingTransfersRef.current.add(transferId);
+    try {
+      const {data,error}=await supabase.from("transfers")
+        .update(payload)
+        .eq("id",transferId).eq("user_id",user.id)
+        .eq("version",current.version).is("deleted_at",null)
+        .select("id,from_method,to_method,amount,note,date,created_at,updated_at,version,deleted_at")
+        .maybeSingle();
+      if(error)throw error;
+      if(!data){
+        setSyncStatus("Transfer conflict — latest cloud data loaded; edit not applied.");
+        await loadCloudData({background:true});
+        alert("The transfer changed on another device. Your edit was not saved.");
+        return false;
+      }
+      const edited=normalizeTransfer(data);
+      setTransfers(rows=>rows.map(r=>r.id===transferId?edited:r));
+      setSyncStatus("Transfer updated");
+      return true;
+    }catch(e){setSyncStatus("Transfer update failed: "+e.message);alert(e.message);return false;}
+    finally{pendingTransfersRef.current.delete(transferId);}
   }
 
-  const payload = {
-    user_id: user.id,
-    from_method: transferForm.fromMethod,
-    to_method: transferForm.toMethod,
-    amount,
-    note: transferForm.note.trim(),
-    date: transferForm.date,
-  };
+  async function deleteTransfer(transferId) {
+    const current=transfers.find(r=>r.id===transferId);
+    if(!current || !user || pendingTransfersRef.current.has(transferId))return false;
+    pendingTransfersRef.current.add(transferId);
+    try {
+      const {data,error}=await supabase.from("transfers")
+        .update({deleted_at:new Date().toISOString()})
+        .eq("id",transferId).eq("user_id",user.id)
+        .eq("version",current.version).is("deleted_at",null)
+        .select("id,from_method,to_method,amount,note,date,created_at,updated_at,version,deleted_at")
+        .maybeSingle();
+      if(error)throw error;
+      if(!data){await loadCloudData({background:true});alert("Transfer changed on another device; nothing deleted.");return false;}
+      const deleted=normalizeTransfer(data);
+      setTransfers(rows=>rows.filter(r=>r.id!==transferId));
+      setDeletedTransfers(rows=>[deleted,...rows.filter(r=>r.id!==transferId)]);
+      setUndoTransfer(deleted);
+      clearTimeout(undoTransferTimeoutRef.current);
+      undoTransferTimeoutRef.current=setTimeout(()=>setUndoTransfer(null),10000);
+      setSyncStatus("Transfer moved to Recycle Bin");
+      return true;
+    }catch(e){setSyncStatus("Transfer delete failed: "+e.message);alert(e.message);return false;}
+    finally{pendingTransfersRef.current.delete(transferId);}
+  }
 
-  const { data, error } = await supabase
-    .from("transfers")
-    .insert(payload)
-    .select("id,from_method,to_method,amount,note,date,created_at")
-    .single();
+  async function restoreTransfer(transferId) {
+    const current=deletedTransfers.find(r=>r.id===transferId);
+    if(!current || !user || pendingTransfersRef.current.has(transferId))return false;
+    pendingTransfersRef.current.add(transferId);
+    try{
+      const {data,error}=await supabase.from("transfers")
+        .update({deleted_at:null})
+        .eq("id",transferId).eq("user_id",user.id)
+        .eq("version",current.version).not("deleted_at","is",null)
+        .select("id,from_method,to_method,amount,note,date,created_at,updated_at,version,deleted_at")
+        .maybeSingle();
+      if(error)throw error;
+      if(!data){await loadCloudData({background:true});alert("Transfer changed on another device; please refresh.");return false;}
+      const restored=normalizeTransfer(data);
+      setDeletedTransfers(rows=>rows.filter(r=>r.id!==transferId));
+      setTransfers(rows=>[restored,...rows]);
+      if(undoTransfer?.id===transferId)setUndoTransfer(null);
+      setSyncStatus("Transfer restored");
+      return true;
+    }catch(e){setSyncStatus("Transfer restore failed: "+e.message);alert(e.message);return false;}
+    finally{pendingTransfersRef.current.delete(transferId);}
+  }
 
-  if (error) return alert(error.message);
-
-  const insertedTransfer = normalizeTransfer(data);
-
-  setTransfers((previous) => [insertedTransfer, ...previous]);
-
-  setTransferForm((previous) => ({
-    ...previous,
-    amount: "0.00",
-    note: "",
-    date: today(),
-  }));
-
-  setSyncStatus("Transfer added to cloud");
-}
   function fillCalculation() {
     try {
       const total = calculate(calculationText);
@@ -2207,9 +2374,7 @@ if (insertedRecord.type === "expense") {
       updates = field === "type"
         ? { type: value, category: categoryOptionsFor(value)[0], method: methodOptionsFor(value)[0] }
         : { [field]: field === "amount" ? parseEditedAmount(value) : value };
-      if (field === "date" && !/^\d{4}-\d{2}-\d{2}$/.test(String(value))) {
-        throw new Error("Please select a valid date.");
-      }
+      if (field === "date") requireCalendarDate(value);
       if (field === "amount" && current.amount === updates.amount) return;
     } catch (error) {
       alert(error.message);
@@ -2615,33 +2780,55 @@ return (
 
     <TodaySummaryCard stats={todaySummaryStats} />
 
-<TransferCard
+<FinanceTransferPanel
   transferForm={transferForm}
   setTransferForm={setTransferForm}
-methodOptions={accountMethodOptions}
+  methodOptions={uniqueOptions(accountMethodOptions, transfers.flatMap(row => [row.fromMethod,row.toMethod]))}
   transfers={transfers}
+  deletedTransfers={deletedTransfers}
+  undoTransfer={undoTransfer}
   onTransfer={addTransfer}
+  onUpdateTransfer={updateTransfer}
+  onDeleteTransfer={deleteTransfer}
+  onRestoreTransfer={restoreTransfer}
 />
 
   </div>
 
   <div className="space-y-6">
             <Card><div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between"><h2 className="text-xl font-bold">Filters</h2><div className="flex flex-col gap-3 md:flex-row md:flex-wrap md:justify-end"><select value={filterMode} onChange={(e) => setFilterMode(e.target.value)} className="rounded-2xl border border-slate-200 px-4 py-3 outline-none"><option value="all">全部</option><option value="month">按月份</option><option value="year">按年份</option><option value="recent30">最近 30 天</option><option value="recent7">最近 7 天</option><option value="recent3">最近 3 天</option></select>{filterMode === "month" && <input type="month" value={selectedMonth} onChange={(e) => setSelectedMonth(e.target.value)} className="rounded-2xl border border-slate-200 px-4 py-3 outline-none" />}{filterMode === "year" && <input type="number" value={selectedYear} onChange={(e) => setSelectedYear(e.target.value)} className="rounded-2xl border border-slate-200 px-4 py-3 outline-none" />}<input value={keyword} onChange={(e) => setKeyword(e.target.value)} placeholder="Search category, method or note" className="rounded-2xl border border-slate-200 px-4 py-3 outline-none" /></div></div></Card>
-            <section className={`grid gap-4 ${showBudget ? "md:grid-cols-4" : "md:grid-cols-3"}`}><StatCard title="Filtered Income" value={money(filteredIncome)} icon="📈" desc={`Current filter: ${filterLabel}`} /><StatCard title="Filtered Expense" value={money(filteredExpense)} icon="📉" desc={`Current filter: ${filterLabel}`} /><BalanceCard title="Filtered Balance" value={filteredIncome - filteredExpense} desc={`Current filter: ${filterLabel}`} limit={balanceLimit} />{showBudget && <BudgetCard
-  totalBudget={totalBudget}
-  used={budgetUsed}
-  budgets={budgets}
-  setBudgets={updateBudgets}
-  spentMap={spentMap}
-  expenseCategoryOptions={expenseCategoryOptions}
-/>}</section>
-            <section className="grid gap-6 xl:grid-cols-3"><ForecastCard stats={forecast.stats} data={forecast.data} month={forecastMonth} /><HeatmapCard days={heatmapDays} label={filterLabel} /><TopExpensesCard
-  records={topExpenses}
-  label={filterLabel}
-  category={topExpenseCategory}
-  setCategory={setTopExpenseCategory}
-  expenseCategoryOptions={expenseCategoryOptions}
-/></section>
+            <section className="grid gap-4 md:grid-cols-3">
+              <StatCard title="Filtered Income" value={money(filteredIncome)} icon="📈" desc={"Current filter: " + filterLabel} />
+              <StatCard title="Filtered Expense" value={money(filteredExpense)} icon="📉" desc={"Current filter: " + filterLabel} />
+              <BalanceCard title="Filtered Balance" value={filteredIncome - filteredExpense} desc={"Current filter: " + filterLabel} limit={balanceLimit} />
+            </section>
+            <FinanceBudgetPanel
+              records={records}
+              budgetMonth={budgetMonth}
+              setBudgetMonth={setBudgetMonth}
+              monthRows={monthRows}
+              budgetTemplate={budgets}
+              categories={expenseCategoryOptions}
+              onSaveMonthly={saveMonthlyBudget}
+              onSaveTemplate={saveTemplateBudget}
+            />
+            <section className="grid gap-6 xl:grid-cols-2">
+              <FinanceForecastPanel
+                records={records}
+                selectedMonth={forecastMonth}
+                asOfDate={localToday}
+                plannedIncomes={forecastPlans}
+                onSavePlans={saveExpectedIncomePlans}
+              />
+              <div className="space-y-6">
+                <HeatmapCard days={heatmapDays} label={filterLabel} />
+                <TopExpensesCard
+                  records={topExpenses} label={filterLabel}
+                  category={topExpenseCategory} setCategory={setTopExpenseCategory}
+                  expenseCategoryOptions={expenseCategoryOptions}
+                />
+              </div>
+            </section>
             <section className="grid gap-6 xl:grid-cols-2">
               <Card><h2 className="text-xl font-bold">Daily Income vs Expense</h2><p className="mt-1 text-sm text-slate-500">Current range: {filterLabel}</p><div className="mt-4 h-64">{dailyData.length ? <ResponsiveContainer width="100%" height="100%"><BarChart data={dailyData}><CartesianGrid strokeDasharray="3 3" /><XAxis dataKey="day" /><YAxis /><Tooltip formatter={(v) => money(v)} /><Legend /><Bar dataKey="income" name="Income" fill="#22c55e" /><Bar dataKey="expense" name="Expense" fill="#ef4444" /></BarChart></ResponsiveContainer> : <div className="flex h-full items-center justify-center text-slate-500">No data.</div>}</div><div className="mt-5 rounded-2xl bg-slate-50 p-3 ring-1 ring-slate-200"><div className="mb-2 flex justify-between gap-2"><p className="text-sm font-bold text-slate-700">消费趋势图</p><select
   value={trendCategory}
@@ -2668,11 +2855,7 @@ methodOptions={accountMethodOptions}
         Showing {filteredRecords.length} records for {filterLabel} · Click a date to expand records
       </p>
     </div>
-    {totalBudget > 0 && filteredExpense > totalBudget && (
-      <div className="rounded-2xl bg-red-50 px-4 py-3 text-sm font-semibold text-red-700">
-        ⚠ Expense exceeded budget by {money(filteredExpense - totalBudget)}.
-      </div>
-    )}
+
   </div>
 
   <div className="mt-5 space-y-3">
