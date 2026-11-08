@@ -40,8 +40,23 @@ test("Record and transfer writes retain explicit user ownership", () => {
   assert.match(app, /\.from\("transfers"\)\s*\.insert\(/);
 });
 
-test("Record deletion retains its record-id filter and explicit UI confirmation", () => {
+test("Record edits and soft deletes require owner and optimistic version checks", () => {
+  assert.match(app, /async function updateRecord\(recordId, field, value\)/);
   assert.match(app, /async function deleteRecord\(recordId\)/);
-  assert.match(app, /\.from\("records"\)\s*\.delete\(\)\s*\.eq\("id",\s*recordId\)/);
+  assert.match(app, /async function restoreRecord\(recordId\)/);
+  assert.match(app, /parseEditedAmount\(value\)/);
+  assert.match(app, /\.eq\("version", current\.version\)/);
+  assert.match(app, /\.eq\("user_id", user\.id\)/);
+  assert.match(app, /\.update\(\{ deleted_at: new Date\(\)\.toISOString\(\) \}\)/);
+  assert.match(app, /\.update\(\{ deleted_at: null \}\)/);
+  assert.doesNotMatch(app, /\.from\("records"\)\s*\.delete\(/);
   assert.match(app, /deleteConfirm === record\.id/);
+});
+
+test("Realtime, count-checked paging and recycle bin remain enabled", () => {
+  assert.match(app, /channel\.on\("postgres_changes"/);
+  assert.match(app, /loadEveryOwnedRow\(/);
+  assert.match(app, /splitRecordStatus\(/);
+  assert.match(app, /Recycle Bin/);
+  assert.match(app, /setUndoDeleted\(removed\)/);
 });
