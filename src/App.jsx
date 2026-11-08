@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useRef, useState } from "react";
 import * as XLSX from "xlsx";
 import { supabase, hasSupabaseEnv, isTestEnvironment } from "./supabaseClient";
 import { parseEditedAmount, splitRecordStatus, loadEveryOwnedRow } from "./financeData";
+import { malaysiaDate, malaysiaMonth, malaysiaYear, validCalendarDate, shiftCalendarDate, recentCalendarStart, daysInCalendarMonth, summarizeMonthlyBudget, forecastCashFlow } from "./financePhase2";
 import {
   BarChart, Bar, PieChart, Pie, Cell, XAxis, YAxis, Tooltip,
   ResponsiveContainer, CartesianGrid, Legend, LineChart, Line,
@@ -33,13 +34,9 @@ const DELETE_CATEGORY_VALUE = "__delete_category__";
 const DELETE_METHOD_VALUE = "__delete_method__";
 const COLORS = ["#6366f1", "#22c55e", "#f97316", "#ef4444", "#06b6d4", "#a855f7", "#eab308", "#64748b", "#ec4899"];
 
-const today = () => {
-  const date = new Date();
-  const localDate = new Date(date.getTime() - date.getTimezoneOffset() * 60000);
-  return localDate.toISOString().slice(0, 10);
-};
-const monthNow = () => new Date().toISOString().slice(0, 7);
-const yearNow = () => String(new Date().getFullYear());
+const today = malaysiaDate;
+const monthNow = malaysiaMonth;
+const yearNow = malaysiaYear;
 const makeId = () => (crypto?.randomUUID ? crypto.randomUUID() : `${Date.now()}-${Math.random()}`);
 const pad = (n) => String(n).padStart(2, "0");
 const money = (v) => new Intl.NumberFormat("en-MY", { style: "currency", currency: "MYR" }).format(Number(v || 0));
@@ -100,26 +97,13 @@ const recordTypeStyle = (type) =>
         label: "🔥 Expense",
       };
 
-function daysInMonth(ym) {
-  const [y, m] = ym.split("-").map(Number);
-  return new Date(y, m, 0).getDate();
-}
-
-function addDays(dateString, amount) {
-  const d = new Date(dateString);
-  d.setDate(d.getDate() + amount);
-  return d.toISOString().slice(0, 10);
-}
-
+function daysInMonth(ym) { return daysInCalendarMonth(ym); }
+function addDays(dateString, amount) { return shiftCalendarDate(dateString, amount); }
 function dateRange(start, count) {
   return Array.from({ length: count }, (_, i) => addDays(start, i));
 }
 
-function recentStart(days) {
-  const d = new Date();
-  d.setDate(d.getDate() - (days - 1));
-  return d.toISOString().slice(0, 10);
-}
+function recentStart(days) { return recentCalendarStart(days, today()); }
 
 function sumType(records, type) {
   return records.filter((r) => r.type === type).reduce((s, r) => s + Number(r.amount || 0), 0);
@@ -633,47 +617,116 @@ function DateInput({ value, onChange }) {
   return <input type="date" value={value} onChange={(e) => onChange(e.target.value)} className="w-full cursor-pointer rounded-2xl border border-slate-200 bg-white px-4 py-3 outline-none" />;
 }
 
-function BudgetCard({ totalBudget, used, budgets, setBudgets, spentMap, expenseCategoryOptions }) {
-  const [open, setOpen] = useState(false);
-  const warning = used >= 75;
+function BudgetCard({
+  selectedBudgetMonth,setBudgetMonth,budgetRecord,summary,templateBudgets,
+  onCreateBudget,onSaveCategory,onSaveTemplate,expenseCategoryOptions,
+}) {
+  const [open,setOpen]=useState(false);
+  const [templateOpen,setTemplateOpen]=useState(false);
+  const [drafts,setDrafts]=useState({});
+  const [templateDrafts,setTemplateDrafts]=useState({});
+  useEffect(()=>{
+    setDrafts({...budgetRecord?.category_budgets});
+  },[selectedBudgetMonth,budgetRecord?.version]);
+  useEffect(()=>setTemplateDrafts({...templateBudgets}),[templateBudgets]);
+  const active=Boolean(budgetRecord);
+  const used=summary.percentage;
+  const nearing=used!==null && used>=75 && used<100;
+  const overspent=used!==null && used>=100;
+  const controls="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-semibold outline-none";
+  function saveBudget(category) {
+    const input=String(drafts[category]??"").trim();
+    if(!budgetRecord)return;
+    if(input && (!/^\d+(?:\.\d{1,2})?$/.test(input)||Number(input)<0)){
+      alert("Enter a valid budget of RM0 or above with up to two decimal places.");
+      setDrafts({...budgetRecord.category_budgets});
+      return;
+    }
+    const old=String(budgetRecord.category_budgets?.[category]??"");
+    if(old!==input)onSaveCategory(budgetRecord,category,input);
+  }
+  function saveTemplate(category) {
+    const input=String(templateDrafts[category]??"").trim();
+    if(input && (!/^\d+(?:\.\d{1,2})?$/.test(input)||Number(input)<0)){
+      alert("Enter a valid template budget.");
+      setTemplateDrafts({...templateBudgets});return;
+    }
+    if(String(templateBudgets[category]??"")!==input)
+      onSaveTemplate(category,input);
+  }
   return (
-    <Card className={`relative ${warning ? "bg-red-50 ring-red-300" : ""}`}>
-      <div className="flex items-start justify-between gap-3">
-        <p className={`text-sm font-medium ${warning ? "text-red-700" : "text-slate-500"}`}>Total Budget</p>
-        <button type="button" onClick={() => setOpen((v) => !v)} className={`rounded-xl px-3 py-1 text-xs font-bold ${warning ? "bg-red-100 text-red-700" : "bg-slate-100 text-slate-600"}`}>Category Budget</button>
+    <Card className={overspent?"ring-red-300":nearing?"ring-amber-300":""}>
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <div><p className="text-sm font-semibold text-slate-700">Monthly Budget / 月度预算</p>
+          <p className="text-xs text-slate-500">Calendar month only · independent of transaction filters</p></div>
+        <input type="month" value={selectedBudgetMonth} onChange={e=>setBudgetMonth(e.target.value)}
+          aria-label="Budget month" className="rounded-xl border border-slate-300 px-2 py-2 text-xs"/>
       </div>
-      <div className="mt-2 flex items-center gap-2">
-        <span className={`text-sm font-semibold ${warning ? "text-red-700" : "text-slate-500"}`}>RM</span>
-        <div className={`w-full rounded-xl border bg-slate-50 px-3 py-2 text-lg font-bold ${warning ? "border-red-300 text-red-700" : "border-slate-200 text-slate-900"}`}>{totalBudget.toFixed(2)}</div>
-      </div>
-      <div className={`mt-3 h-3 overflow-hidden rounded-full ${warning ? "bg-red-200" : "bg-slate-100"}`}>
-        <div className={`h-full rounded-full ${warning ? "bg-red-600" : "bg-slate-900"}`} style={{ width: `${Math.min(used, 100)}%` }} />
-      </div>
-      <p className={`mt-1 text-sm font-medium ${warning ? "text-red-700" : "text-slate-500"}`}>Used {used.toFixed(0)}%</p>
-      {open && (
-        <div className="absolute right-0 top-full z-50 mt-3 max-h-[70vh] w-[760px] max-w-[90vw] overflow-y-auto rounded-2xl bg-white p-4 shadow-xl ring-1 ring-slate-200">
-          <div className="mb-3 flex items-center justify-between gap-3">
-            <div><p className="text-base font-bold text-slate-900">Category Budget / 分类预算</p><p className="text-xs text-slate-500">Calculated from current filtered expense.</p></div>
-            <button type="button" onClick={() => setOpen(false)} className="rounded-xl bg-slate-100 px-3 py-2 text-sm font-bold text-slate-600">×</button>
+      {!active?(
+        <div className="mt-3 space-y-2">
+          <p className="rounded-xl bg-amber-50 p-3 text-sm text-amber-900">
+            No saved budget for {selectedBudgetMonth}. Old months are never assigned an invented budget.
+          </p>
+          <div className="flex flex-wrap gap-2">
+            <button type="button" onClick={()=>onCreateBudget(selectedBudgetMonth,"template")} className="rounded-lg bg-slate-900 px-3 py-2 text-xs font-bold text-white">Apply template to this month</button>
+            <button type="button" onClick={()=>onCreateBudget(selectedBudgetMonth,"empty")} className="rounded-lg bg-slate-100 px-3 py-2 text-xs font-bold">Start blank month</button>
           </div>
-          <div className="grid gap-3 md:grid-cols-2">
-            {expenseCategoryOptions.map((category) => {
-              const budget = Number(budgets[category] || 0);
-              const spent = Number(spentMap[category] || 0);
-              const categoryUsed = budget > 0 ? (spent / budget) * 100 : 0;
-              const warn = categoryUsed >= 75;
-              return (
-                <div key={category} className={`rounded-2xl p-3 ring-1 ${warn ? "bg-red-50 ring-red-200" : "bg-slate-50 ring-slate-200"}`}>
-                  <div className="flex items-center justify-between gap-3"><p className={`font-bold ${warn ? "text-red-700" : "text-slate-800"}`}>{formatCategoryLabel(category)}</p><p className={`text-sm font-bold ${warn ? "text-red-700" : "text-slate-500"}`}>Used {categoryUsed.toFixed(0)}%</p></div>
-                  <div className="mt-2 flex items-center gap-2"><span className="text-xs font-bold text-slate-500">RM</span><input value={budgets[category] || ""} onChange={(e) => setBudgets((p) => ({ ...p, [category]: e.target.value }))} type="number" min="0" placeholder="Budget" className="w-full rounded-xl border bg-white px-3 py-2 text-sm font-bold outline-none" /></div>
-                  <div className={`mt-2 h-2 overflow-hidden rounded-full ${warn ? "bg-red-200" : "bg-slate-200"}`}><div className={`h-full rounded-full ${warn ? "bg-red-600" : "bg-slate-900"}`} style={{ width: `${Math.min(categoryUsed, 100)}%` }} /></div>
-                  <div className="mt-2 flex justify-between text-xs font-semibold text-slate-500"><span>Spent {money(spent)}</span><span>{budget > 0 ? money(budget) : "Not set"}</span></div>
-                </div>
-              );
-            })}
-          </div>
+          <p className="text-xs text-slate-500">Expenses this month: {money(summary.unbudgetedSpent)} · no limit was set.</p>
         </div>
+      ):(
+        <>
+          <div className="mt-3 text-xl font-bold">{money(summary.budget)} total budget</div>
+          <div className="mt-2 h-3 overflow-hidden rounded-full bg-slate-100">
+            <div className={`h-full rounded-full ${overspent?"bg-red-600":nearing?"bg-amber-500":"bg-emerald-600"}`} style={{width:`${Math.min(100,used||0)}%`}}/>
+          </div>
+          <p className="mt-1 text-xs text-slate-600">
+            {used===null?"No positive budgets set":`Used ${used.toFixed(0)}% · `}
+            Budgeted spending {money(summary.spent)} · Remaining {money(summary.remaining)}
+          </p>
+          <p className="mt-1 text-xs text-slate-500">Unbudgeted categories spending: {money(summary.unbudgetedSpent)}</p>
+          <button type="button" onClick={()=>setOpen(p=>!p)} className="mt-3 rounded-lg bg-slate-100 px-3 py-2 text-xs font-bold">
+            {open?"Hide categories":"Edit category budgets"}
+          </button>
+          {open && <div className="mt-3 space-y-3">
+            {expenseCategoryOptions.map(category=>{
+              const current=summary.categories.find(row=>row.name===category)||{budget:null,spent:0,percentage:null,remaining:null};
+              const caution=current.percentage!==null&&current.percentage>=100;
+              return <div key={category} className={`rounded-xl p-3 ring-1 ${caution?"bg-red-50 ring-red-200":"bg-slate-50 ring-slate-200"}`}>
+                <div className="flex flex-wrap items-center justify-between gap-2 text-sm">
+                  <b>{formatCategoryLabel(category)}</b>
+                  <span>{current.budget===null?"Not set":`${current.percentage.toFixed(0)}% used`}</span>
+                </div>
+                <label className="mt-2 block text-xs text-slate-500">Monthly limit (RM)
+                  <input type="text" inputMode="decimal" className={controls}
+                    placeholder="Not set" value={drafts[category]??""}
+                    onChange={e=>setDrafts(p=>({...p,[category]:e.target.value}))}
+                    onBlur={()=>saveBudget(category)}
+                    onKeyDown={e=>{if(e.key==="Enter"){e.preventDefault();e.target.blur();}}}/>
+                </label>
+                <p className="mt-2 text-xs text-slate-600">
+                  Spent {money(current.spent)} · {current.remaining===null?"No budget":`Remaining ${money(current.remaining)}`}
+                </p>
+              </div>;
+            })}
+          </div>}
+        </>
       )}
+      <div className="mt-3 border-t border-slate-200 pt-3">
+        <button type="button" onClick={()=>setTemplateOpen(p=>!p)} className="rounded-lg bg-white px-3 py-2 text-xs font-semibold text-slate-600 ring-1 ring-slate-200">
+          {templateOpen?"Hide default template":"Edit default monthly template"}
+        </button>
+        {templateOpen && <div className="mt-3 grid gap-2 sm:grid-cols-2">
+          {expenseCategoryOptions.map(category=><label key={category} className="text-xs font-semibold text-slate-600">
+            {formatCategoryLabel(category)}
+            <input type="text" inputMode="decimal" className={controls} placeholder="Not set"
+              value={templateDrafts[category]??""}
+              onChange={e=>setTemplateDrafts(p=>({...p,[category]:e.target.value}))}
+              onBlur={()=>saveTemplate(category)}
+              onKeyDown={e=>{if(e.key==="Enter"){e.preventDefault();e.target.blur();}}}/>
+          </label>)}
+          <p className="text-xs text-slate-500 sm:col-span-2">Template edits only affect future months when you explicitly apply the template. Saved historic budgets never change.</p>
+        </div>}
+      </div>
     </Card>
   );
 }
@@ -692,18 +745,90 @@ function MiniPie({ data, emptyText, onClick, selectedName }) {
   );
 }
 
-function ForecastCard({ stats, data, month }) {
+function ForecastCard({ forecast, month, horizon, setHorizon, windowDays, setWindowDays, plans, onAddPlan, onRemovePlan }) {
+  const {currentBalance,predictedBalance,avgDailyExpense,daysLeft,expectedIncome,historic,entries}=forecast;
+  const [showPlans,setShowPlans]=useState(false);
+  const [planDraft,setPlanDraft]=useState({date:shiftCalendarDate(today(),1),amount:"",label:""});
+  const inputClass="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm";
+  function submit(event) {
+    event.preventDefault();
+    if(onAddPlan(planDraft))setPlanDraft({date:shiftCalendarDate(today(),1),amount:"",label:""});
+  }
   return (
     <Card>
-      <h2 className="text-xl font-bold">Cash Flow Forecast</h2>
-      <p className="mt-1 text-sm text-slate-500">Projected Balance Trend · {month}</p>
+      <h2 className="text-xl font-bold">{historic?"Historic Cash Flow / 历史余额":"Cash Flow Forecast / 现金流预测"}</h2>
+      <p className="mt-1 text-xs text-slate-500">
+        {historic?`Actual closing balances for ${month}`:"Forecast uses all actual records through today + separately entered future income."}
+      </p>
+      {!historic && <div className="mt-3 grid grid-cols-2 gap-2">
+        <label className="text-xs text-slate-600">Forecast horizon
+          <select className={inputClass} value={horizon} onChange={e=>setHorizon(e.target.value)}>
+            <option value="month">Until month-end</option>
+            <option value="30">Next 30 days</option>
+            <option value="90">Next 90 days</option>
+          </select>
+        </label>
+        <label className="text-xs text-slate-600">Expense average
+          <select className={inputClass} value={windowDays} onChange={e=>setWindowDays(Number(e.target.value))}>
+            <option value="7">Last 7 days</option>
+            <option value="30">Last 30 days</option>
+            <option value="60">Last 60 days</option>
+          </select>
+        </label>
+      </div>}
       <div className="mt-4 grid grid-cols-2 gap-3 text-sm">
-        <div className="rounded-2xl bg-slate-50 p-3 ring-1 ring-slate-100"><p className="text-slate-500">Current balance</p><p className="mt-1 font-bold text-slate-900">{money(stats.currentBalance)}</p></div>
-        <div className="rounded-2xl bg-slate-50 p-3 ring-1 ring-slate-100"><p className="text-slate-500">Avg daily expense</p><p className="mt-1 font-bold text-slate-900">{money(stats.avgDailyExpense)}</p></div>
-        <div className="rounded-2xl bg-slate-50 p-3 ring-1 ring-slate-100"><p className="text-slate-500">Days left</p><p className="mt-1 font-bold text-slate-900">{stats.daysLeft}</p></div>
-        <div className={`rounded-2xl p-3 ring-1 ${stats.predictedBalance < 1500 ? "bg-red-50 text-red-700 ring-red-200" : "bg-green-50 text-green-700 ring-green-200"}`}><p>Predicted balance</p><p className="mt-1 font-bold">{money(stats.predictedBalance)}</p></div>
+        <div className="rounded-xl bg-slate-50 p-3"><p className="text-xs text-slate-500">{historic?"Actual closing balance":"Ledger balance today"}</p><p className="font-bold">{money(currentBalance)}</p></div>
+        <div className="rounded-xl bg-slate-50 p-3"><p className="text-xs text-slate-500">Avg daily expense</p><p className="font-bold">{money(avgDailyExpense)}</p></div>
+        <div className="rounded-xl bg-slate-50 p-3"><p className="text-xs text-slate-500">Future planned income</p><p className="font-bold">{money(historic?0:expectedIncome)}</p></div>
+        <div className="rounded-xl bg-emerald-50 p-3"><p className="text-xs text-emerald-700">{historic?"Historic actual":"Projected closing balance"}</p><p className="font-bold text-emerald-800">{money(predictedBalance)}</p></div>
       </div>
-      <div className="mt-4 h-44">{data.length ? <ResponsiveContainer width="100%" height="100%"><LineChart data={data}><CartesianGrid strokeDasharray="3 3" /><XAxis dataKey="day" /><YAxis /><Tooltip formatter={(v) => money(v)} /><Line type="monotone" dataKey="balance" name="Projected Balance" stroke={stats.predictedBalance < 1500 ? "#ef4444" : "#22c55e"} strokeWidth={3} dot={{ r: 3 }} /></LineChart></ResponsiveContainer> : <div className="flex h-full items-center justify-center text-slate-500">No forecast data.</div>}</div>
+      <p className="mt-2 text-xs text-slate-500">
+        {historic?"Historical facts only; no hypothetical projection.":`Days projected: ${daysLeft} · Expected income is NOT an actual transaction.`}
+      </p>
+      <div className="mt-4 h-48">
+        {entries.length ? <ResponsiveContainer width="100%" height="100%">
+          <LineChart data={entries}>
+            <CartesianGrid strokeDasharray="3 3"/>
+            <XAxis dataKey="day" tickFormatter={v=>v.slice(5)} minTickGap={20}/>
+            <YAxis width={54}/>
+            <Tooltip formatter={value=>value===null?"—":money(value)}/>
+            <Legend/>
+            <Line dataKey="actual" name="Actual balance" type="monotone" stroke="#16a34a" strokeWidth={2} dot={false} connectNulls={false}/>
+            {!historic && <Line dataKey="projected" name="Forecast (estimate)" type="monotone" stroke="#6366f1" strokeDasharray="6 4" strokeWidth={2} dot={false} connectNulls={false}/>}
+          </LineChart>
+        </ResponsiveContainer>: <p className="text-xs text-slate-500">No forecast data.</p>}
+      </div>
+      <p className="mt-1 text-xs text-slate-500">Ledger-derived balance, not verified bank cash; existing opening balances are unknown. Estimates are not guaranteed.</p>
+      {!historic && <div className="mt-3 border-t border-slate-200 pt-3">
+        <button type="button" onClick={()=>setShowPlans(p=>!p)} className="rounded-xl bg-slate-100 px-3 py-2 text-xs font-bold">
+          {showPlans?"Hide future incomes":"Add / manage expected incomes"}
+        </button>
+        {showPlans && <>
+          <form onSubmit={submit} className="mt-3 space-y-2">
+            <label className="block text-xs">Expected date
+              <input type="date" min={shiftCalendarDate(today(),1)} required className={inputClass}
+                value={planDraft.date} onChange={e=>setPlanDraft(p=>({...p,date:e.target.value}))}/>
+            </label>
+            <label className="block text-xs">Expected amount (RM)
+              <input type="text" required inputMode="decimal" placeholder="2500.00" className={inputClass}
+                value={planDraft.amount} onChange={e=>setPlanDraft(p=>({...p,amount:e.target.value}))}/>
+            </label>
+            <label className="block text-xs">Label
+              <input type="text" maxLength={80} required placeholder="Salary / Allowance" className={inputClass}
+                value={planDraft.label} onChange={e=>setPlanDraft(p=>({...p,label:e.target.value}))}/>
+            </label>
+            <button type="submit" className="rounded-xl bg-indigo-600 px-4 py-2 text-xs font-bold text-white">Save expected income (not a transaction)</button>
+          </form>
+          <div className="mt-3 max-h-44 space-y-2 overflow-y-auto">
+            {plans.length===0?<p className="text-xs text-slate-500">No expected income plans.</p>
+              :plans.slice().sort((a,b)=>a.date.localeCompare(b.date)).map(plan=>
+                <div key={plan.id} className="flex flex-wrap items-center justify-between gap-2 rounded-xl bg-slate-50 p-2 text-xs">
+                  <span>{plan.date} · {plan.label} · {money(plan.amount)}</span>
+                  <button type="button" className="rounded-lg bg-red-50 px-2 py-1 text-red-700" onClick={()=>onRemovePlan(plan.id)}>Remove</button>
+                </div>)}
+          </div>
+        </>}
+      </div>}
     </Card>
   );
 }
@@ -947,156 +1072,149 @@ function CustomPersonalCard({ text, setText, image, setImage }) {
   );
 }
 function TransferCard({
-  transferForm,
-  setTransferForm,
-  methodOptions,
-  transfers,
-  onTransfer,
+  transferForm, setTransferForm, methodOptions, transfers, deletedTransfers,
+  onTransfer, onEditTransfer, onDeleteTransfer, onRestoreTransfer,
 }) {
+  const [expanded, setExpanded] = useState(false);
+  const [showTrash, setShowTrash] = useState(false);
+  const [editing, setEditing] = useState(null);
+  const [editDraft, setEditDraft] = useState(null);
+  const [query, setQuery] = useState("");
+  const [month, setMonth] = useState("");
+  const [fromFilter, setFromFilter] = useState("");
+  const [toFilter, setToFilter] = useState("");
+  const [deleteConfirmId, setDeleteConfirmId] = useState(null);
+  const [saving, setSaving] = useState(false);
+
+  const searched = transfers.filter(t =>
+    (!month || t.date.startsWith(month)) &&
+    (!fromFilter || t.fromMethod === fromFilter) &&
+    (!toFilter || t.toMethod === toFilter) &&
+    `${t.fromMethod} ${t.toMethod} ${t.note} ${t.amount} ${t.date}`.toLowerCase().includes(query.toLowerCase())
+  );
+  const visible = expanded ? searched : transfers.slice(0,5);
+  function beginEdit(transfer) {
+    setEditing(transfer.id);
+    setEditDraft({ fromMethod:transfer.fromMethod, toMethod:transfer.toMethod,
+      amount:Number(transfer.amount).toFixed(2), note:transfer.note, date:transfer.date });
+  }
+  async function submitEdit(transfer) {
+    if(saving) return;
+    setSaving(true);
+    try {
+      const ok=await onEditTransfer(transfer,editDraft);
+      if(ok) {setEditing(null);setEditDraft(null);}
+    } finally {setSaving(false);}
+  }
+  const fieldClass="mt-1 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm outline-none";
+  const choices = methodOptions.map(method => <option key={method} value={method}>{method}</option>);
   return (
     <Card>
       <div className="flex items-start justify-between gap-3">
         <div>
           <h2 className="text-xl font-bold">Money Transfer</h2>
-          <p className="mt-1 text-sm text-slate-500">
-            Move money between methods. This will not count as income or expense.
-          </p>
+          <p className="mt-1 text-sm text-slate-500">Move money between methods; transfers do not count as income or expense.</p>
         </div>
         <div className="rounded-2xl bg-blue-50 px-3 py-2 text-xl">🔁</div>
       </div>
-
       <form onSubmit={onTransfer} className="mt-4 space-y-3">
-        <div className="grid gap-3 md:grid-cols-2">
-          <label className="block">
-            <span className="text-sm font-medium text-slate-600">From Method</span>
-            <select
-              value={transferForm.fromMethod}
-              onChange={(event) =>
-                setTransferForm((previous) => ({
-                  ...previous,
-                  fromMethod: event.target.value,
-                }))
-              }
-              className="mt-1 w-full rounded-2xl border border-slate-200 px-4 py-3 outline-none"
-            >
-              {methodOptions.map((method) => (
-                <option key={method} value={method}>
-                  {method}
-                </option>
-              ))}
+        <div className="grid gap-3 sm:grid-cols-2">
+          <label className="text-sm font-medium text-slate-600">From Method
+            <select value={transferForm.fromMethod} onChange={e=>setTransferForm(p=>({...p,fromMethod:e.target.value}))} className={fieldClass}>
+              {methodOptions.map(method=><option key={method} value={method}>{method}</option>)}
             </select>
           </label>
-
-          <label className="block">
-            <span className="text-sm font-medium text-slate-600">To Method</span>
-            <select
-              value={transferForm.toMethod}
-              onChange={(event) =>
-                setTransferForm((previous) => ({
-                  ...previous,
-                  toMethod: event.target.value,
-                }))
-              }
-              className="mt-1 w-full rounded-2xl border border-slate-200 px-4 py-3 outline-none"
-            >
-              {methodOptions.map((method) => (
-                <option key={method} value={method}>
-                  {method}
-                </option>
-              ))}
+          <label className="text-sm font-medium text-slate-600">To Method
+            <select value={transferForm.toMethod} onChange={e=>setTransferForm(p=>({...p,toMethod:e.target.value}))} className={fieldClass}>
+              {methodOptions.map(method=><option key={method} value={method}>{method}</option>)}
             </select>
           </label>
         </div>
-
-        <label className="block">
-          <span className="text-sm font-medium text-slate-600">Amount</span>
-          <input
-            value={transferForm.amount}
-            onChange={(event) =>
-              setTransferForm((previous) => ({
-                ...previous,
-                amount: formatMoneyTyping(event.target.value),
-              }))
-            }
-            type="text"
-            inputMode="numeric"
-            className="mt-1 w-full rounded-2xl border border-slate-200 px-4 py-3 outline-none"
-          />
+        <label className="block text-sm font-medium text-slate-600">Amount
+          <input type="text" inputMode="numeric" value={transferForm.amount} onChange={e=>setTransferForm(p=>({...p,amount:formatMoneyTyping(e.target.value)}))} className={fieldClass}/>
         </label>
-
-        <label className="block">
-          <span className="text-sm font-medium text-slate-600">Date</span>
-          <DateInput
-            value={transferForm.date}
-            onChange={(date) =>
-              setTransferForm((previous) => ({
-                ...previous,
-                date,
-              }))
-            }
-          />
+        <label className="block text-sm font-medium text-slate-600">Date
+          <DateInput value={transferForm.date} onChange={date=>setTransferForm(p=>({...p,date}))}/>
         </label>
-
-        <label className="block">
-          <span className="text-sm font-medium text-slate-600">Note</span>
-          <input
-            value={transferForm.note}
-            onChange={(event) =>
-              setTransferForm((previous) => ({
-                ...previous,
-                note: event.target.value,
-              }))
-            }
-            placeholder="Example: Top up TNG"
-            className="mt-1 w-full rounded-2xl border border-slate-200 px-4 py-3 outline-none"
-          />
+        <label className="block text-sm font-medium text-slate-600">Note
+          <input value={transferForm.note} onChange={e=>setTransferForm(p=>({...p,note:e.target.value}))} placeholder="Example: Top up TNG" className={fieldClass}/>
         </label>
-
-        <button
-          type="submit"
-          className="w-full rounded-2xl bg-blue-600 px-4 py-3 text-sm font-bold text-white transition hover:bg-blue-700"
-        >
-          Transfer Money
-        </button>
+        <button type="submit" className="w-full rounded-2xl bg-blue-600 px-4 py-3 text-sm font-bold text-white hover:bg-blue-700">Transfer Money</button>
       </form>
 
-      <div className="mt-5">
-        <div className="mb-2 flex items-center justify-between gap-3">
-          <p className="text-sm font-bold text-slate-700">Recent Transfers</p>
-          <p className="text-xs font-semibold text-slate-400">
-            {transfers.length} records
-          </p>
-        </div>
-
-        <div className="max-h-56 space-y-2 overflow-y-auto">
-          {transfers.length ? (
-            transfers.slice(0, 5).map((transfer) => (
-              <div
-                key={transfer.id}
-                className="rounded-2xl bg-slate-50 p-3 text-sm ring-1 ring-slate-100"
-              >
-                <div className="flex items-start justify-between gap-3">
-                  <div>
-                    <p className="font-bold text-slate-900">
-                      {transfer.fromMethod} → {transfer.toMethod}
-                    </p>
-                    <p className="text-xs text-slate-500">
-                      {transfer.date} · {transfer.note || "No note"}
-                    </p>
-                  </div>
-                  <p className="whitespace-nowrap font-bold text-blue-700">
-                    {money(transfer.amount)}
-                  </p>
-                </div>
-              </div>
-            ))
-          ) : (
-            <div className="rounded-2xl bg-slate-50 p-5 text-center text-sm text-slate-500 ring-1 ring-slate-100">
-              No transfer records yet.
-            </div>
-          )}
+      <div className="mt-6 flex flex-wrap items-center justify-between gap-2">
+        <p className="text-sm font-bold text-slate-800">Transfer History · {transfers.length} active</p>
+        <div className="flex gap-2">
+          <button type="button" onClick={()=>setExpanded(v=>!v)} className="rounded-lg bg-slate-100 px-3 py-2 text-xs font-semibold">{expanded?"Recent 5":"View all / 查看全部"}</button>
+          <button type="button" onClick={()=>setShowTrash(v=>!v)} className="rounded-lg bg-amber-50 px-3 py-2 text-xs font-semibold text-amber-900">Transfer Bin ({deletedTransfers.length})</button>
         </div>
       </div>
+      {expanded && <div className="mt-3 grid gap-2 sm:grid-cols-2">
+        <input className={fieldClass} placeholder="Search transfer / note / amount" value={query} onChange={e=>setQuery(e.target.value)}/>
+        <input type="month" className={fieldClass} value={month} onChange={e=>setMonth(e.target.value)}/>
+        <select className={fieldClass} value={fromFilter} onChange={e=>setFromFilter(e.target.value)}>
+          <option value="">All From Methods</option>{methodOptions.map(x=><option key={x} value={x}>{x}</option>)}
+        </select>
+        <select className={fieldClass} value={toFilter} onChange={e=>setToFilter(e.target.value)}>
+          <option value="">All To Methods</option>{methodOptions.map(x=><option key={x} value={x}>{x}</option>)}
+        </select>
+      </div>}
+      <div className={`mt-3 space-y-2 ${expanded?"":"max-h-72 overflow-y-auto"}`}>
+        {visible.length===0 ? <p className="rounded-xl bg-slate-50 p-4 text-sm text-slate-500">No matching transfers.</p> :
+        visible.map(transfer=>(
+          <div key={transfer.id} className="rounded-xl border border-slate-200 bg-slate-50 p-3">
+            {editing===transfer.id && editDraft ? (
+              <div className="space-y-3">
+                <p className="text-sm font-bold">Edit Transfer / 修改转账</p>
+                <div className="grid grid-cols-2 gap-2">
+                  <label className="text-xs">From
+                    <select className={fieldClass} value={editDraft.fromMethod} onChange={e=>setEditDraft(p=>({...p,fromMethod:e.target.value}))}>{choices}</select>
+                  </label>
+                  <label className="text-xs">To
+                    <select className={fieldClass} value={editDraft.toMethod} onChange={e=>setEditDraft(p=>({...p,toMethod:e.target.value}))}>{choices}</select>
+                  </label>
+                </div>
+                <label className="block text-xs">Amount (RM)
+                  <input type="text" inputMode="decimal" className={fieldClass} value={editDraft.amount} onChange={e=>setEditDraft(p=>({...p,amount:e.target.value}))}/>
+                </label>
+                <label className="block text-xs">Date
+                  <DateInput value={editDraft.date} onChange={date=>setEditDraft(p=>({...p,date}))}/>
+                </label>
+                <label className="block text-xs">Note
+                  <input className={fieldClass} value={editDraft.note} onChange={e=>setEditDraft(p=>({...p,note:e.target.value}))}/>
+                </label>
+                <div className="flex gap-2">
+                  <button type="button" disabled={saving} onClick={()=>submitEdit(transfer)} className="rounded-lg bg-blue-600 px-3 py-2 text-xs font-bold text-white disabled:opacity-50">{saving?"Saving...":"Save"}</button>
+                  <button type="button" disabled={saving} onClick={()=>{setEditing(null);setEditDraft(null)}} className="rounded-lg bg-white px-3 py-2 text-xs font-bold">Cancel</button>
+                </div>
+              </div>
+            ) : <>
+              <div className="flex items-start justify-between gap-3 text-sm">
+                <div><p className="font-bold">{transfer.fromMethod} → {transfer.toMethod}</p>
+                  <p className="text-xs text-slate-500">{transfer.date} · {transfer.note || "No note"}</p></div>
+                <p className="whitespace-nowrap font-bold text-blue-700">{money(transfer.amount)}</p>
+              </div>
+              <div className="mt-2 flex justify-end gap-2">
+                <button type="button" onClick={()=>beginEdit(transfer)} className="rounded-lg bg-white px-3 py-1.5 text-xs font-semibold text-blue-700">Edit</button>
+                {deleteConfirmId===transfer.id ? <>
+                  <button type="button" onClick={()=>{onDeleteTransfer(transfer);setDeleteConfirmId(null)}} className="rounded-lg bg-red-600 px-3 py-1.5 text-xs font-semibold text-white">Confirm Delete</button>
+                  <button type="button" onClick={()=>setDeleteConfirmId(null)} className="rounded-lg bg-white px-3 py-1.5 text-xs font-semibold">Cancel</button>
+                </> : <button type="button" onClick={()=>setDeleteConfirmId(transfer.id)} className="rounded-lg bg-white px-3 py-1.5 text-xs font-semibold text-red-700">Delete</button>}
+              </div>
+            </>}
+          </div>
+        ))}
+      </div>
+      {showTrash && <div className="mt-4 space-y-2 border-t border-slate-200 pt-3">
+        <p className="text-sm font-bold text-slate-900">Transfer Recycle Bin · Restore anytime</p>
+        {deletedTransfers.length===0 ? <p className="text-sm text-slate-500">No deleted transfers.</p>
+          :deletedTransfers.map(transfer=>(
+            <div key={transfer.id} className="flex flex-wrap items-center justify-between gap-3 rounded-xl bg-amber-50 p-3 text-sm">
+              <span>{transfer.fromMethod} → {transfer.toMethod} · {money(transfer.amount)} · {transfer.date}</span>
+              <button type="button" onClick={()=>onRestoreTransfer(transfer)} className="rounded-lg bg-emerald-600 px-3 py-2 text-xs font-bold text-white">Restore</button>
+            </div>
+          ))}
+      </div>}
     </Card>
   );
 }
@@ -1270,6 +1388,9 @@ function normalizeTransfer(row) {
     amount: Number(row.amount || 0),
     note: row.note || "",
     date: row.date,
+    version: Number(row.version || 1),
+    deleted_at: row.deleted_at || null,
+    updated_at: row.updated_at || row.created_at,
   };
 }
 function toRecordPayload(record, userId) {
@@ -1354,6 +1475,14 @@ export default function FinanceVisualizerApp() {
   const [records, setRecords] = useState([]);
   const [deletedRecords, setDeletedRecords] = useState([]);
   const [transfers, setTransfers] = useState([]);
+  const [deletedTransfers, setDeletedTransfers] = useState([]);
+  const [monthlyBudgetRows, setMonthlyBudgetRows] = useState([]);
+  const [budgetMonth, setBudgetMonth] = useState(monthNow());
+  const [forecastPlans, setForecastPlans] = useState([]);
+  const [forecastHorizon, setForecastHorizon] = useState("month");
+  const [forecastWindow, setForecastWindow] = useState(30);
+  const [clockDate, setClockDate] = useState(today());
+  const pendingTransfersRef = useRef(new Set());
   const [undoDeleted, setUndoDeleted] = useState(null);
   const [trashOpen, setTrashOpen] = useState(false);
   const [syncProgress, setSyncProgress] = useState("");
@@ -1443,6 +1572,9 @@ const [customCardImage, setCustomCardImage] = useState(() => {
       setRecords([]);
       setDeletedRecords([]);
       setTransfers([]);
+      setDeletedTransfers([]);
+      setMonthlyBudgetRows([]);
+      setForecastPlans([]);
       setBudgets(DEFAULT_BUDGETS);
       setCustomOptions(DEFAULT_CUSTOM_OPTIONS);
       setUndoDeleted(null);
@@ -1469,7 +1601,7 @@ const [customCardImage, setCustomCardImage] = useState(() => {
       }, 350);
     };
     const channel = supabase.channel("finance-updates-" + accountId);
-    for (const table of ["records", "transfers", "user_settings"]) {
+    for (const table of ["records", "transfers", "user_settings", "monthly_budgets"]) {
       channel.on("postgres_changes", {
         event: "*", schema: "public", table, filter: "user_id=eq." + accountId,
       }, scheduleRefresh);
@@ -1499,6 +1631,26 @@ const [customCardImage, setCustomCardImage] = useState(() => {
     };
   }, [user?.id]);
 
+  // A long-lived tab must refresh the Malaysia calendar date at midnight.
+  useEffect(() => {
+    const timer = window.setInterval(() => setClockDate((previous) => {
+      const current = today();
+      return current === previous ? previous : current;
+    }), 30000);
+    return () => window.clearInterval(timer);
+  }, []);
+  const prevClockMonthRef = useRef(clockDate.slice(0,7));
+  useEffect(() => {
+    const currentMonth = clockDate.slice(0,7);
+    const previousMonth = prevClockMonthRef.current;
+    if(currentMonth!==previousMonth){
+      setSelectedMonth(prev => prev===previousMonth?currentMonth:prev);
+      setBudgetMonth(prev => prev===previousMonth?currentMonth:prev);
+      setForm(prev=>({...prev,date:prev.date===shiftCalendarDate(clockDate,-1)?clockDate:prev.date}));
+      setTransferForm(prev=>({...prev,date:prev.date===shiftCalendarDate(clockDate,-1)?clockDate:prev.date}));
+    }
+    prevClockMonthRef.current=currentMonth;
+  },[clockDate]);
   useEffect(() => localStorage.setItem(SOUND_KEY, String(soundEnabled)), [soundEnabled]);
   useEffect(() => {
   localStorage.setItem(BALANCE_LIMIT_KEY, String(balanceLimit || "1500"));
@@ -1555,13 +1707,25 @@ useEffect(() => {
       if (!isCurrent()) return;
       const transferRows = await loadEveryOwnedRow(
         supabase, "transfers",
-        "id,from_method,to_method,amount,note,date,created_at",
+        "id,from_method,to_method,amount,note,date,created_at,updated_at,version,deleted_at",
         accountId, progress
       );
       if (!isCurrent()) return;
+      const monthlyRows = [];
+      for (let page = 0; ; page += 1) {
+        const { data, error } = await supabase.from("monthly_budgets")
+          .select("month,category_budgets,version")
+          .eq("user_id", accountId).order("month",{ascending:true})
+          .range(page*500,page*500+499);
+        if(error) throw error;
+        monthlyRows.push(...(data || []));
+        if(!data || data.length<500) break;
+        if(page>100) throw new Error("Too many monthly budget records.");
+      }
+      if (!isCurrent()) return;
       const { data: settingsRow, error: settingsError } = await supabase
         .from("user_settings")
-        .select("category_budgets,custom_options,version")
+        .select("category_budgets,custom_options,forecast_plans,version")
         .eq("user_id", accountId)
         .maybeSingle();
       if (settingsError) throw settingsError;
@@ -1572,7 +1736,11 @@ useEffect(() => {
       // A complete, count-checked snapshot replaces all three states together.
       setRecords(active);
       setDeletedRecords(deleted);
-      setTransfers(transferRows.slice().sort(byNewest).map(normalizeTransfer));
+      const transferSplit=splitRecordStatus(transferRows.slice().sort(byNewest).map(normalizeTransfer));
+      setTransfers(transferSplit.active);
+      setDeletedTransfers(transferSplit.deleted);
+      setMonthlyBudgetRows(monthlyRows);
+      setForecastPlans(Array.isArray(settingsRow?.forecast_plans)?settingsRow.forecast_plans:[]);
       const nextBudgets = settingsRow?.category_budgets
         ? { ...DEFAULT_BUDGETS, ...settingsRow.category_budgets }
         : DEFAULT_BUDGETS;
@@ -1832,6 +2000,63 @@ function renderDeleteCustomOptionPanel(kind, type) {
       saveBudgets(next);
     }, 500);
   }
+  async function createMonthlyBudget(month,mode) {
+    if(!user || !/^\d{4}-(0[1-9]|1[0-2])$/.test(month)) return;
+    const proposed=mode==="template"?{...budgetsRef.current}:{};
+    try{
+      const {data,error}=await supabase.from("monthly_budgets")
+        .insert({user_id:user.id,month,category_budgets:proposed})
+        .select("month,category_budgets,version").single();
+      if(error) throw error;
+      setMonthlyBudgetRows(rows=>[...rows.filter(row=>row.month!==month),data]);
+      setSyncStatus("Budget for "+month+" created");
+    }catch(error){
+      setSyncStatus("Could not set up budget: "+error.message);
+      alert("Monthly budget was not saved. "+error.message);
+      await loadCloudData({background:true});
+    }
+  }
+  async function saveMonthlyBudgetCategory(row,category,amount) {
+    if(!user)return;
+    // Entire month row is version-guarded; concurrent edits cannot silently overwrite one another.
+    const next={...row.category_budgets,[category]:amount};
+    try{
+      const {data,error}=await supabase.from("monthly_budgets")
+        .update({category_budgets:next}).eq("user_id",user.id).eq("month",row.month)
+        .eq("version",row.version).select("month,category_budgets,version").maybeSingle();
+      if(error)throw error;
+      if(!data){
+        alert("This month's budget changed on another device; latest version will be loaded.");
+        await loadCloudData({background:true});return;
+      }
+      setMonthlyBudgetRows(rows=>rows.map(old=>old.month===row.month?data:old));
+      setSyncStatus("Monthly budget saved");
+    }catch(error){alert(error.message);setSyncStatus("Budget save failed: "+error.message);}
+  }
+  function saveTemplateBudgetCategory(category,amount) {
+    updateBudgets(prev=>({...prev,[category]:amount}));
+  }
+  function saveForecastPlans(next) {
+    if(!Array.isArray(next) || !user)return;
+    setForecastPlans(next);
+    queueSettingsField("forecast_plans",next);
+  }
+  function addExpectedIncome(draft) {
+    try {
+      const amount=parseEditedAmount(draft.amount);
+      const date=String(draft.date||"");
+      const label=String(draft.label||"").trim().slice(0,80);
+      if(!validCalendarDate(date)||date<=today())throw Error("Choose a future Malaysia calendar date.");
+      if(!label)throw Error("Enter a label for expected income.");
+      const plan={id:crypto.randomUUID(),date,label,amount};
+      saveForecastPlans([...forecastPlans,plan]);return true;
+    }catch(error){alert(error.message);return false;}
+  }
+  function removeExpectedIncome(planId) {
+    if(!window.confirm("Remove this expected income plan? Actual transactions will be unchanged."))return;
+    saveForecastPlans(forecastPlans.filter(p=>p.id!==planId));
+  }
+
 const expenseCategoryOptions = useMemo(
   () => uniqueOptions(EXPENSE_CATEGORIES, customOptions.expenseCategories),
   [customOptions.expenseCategories]
@@ -1859,18 +2084,19 @@ const incomeMethodOptions = useMemo(
 
 const categoryOptionsFor = (type) => (type === "expense" ? expenseCategoryOptions : incomeCategoryOptions);
 const methodOptionsFor = () => expenseMethodOptions;
-  const filteredRecords = useMemo(() => filterRecords(records, filterMode, selectedMonth, selectedYear, keyword), [records, filterMode, selectedMonth, selectedYear, keyword]);
+  const filteredRecords = useMemo(() => filterRecords(records, filterMode, selectedMonth, selectedYear, keyword), [records, filterMode, selectedMonth, selectedYear, keyword, clockDate]);
   const expenseRecords = filteredRecords.filter((r) => r.type === "expense");
   const income = sumType(records, "income");
   const expense = sumType(records, "expense");
   const filteredIncome = sumType(filteredRecords, "income");
   const filteredExpense = sumType(filteredRecords, "expense");
-  const totalBudget = useMemo(
-  () => expenseCategoryOptions.reduce((s, c) => s + Number(budgets[c] || 0), 0),
-  [budgets, expenseCategoryOptions]
-);
-  const budgetUsed = totalBudget > 0 ? (filteredExpense / totalBudget) * 100 : 0;
-  const showBudget = filterMode === "month" || filterMode === "recent30";
+  const selectedBudgetRecord = monthlyBudgetRows.find(row=>row.month===budgetMonth)||null;
+  const budgetSummary = useMemo(()=>summarizeMonthlyBudget(
+    records,selectedBudgetRecord?.category_budgets||{},budgetMonth
+  ),[records,selectedBudgetRecord,budgetMonth]);
+  const totalBudget = budgetSummary.budget;
+  const budgetUsed = budgetSummary.percentage ?? 0;
+  const showBudget = true;
   const filterLabel = filterMode === "all" ? "全部" : filterMode === "month" ? selectedMonth : filterMode === "year" ? selectedYear : filterMode === "recent30" ? "最近 30 天" : filterMode === "recent7" ? "最近 7 天" : "最近 3 天";
   const chartLabel = (d) => filterMode === "month" ? d.slice(8) : filterMode === "all" ? d : d.slice(5);
   const categoryData = useMemo(() => group(expenseRecords, (r) => r.category), [expenseRecords]);
@@ -1993,18 +2219,11 @@ return { ...row, balanceGreen: balance > limit ? balance : null, balanceRed: bal
     });
 }, [filteredRecords, expenseRecords, trendCategory, filterMode, balanceLimit]);
 
-  const forecastMonth = filterMode === "month" ? selectedMonth : monthNow();
-  const forecast = useMemo(() => {
-    const totalDays = daysInMonth(forecastMonth);
-    const currentDay = forecastMonth === monthNow() ? Number(today().slice(8)) : totalDays;
-    const monthRecords = records.filter((r) => r.date.startsWith(forecastMonth) && Number(r.date.slice(8)) <= currentDay);
-    const currentBalance = sumType(monthRecords, "income") - sumType(monthRecords, "expense");
-    const avgDailyExpense = sumType(monthRecords, "expense") / Math.max(currentDay, 1);
-    const daysLeft = Math.max(totalDays - currentDay, 0);
-    const predictedBalance = currentBalance - avgDailyExpense * daysLeft;
-    const data = Array.from({ length: daysLeft + 1 }, (_, i) => ({ day: pad(currentDay + i), balance: Math.round((currentBalance - avgDailyExpense * i) * 100) / 100 }));
-    return { stats: { currentBalance, avgDailyExpense, daysLeft, predictedBalance }, data };
-  }, [records, forecastMonth]);
+  const forecastMonth = filterMode === "month" ? selectedMonth : clockDate.slice(0,7);
+  const forecast = useMemo(() => forecastCashFlow({
+    records,expectedIncome:forecastPlans,selectedMonth:forecastMonth,
+    referenceDate:clockDate,daysWindow:forecastWindow,horizon:forecastHorizon,
+  }), [records,forecastPlans,forecastMonth,clockDate,forecastWindow,forecastHorizon]);
 
   const heatmapDays = useMemo(() => {
     const amounts = {};
@@ -2016,7 +2235,7 @@ return { ...row, balanceGreen: balance > limit ? balance : null, balanceRed: bal
     else if (filterMode === "recent3") dates = dateRange(recentStart(3), 3);
     else dates = Array.from(new Set(filteredRecords.map((r) => r.date))).sort((a, b) => new Date(a) - new Date(b)).slice(-35);
     return dates.map((date) => ({ date, amount: Number(amounts[date] || 0) }));
-  }, [expenseRecords, filteredRecords, filterMode, selectedMonth]);
+  }, [expenseRecords, filteredRecords, filterMode, selectedMonth, clockDate]);
 
   const topExpenses = useMemo(() => {
   const source = topExpenseCategory === "all"
@@ -2046,7 +2265,7 @@ return { ...row, balanceGreen: balance > limit ? balance : null, balanceRed: bal
     count: todayRecords.length,
     topCategory,
   };
-}, [records]);
+}, [records, clockDate]);
   const groupedTransactionRecords = useMemo(() => {
   const grouped = {};
 
@@ -2159,6 +2378,12 @@ if (insertedRecord.type === "expense") {
   if (transferForm.fromMethod === transferForm.toMethod) {
     return alert("From Method and To Method cannot be the same.");
   }
+  if (!validCalendarDate(transferForm.date)) return alert("Select a valid transfer date.");
+  const available=methodBalances.find(row=>row.method===normalizeMethodForBalance(transferForm.fromMethod))?.balance??0;
+  if(amount>available && !window.confirm(
+    "This transfer exceeds the ledger-derived balance for "+transferForm.fromMethod+
+    " ("+money(available)+"). Opening balances may be missing. Continue anyway?"
+  )) return;
 
   const payload = {
     user_id: user.id,
@@ -2172,7 +2397,7 @@ if (insertedRecord.type === "expense") {
   const { data, error } = await supabase
     .from("transfers")
     .insert(payload)
-    .select("id,from_method,to_method,amount,note,date,created_at")
+    .select("id,from_method,to_method,amount,note,date,created_at,updated_at,version,deleted_at")
     .single();
 
   if (error) return alert(error.message);
@@ -2190,6 +2415,73 @@ if (insertedRecord.type === "expense") {
 
   setSyncStatus("Transfer added to cloud");
 }
+  const transferSelectColumns = "id,from_method,to_method,amount,note,date,created_at,updated_at,version,deleted_at";
+  async function updateTransfer(transfer,draft) {
+    if(!user || pendingTransfersRef.current.has(transfer.id))return false;
+    let amount;
+    try{
+      amount=parseEditedAmount(draft.amount);
+      if(draft.fromMethod===draft.toMethod)throw Error("From and To cannot be the same.");
+      if(!validCalendarDate(draft.date))throw Error("Select a valid transfer date.");
+    }catch(error){alert(error.message);return false;}
+    const fromBalance=methodBalances.find(row=>row.method===normalizeMethodForBalance(draft.fromMethod))?.balance??0;
+    const originalFrom=normalizeMethodForBalance(transfer.fromMethod);
+    const originalTo=normalizeMethodForBalance(transfer.toMethod);
+    const updatedFrom=normalizeMethodForBalance(draft.fromMethod);
+    const available=fromBalance + (originalFrom===updatedFrom?transfer.amount:0)
+      - (originalTo===updatedFrom?transfer.amount:0);
+    if(amount>available && !window.confirm(
+      "Proposed transfer exceeds the ledger-derived amount available in "+draft.fromMethod+
+      " ("+money(available)+"). Opening balances may be missing. Continue?"
+    ))return false;
+    pendingTransfersRef.current.add(transfer.id);
+    try{
+      const {data,error}=await supabase.from("transfers")
+        .update({from_method:draft.fromMethod,to_method:draft.toMethod,amount,date:draft.date,note:String(draft.note||"").trim()})
+        .eq("id",transfer.id).eq("user_id",user.id).eq("version",transfer.version).is("deleted_at",null)
+        .select(transferSelectColumns).maybeSingle();
+      if(error)throw error;
+      if(!data){await loadCloudData({background:true});alert("Transfer changed on another device. Nothing overwritten.");return false;}
+      setTransfers(p=>p.map(x=>x.id===transfer.id?normalizeTransfer(data):x));
+      setSyncStatus("Transfer updated");return true;
+    }catch(error){alert(error.message);setSyncStatus("Transfer edit failed");return false;}
+    finally{pendingTransfersRef.current.delete(transfer.id);}
+  }
+  async function deleteTransfer(transfer) {
+    if(!user || pendingTransfersRef.current.has(transfer.id))return;
+    pendingTransfersRef.current.add(transfer.id);
+    try{
+      const {data,error}=await supabase.from("transfers")
+        .update({deleted_at:new Date().toISOString()})
+        .eq("id",transfer.id).eq("user_id",user.id).eq("version",transfer.version).is("deleted_at",null)
+        .select(transferSelectColumns).maybeSingle();
+      if(error)throw error;
+      if(!data){await loadCloudData({background:true});alert("Transfer changed on another device. Nothing deleted.");return;}
+      const removed=normalizeTransfer(data);
+      setTransfers(p=>p.filter(x=>x.id!==transfer.id));setDeletedTransfers(p=>[removed,...p]);
+      setUndoDeleted({kind:"transfer",...removed});
+      clearTimeout(undoTimeoutRef.current);
+      undoTimeoutRef.current=setTimeout(()=>setUndoDeleted(null),10000);
+      setSyncStatus("Transfer moved to Recycle Bin");
+    }catch(error){alert(error.message);setSyncStatus("Transfer delete failed");}
+    finally{pendingTransfersRef.current.delete(transfer.id);}
+  }
+  async function restoreTransfer(transfer) {
+    if(!user || pendingTransfersRef.current.has(transfer.id))return;
+    pendingTransfersRef.current.add(transfer.id);
+    try{
+      const {data,error}=await supabase.from("transfers").update({deleted_at:null})
+        .eq("id",transfer.id).eq("user_id",user.id).eq("version",transfer.version)
+        .not("deleted_at","is",null).select(transferSelectColumns).maybeSingle();
+      if(error)throw error;
+      if(!data){await loadCloudData({background:true});alert("Transfer changed on another device. Please retry.");return;}
+      setDeletedTransfers(p=>p.filter(x=>x.id!==transfer.id));
+      setTransfers(p=>[normalizeTransfer(data),...p]);
+      if(undoDeleted?.kind==="transfer"&&undoDeleted.id===transfer.id)setUndoDeleted(null);
+      setSyncStatus("Transfer restored");
+    }catch(error){alert(error.message);setSyncStatus("Transfer restore failed");}
+    finally{pendingTransfersRef.current.delete(transfer.id);}
+  }
   function fillCalculation() {
     try {
       const total = calculate(calculationText);
@@ -2264,7 +2556,7 @@ if (insertedRecord.type === "expense") {
       setRecords((previous) => previous.filter((row) => row.id !== recordId));
       setDeletedRecords((previous) => [removed, ...previous]);
       setDeleteConfirm(null);
-      setUndoDeleted(removed);
+      setUndoDeleted({kind:'record',...removed});
       clearTimeout(undoTimeoutRef.current);
       undoTimeoutRef.current = setTimeout(() => setUndoDeleted(null), 10000);
       setSyncStatus("Record moved to Recycle Bin — can be restored anytime.");
@@ -2454,8 +2746,8 @@ return (
         )}
         {undoDeleted && (
           <div role="status" className="flex flex-wrap items-center justify-between gap-3 rounded-2xl bg-blue-50 p-4 text-sm text-blue-900 ring-1 ring-blue-200">
-            <span><b>Moved to Recycle Bin:</b> {undoDeleted.category} · {money(undoDeleted.amount)}</span>
-            <button type="button" onClick={() => restoreRecord(undoDeleted.id)} className="rounded-xl bg-blue-700 px-4 py-2 font-bold text-white hover:bg-blue-800">Undo</button>
+            <span><b>Moved to Recycle Bin:</b> {undoDeleted.kind==="transfer"?"Transfer":undoDeleted.category} · {money(undoDeleted.amount)}</span>
+            <button type="button" onClick={() => undoDeleted.kind==="transfer"?restoreTransfer(undoDeleted):restoreRecord(undoDeleted.id)} className="rounded-xl bg-blue-700 px-4 py-2 font-bold text-white hover:bg-blue-800">Undo</button>
           </div>
         )}
         <div className="flex flex-col gap-2 rounded-2xl bg-white px-4 py-3 text-sm text-slate-600 ring-1 ring-slate-200 md:flex-row md:items-center md:justify-between">
@@ -2620,7 +2912,11 @@ return (
   setTransferForm={setTransferForm}
 methodOptions={accountMethodOptions}
   transfers={transfers}
+  deletedTransfers={deletedTransfers}
   onTransfer={addTransfer}
+  onEditTransfer={updateTransfer}
+  onDeleteTransfer={deleteTransfer}
+  onRestoreTransfer={restoreTransfer}
 />
 
   </div>
@@ -2628,14 +2924,20 @@ methodOptions={accountMethodOptions}
   <div className="space-y-6">
             <Card><div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between"><h2 className="text-xl font-bold">Filters</h2><div className="flex flex-col gap-3 md:flex-row md:flex-wrap md:justify-end"><select value={filterMode} onChange={(e) => setFilterMode(e.target.value)} className="rounded-2xl border border-slate-200 px-4 py-3 outline-none"><option value="all">全部</option><option value="month">按月份</option><option value="year">按年份</option><option value="recent30">最近 30 天</option><option value="recent7">最近 7 天</option><option value="recent3">最近 3 天</option></select>{filterMode === "month" && <input type="month" value={selectedMonth} onChange={(e) => setSelectedMonth(e.target.value)} className="rounded-2xl border border-slate-200 px-4 py-3 outline-none" />}{filterMode === "year" && <input type="number" value={selectedYear} onChange={(e) => setSelectedYear(e.target.value)} className="rounded-2xl border border-slate-200 px-4 py-3 outline-none" />}<input value={keyword} onChange={(e) => setKeyword(e.target.value)} placeholder="Search category, method or note" className="rounded-2xl border border-slate-200 px-4 py-3 outline-none" /></div></div></Card>
             <section className={`grid gap-4 ${showBudget ? "md:grid-cols-4" : "md:grid-cols-3"}`}><StatCard title="Filtered Income" value={money(filteredIncome)} icon="📈" desc={`Current filter: ${filterLabel}`} /><StatCard title="Filtered Expense" value={money(filteredExpense)} icon="📉" desc={`Current filter: ${filterLabel}`} /><BalanceCard title="Filtered Balance" value={filteredIncome - filteredExpense} desc={`Current filter: ${filterLabel}`} limit={balanceLimit} />{showBudget && <BudgetCard
-  totalBudget={totalBudget}
-  used={budgetUsed}
-  budgets={budgets}
-  setBudgets={updateBudgets}
-  spentMap={spentMap}
+  selectedBudgetMonth={budgetMonth}
+  setBudgetMonth={setBudgetMonth}
+  budgetRecord={selectedBudgetRecord}
+  summary={budgetSummary}
+  templateBudgets={budgets}
+  onCreateBudget={createMonthlyBudget}
+  onSaveCategory={saveMonthlyBudgetCategory}
+  onSaveTemplate={saveTemplateBudgetCategory}
   expenseCategoryOptions={expenseCategoryOptions}
 />}</section>
-            <section className="grid gap-6 xl:grid-cols-3"><ForecastCard stats={forecast.stats} data={forecast.data} month={forecastMonth} /><HeatmapCard days={heatmapDays} label={filterLabel} /><TopExpensesCard
+            <section className="grid gap-6 xl:grid-cols-3"><ForecastCard forecast={forecast} month={forecastMonth}
+  horizon={forecastHorizon} setHorizon={setForecastHorizon}
+  windowDays={forecastWindow} setWindowDays={setForecastWindow}
+  plans={forecastPlans} onAddPlan={addExpectedIncome} onRemovePlan={removeExpectedIncome}/><HeatmapCard days={heatmapDays} label={filterLabel} /><TopExpensesCard
   records={topExpenses}
   label={filterLabel}
   category={topExpenseCategory}
@@ -2668,9 +2970,9 @@ methodOptions={accountMethodOptions}
         Showing {filteredRecords.length} records for {filterLabel} · Click a date to expand records
       </p>
     </div>
-    {totalBudget > 0 && filteredExpense > totalBudget && (
+    {totalBudget > 0 && budgetSummary.spent > totalBudget && (
       <div className="rounded-2xl bg-red-50 px-4 py-3 text-sm font-semibold text-red-700">
-        ⚠ Expense exceeded budget by {money(filteredExpense - totalBudget)}.
+        ⚠ {budgetMonth} budget exceeded by {money(budgetSummary.spent - totalBudget)}.
       </div>
     )}
   </div>

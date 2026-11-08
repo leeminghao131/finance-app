@@ -58,7 +58,7 @@ test("Realtime, count-checked paging and recycle bin remain enabled", () => {
   assert.match(app, /loadEveryOwnedRow\(/);
   assert.match(app, /splitRecordStatus\(/);
   assert.match(app, /Recycle Bin/);
-  assert.match(app, /setUndoDeleted\(removed\)/);
+  assert.match(app, /setUndoDeleted\(\{kind:['"]record['"],\.\.\.removed\}\)/);
 });
 
 test("This preview build fails closed instead of connecting to production Supabase", () => {
