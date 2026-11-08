@@ -1355,6 +1355,8 @@ export default function FinanceVisualizerApp() {
   const [trashOpen, setTrashOpen] = useState(false);
   const [syncProgress, setSyncProgress] = useState("");
   const [settingsVersion, setSettingsVersion] = useState(null);
+  const [initialDataReady, setInitialDataReady] = useState(false);
+  const budgetsRef = useRef(DEFAULT_BUDGETS);
   const settingsVersionRef = useRef(null);
   const settingsQueueRef = useRef(Promise.resolve());
   const budgetSaveTimerRef = useRef(null);
@@ -1404,25 +1406,93 @@ const [customCardImage, setCustomCardImage] = useState(() => {
       setAuthLoading(false);
       return;
     }
-    supabase.auth.getSession().then(({ data }) => {
+    let mounted = true;
+    supabase.auth.getSession().then(({ data, error }) => {
+      if (!mounted) return;
+      if (error) setSyncStatus(error.message);
+      liveUserIdRef.current = data.session?.user?.id || null;
       setSession(data.session || null);
       setUser(data.session?.user || null);
       setAuthLoading(false);
+    }).catch((error) => {
+      if (mounted) { setSyncStatus(error.message); setAuthLoading(false); }
     });
     const { data: listener } = supabase.auth.onAuthStateChange((_event, nextSession) => {
+      liveUserIdRef.current = nextSession?.user?.id || null;
       setSession(nextSession || null);
       setUser(nextSession?.user || null);
     });
-    return () => listener.subscription.unsubscribe();
+    return () => { mounted = false; listener.subscription.unsubscribe(); };
   }, []);
 
   useEffect(() => {
-    if (user) loadCloudData();
-    else {
-setRecords([]);
-setTransfers([]);
-setBudgets(DEFAULT_BUDGETS);
+    if (user) {
+      liveUserIdRef.current = user.id;
+      setInitialDataReady(false);
+      loadCloudData();
+    } else {
+      recordsLoadCounterRef.current += 1;
+      liveUserIdRef.current = null;
+      settingsVersionRef.current = null;
+      budgetsRef.current = DEFAULT_BUDGETS;
+      setInitialDataReady(false);
+      setRecords([]);
+      setDeletedRecords([]);
+      setTransfers([]);
+      setBudgets(DEFAULT_BUDGETS);
+      setCustomOptions(DEFAULT_CUSTOM_OPTIONS);
+      setUndoDeleted(null);
+      setSettingsVersion(null);
     }
+    return () => {
+      recordsLoadCounterRef.current += 1;
+      clearTimeout(reloadDebounceRef.current);
+      clearTimeout(budgetSaveTimerRef.current);
+      clearTimeout(undoTimeoutRef.current);
+    };
+  }, [user?.id]);
+
+  // Realtime is a change notification; always refetch verified pages after a change.
+  // Reconnect/focus reconciliation covers missed events during sleep or network loss.
+  useEffect(() => {
+    if (!user || !supabase) return;
+    const accountId = user.id;
+    const scheduleRefresh = () => {
+      if (liveUserIdRef.current !== accountId) return;
+      clearTimeout(reloadDebounceRef.current);
+      reloadDebounceRef.current = setTimeout(() => {
+        if (liveUserIdRef.current === accountId) loadCloudData({ background: true });
+      }, 350);
+    };
+    const channel = supabase.channel("finance-updates-" + accountId);
+    for (const table of ["records", "transfers", "user_settings"]) {
+      channel.on("postgres_changes", {
+        event: "*", schema: "public", table, filter: "user_id=eq." + accountId,
+      }, scheduleRefresh);
+    }
+    channel.subscribe((status) => {
+      if (status === "SUBSCRIBED") scheduleRefresh();
+      if (status === "CHANNEL_ERROR" || status === "TIMED_OUT") {
+        setSyncStatus("Live sync interrupted — reconnecting; refresh when online.");
+      }
+    });
+    const onFocus = () => scheduleRefresh();
+    const onOnline = () => scheduleRefresh();
+    const onVisibility = () => { if (!document.hidden) scheduleRefresh(); };
+    window.addEventListener("focus", onFocus);
+    window.addEventListener("online", onOnline);
+    document.addEventListener("visibilitychange", onVisibility);
+    const interval = window.setInterval(() => {
+      if (!document.hidden && navigator.onLine) scheduleRefresh();
+    }, 120000);
+    return () => {
+      clearTimeout(reloadDebounceRef.current);
+      window.clearInterval(interval);
+      window.removeEventListener("focus", onFocus);
+      window.removeEventListener("online", onOnline);
+      document.removeEventListener("visibilitychange", onVisibility);
+      supabase.removeChannel(channel);
+    };
   }, [user?.id]);
 
   useEffect(() => localStorage.setItem(SOUND_KEY, String(soundEnabled)), [soundEnabled]);
@@ -1460,77 +1530,111 @@ useEffect(() => {
   });
 }, [form.type, customOptions]);
 
-  async function loadCloudData() {
-    if (!user) return;
+  async function loadCloudData({ background = false } = {}) {
+    const accountId = user?.id;
+    if (!accountId || !supabase) return;
+    const requestId = ++recordsLoadCounterRef.current;
+    const isCurrent = () => requestId === recordsLoadCounterRef.current && liveUserIdRef.current === accountId;
+    if (!background) setInitialDataReady(false);
     setDataLoading(true);
-    setSyncStatus("Loading cloud data...");
-    const { data: recordRows, error: recordError } = await supabase
-      .from("records")
-      .select("id,type,amount,category,method,note,date,created_at")
-      .order("date", { ascending: false })
-      .order("created_at", { ascending: false });
-    if (recordError) {
-      setSyncStatus(recordError.message);
+    setSyncProgress("");
+    setSyncStatus(background ? "Refreshing finance data..." : "Loading complete cloud data...");
+    try {
+      const progress = (loaded, total, table) => {
+        if (isCurrent()) setSyncProgress(table + ": " + loaded + " / " + total);
+      };
+      const recordRows = await loadEveryOwnedRow(
+        supabase, "records",
+        "id,type,amount,category,method,note,date,created_at,updated_at,version,deleted_at",
+        accountId, progress
+      );
+      if (!isCurrent()) return;
+      const transferRows = await loadEveryOwnedRow(
+        supabase, "transfers",
+        "id,from_method,to_method,amount,note,date,created_at",
+        accountId, progress
+      );
+      if (!isCurrent()) return;
+      const { data: settingsRow, error: settingsError } = await supabase
+        .from("user_settings")
+        .select("category_budgets,custom_options,version")
+        .eq("user_id", accountId)
+        .maybeSingle();
+      if (settingsError) throw settingsError;
+      if (!isCurrent()) return;
+      const { active, deleted } = splitRecordStatus(recordRows.map(normalizeRecord));
+      // A complete, count-checked snapshot replaces all three states together.
+      setRecords(active);
+      setDeletedRecords(deleted);
+      setTransfers(transferRows.map(normalizeTransfer));
+      const nextBudgets = settingsRow?.category_budgets
+        ? { ...DEFAULT_BUDGETS, ...settingsRow.category_budgets }
+        : DEFAULT_BUDGETS;
+      budgetsRef.current = nextBudgets;
+      setBudgets(nextBudgets);
+      setCustomOptions(settingsRow?.custom_options
+        ? { ...DEFAULT_CUSTOM_OPTIONS, ...settingsRow.custom_options }
+        : DEFAULT_CUSTOM_OPTIONS);
+      const version = settingsRow ? Number(settingsRow.version || 1) : null;
+      settingsVersionRef.current = version;
+      setSettingsVersion(version);
+      setSyncStatus("Cloud synced — all records loaded");
+      setSyncProgress("");
+      setInitialDataReady(true);
       setDataLoading(false);
-      return;
+    } catch (error) {
+      if (!isCurrent()) return;
+      setSyncStatus("Cloud sync failed: " + (error.message || "unknown error") + ". No partial totals were applied.");
+      setSyncProgress("");
+      setDataLoading(false);
     }
-    setRecords((recordRows || []).map(normalizeRecord));
-    const { data: transferRows, error: transferError } = await supabase
-  .from("transfers")
-  .select("id,from_method,to_method,amount,note,date,created_at")
-  .order("date", { ascending: false })
-  .order("created_at", { ascending: false });
-
-if (transferError) {
-  setSyncStatus(transferError.message);
-} else {
-  setTransfers((transferRows || []).map(normalizeTransfer));
-}
-    const { data: settingsRow, error: settingsError } = await supabase
-      .from("user_settings")
-      .select("category_budgets,custom_options")
-      .eq("user_id", user.id)
-      .maybeSingle();
-    if (settingsError) setSyncStatus(settingsError.message);
-    if (settingsRow?.category_budgets) {
-      setBudgets({ ...DEFAULT_BUDGETS, ...settingsRow.category_budgets });
-    } else {
-      setBudgets(DEFAULT_BUDGETS);
-      await saveBudgets(DEFAULT_BUDGETS);
-    }
-    if (settingsRow?.custom_options) {
-  setCustomOptions({ ...DEFAULT_CUSTOM_OPTIONS, ...settingsRow.custom_options });
-} else {
-  setCustomOptions(DEFAULT_CUSTOM_OPTIONS);
-}
-    setSyncStatus("Cloud synced");
-    setDataLoading(false);
   }
 
-  async function saveBudgets(nextBudgets) {
-    if (!user) return;
-    const { error } = await supabase
-      .from("user_settings")
-      .upsert({ user_id: user.id, category_budgets: nextBudgets, updated_at: new Date().toISOString() });
-    if (error) setSyncStatus(error.message);
-    else setSyncStatus("Budget synced");
-  }
-  
-  async function saveCustomOptions(nextOptions) {
-  if (!user) return;
-
-  const { error } = await supabase
-    .from("user_settings")
-    .upsert({
-      user_id: user.id,
-      custom_options: nextOptions,
-      updated_at: new Date().toISOString(),
+  // Settings writes are serialized, version-checked, and patch only one field.
+  // This prevents a budget update from overwriting someone else's custom-options edits.
+  function queueSettingsField(column, value) {
+    const accountId = user?.id;
+    if (!accountId) return;
+    settingsQueueRef.current = settingsQueueRef.current.catch(() => {}).then(async () => {
+      if (liveUserIdRef.current !== accountId) return;
+      const currentVersion = settingsVersionRef.current;
+      let request;
+      if (currentVersion === null) {
+        request = supabase.from("user_settings").insert({ user_id: accountId, [column]: value });
+      } else {
+        request = supabase.from("user_settings")
+          .update({ [column]: value })
+          .eq("user_id", accountId)
+          .eq("version", currentVersion);
+      }
+      try {
+        const { data, error } = await request.select("version").maybeSingle();
+        if (liveUserIdRef.current !== accountId) return;
+        if (error) throw error;
+        if (!data) {
+          setSyncStatus("Settings conflict — another device updated settings; reloading.");
+          await loadCloudData({ background: true });
+          return;
+        }
+        const nextVersion = Number(data.version);
+        settingsVersionRef.current = nextVersion;
+        setSettingsVersion(nextVersion);
+        setSyncStatus("Settings synced");
+      } catch (error) {
+        setSyncStatus("Settings not saved: " + error.message + ". Please retry.");
+      }
     });
+  }
 
-  if (error) setSyncStatus(error.message);
-  else setSyncStatus("Custom options synced");
-}
-function addCustomOption(kind, type) {
+  function saveBudgets(nextBudgets) {
+    queueSettingsField("category_budgets", nextBudgets);
+  }
+
+  function saveCustomOptions(nextOptions) {
+    queueSettingsField("custom_options", nextOptions);
+  }
+
+  function addCustomOption(kind, type) {
   const isCategory = kind === "category";
   const label = isCategory ? "category" : "method";
   const input = window.prompt(`Enter new ${type} ${label}:`);
