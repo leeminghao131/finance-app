@@ -1566,11 +1566,13 @@ useEffect(() => {
         .maybeSingle();
       if (settingsError) throw settingsError;
       if (!isCurrent()) return;
-      const { active, deleted } = splitRecordStatus(recordRows.map(normalizeRecord));
+      const byNewest = (a, b) => String(b.date || "").localeCompare(String(a.date || ""))
+        || new Date(b.created_at || 0) - new Date(a.created_at || 0);
+      const { active, deleted } = splitRecordStatus(recordRows.slice().sort(byNewest).map(normalizeRecord));
       // A complete, count-checked snapshot replaces all three states together.
       setRecords(active);
       setDeletedRecords(deleted);
-      setTransfers(transferRows.map(normalizeTransfer));
+      setTransfers(transferRows.slice().sort(byNewest).map(normalizeTransfer));
       const nextBudgets = settingsRow?.category_budgets
         ? { ...DEFAULT_BUDGETS, ...settingsRow.category_budgets }
         : DEFAULT_BUDGETS;
@@ -1618,6 +1620,7 @@ useEffect(() => {
         if (!data) {
           setSyncStatus("Settings conflict — another device updated settings; reloading.");
           await loadCloudData({ background: true });
+          alert("Settings were changed on another device. Your change was not saved. Latest settings have been loaded.");
           return;
         }
         const nextVersion = Number(data.version);
