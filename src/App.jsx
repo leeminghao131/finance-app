@@ -1927,6 +1927,48 @@ function renderDeleteCustomOptionPanel(kind, type) {
       saveBudgets(next);
     }, 500);
   }
+  async function createMonthlyBudget(month,mode) {
+    if(!user || !/^\d{4}-(0[1-9]|1[0-2])$/.test(month)) return;
+    const proposed=mode==="template"?{...budgetsRef.current}:{};
+    try{
+      const {data,error}=await supabase.from("monthly_budgets")
+        .insert({user_id:user.id,month,category_budgets:proposed})
+        .select("month,category_budgets,version").single();
+      if(error) throw error;
+      setMonthlyBudgetRows(rows=>[...rows.filter(row=>row.month!==month),data]);
+      setSyncStatus("Budget for "+month+" created");
+    }catch(error){
+      setSyncStatus("Could not set up budget: "+error.message);
+      alert("Monthly budget was not saved. "+error.message);
+      await loadCloudData({background:true});
+    }
+  }
+  async function saveMonthlyBudgetCategory(row,category,amount) {
+    if(!user)return;
+    // Entire month row is version-guarded; concurrent edits cannot silently overwrite one another.
+    const next={...row.category_budgets,[category]:amount};
+    try{
+      const {data,error}=await supabase.from("monthly_budgets")
+        .update({category_budgets:next}).eq("user_id",user.id).eq("month",row.month)
+        .eq("version",row.version).select("month,category_budgets,version").maybeSingle();
+      if(error)throw error;
+      if(!data){
+        alert("This month's budget changed on another device; latest version will be loaded.");
+        await loadCloudData({background:true});return;
+      }
+      setMonthlyBudgetRows(rows=>rows.map(old=>old.month===row.month?data:old));
+      setSyncStatus("Monthly budget saved");
+    }catch(error){alert(error.message);setSyncStatus("Budget save failed: "+error.message);}
+  }
+  function saveTemplateBudgetCategory(category,amount) {
+    updateBudgets(prev=>({...prev,[category]:amount}));
+  }
+  function saveForecastPlans(next) {
+    if(!Array.isArray(next) || !user)return;
+    setForecastPlans(next);
+    queueSettingsField("forecast_plans",next);
+  }
+
 const expenseCategoryOptions = useMemo(
   () => uniqueOptions(EXPENSE_CATEGORIES, customOptions.expenseCategories),
   [customOptions.expenseCategories]
@@ -1960,12 +2002,13 @@ const methodOptionsFor = () => expenseMethodOptions;
   const expense = sumType(records, "expense");
   const filteredIncome = sumType(filteredRecords, "income");
   const filteredExpense = sumType(filteredRecords, "expense");
-  const totalBudget = useMemo(
-  () => expenseCategoryOptions.reduce((s, c) => s + Number(budgets[c] || 0), 0),
-  [budgets, expenseCategoryOptions]
-);
-  const budgetUsed = totalBudget > 0 ? (filteredExpense / totalBudget) * 100 : 0;
-  const showBudget = filterMode === "month" || filterMode === "recent30";
+  const selectedBudgetRecord = monthlyBudgetRows.find(row=>row.month===budgetMonth)||null;
+  const budgetSummary = useMemo(()=>summarizeMonthlyBudget(
+    records,selectedBudgetRecord?.category_budgets||{},budgetMonth
+  ),[records,selectedBudgetRecord,budgetMonth]);
+  const totalBudget = budgetSummary.budget;
+  const budgetUsed = budgetSummary.percentage ?? 0;
+  const showBudget = true;
   const filterLabel = filterMode === "all" ? "全部" : filterMode === "month" ? selectedMonth : filterMode === "year" ? selectedYear : filterMode === "recent30" ? "最近 30 天" : filterMode === "recent7" ? "最近 7 天" : "最近 3 天";
   const chartLabel = (d) => filterMode === "month" ? d.slice(8) : filterMode === "all" ? d : d.slice(5);
   const categoryData = useMemo(() => group(expenseRecords, (r) => r.category), [expenseRecords]);
@@ -2784,11 +2827,14 @@ methodOptions={accountMethodOptions}
   <div className="space-y-6">
             <Card><div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between"><h2 className="text-xl font-bold">Filters</h2><div className="flex flex-col gap-3 md:flex-row md:flex-wrap md:justify-end"><select value={filterMode} onChange={(e) => setFilterMode(e.target.value)} className="rounded-2xl border border-slate-200 px-4 py-3 outline-none"><option value="all">全部</option><option value="month">按月份</option><option value="year">按年份</option><option value="recent30">最近 30 天</option><option value="recent7">最近 7 天</option><option value="recent3">最近 3 天</option></select>{filterMode === "month" && <input type="month" value={selectedMonth} onChange={(e) => setSelectedMonth(e.target.value)} className="rounded-2xl border border-slate-200 px-4 py-3 outline-none" />}{filterMode === "year" && <input type="number" value={selectedYear} onChange={(e) => setSelectedYear(e.target.value)} className="rounded-2xl border border-slate-200 px-4 py-3 outline-none" />}<input value={keyword} onChange={(e) => setKeyword(e.target.value)} placeholder="Search category, method or note" className="rounded-2xl border border-slate-200 px-4 py-3 outline-none" /></div></div></Card>
             <section className={`grid gap-4 ${showBudget ? "md:grid-cols-4" : "md:grid-cols-3"}`}><StatCard title="Filtered Income" value={money(filteredIncome)} icon="📈" desc={`Current filter: ${filterLabel}`} /><StatCard title="Filtered Expense" value={money(filteredExpense)} icon="📉" desc={`Current filter: ${filterLabel}`} /><BalanceCard title="Filtered Balance" value={filteredIncome - filteredExpense} desc={`Current filter: ${filterLabel}`} limit={balanceLimit} />{showBudget && <BudgetCard
-  totalBudget={totalBudget}
-  used={budgetUsed}
-  budgets={budgets}
-  setBudgets={updateBudgets}
-  spentMap={spentMap}
+  selectedBudgetMonth={budgetMonth}
+  setBudgetMonth={setBudgetMonth}
+  budgetRecord={selectedBudgetRecord}
+  summary={budgetSummary}
+  templateBudgets={budgets}
+  onCreateBudget={createMonthlyBudget}
+  onSaveCategory={saveMonthlyBudgetCategory}
+  onSaveTemplate={saveTemplateBudgetCategory}
   expenseCategoryOptions={expenseCategoryOptions}
 />}</section>
             <section className="grid gap-6 xl:grid-cols-3"><ForecastCard stats={forecast.stats} data={forecast.data} month={forecastMonth} /><HeatmapCard days={heatmapDays} label={filterLabel} /><TopExpensesCard
@@ -2824,9 +2870,9 @@ methodOptions={accountMethodOptions}
         Showing {filteredRecords.length} records for {filterLabel} · Click a date to expand records
       </p>
     </div>
-    {totalBudget > 0 && filteredExpense > totalBudget && (
+    {totalBudget > 0 && budgetSummary.spent > totalBudget && (
       <div className="rounded-2xl bg-red-50 px-4 py-3 text-sm font-semibold text-red-700">
-        ⚠ Expense exceeded budget by {money(filteredExpense - totalBudget)}.
+        ⚠ {budgetMonth} budget exceeded by {money(budgetSummary.spent - totalBudget)}.
       </div>
     )}
   </div>
