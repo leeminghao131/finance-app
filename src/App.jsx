@@ -1967,12 +1967,6 @@ const methodOptionsFor = () => expenseMethodOptions;
   const expense = sumType(records, "expense");
   const filteredIncome = sumType(filteredRecords, "income");
   const filteredExpense = sumType(filteredRecords, "expense");
-  const totalBudget = useMemo(
-  () => expenseCategoryOptions.reduce((s, c) => s + Number(budgets[c] || 0), 0),
-  [budgets, expenseCategoryOptions]
-);
-  const budgetUsed = totalBudget > 0 ? (filteredExpense / totalBudget) * 100 : 0;
-  const showBudget = filterMode === "month" || filterMode === "recent30";
   const filterLabel = filterMode === "all" ? "全部" : filterMode === "month" ? selectedMonth : filterMode === "year" ? selectedYear : filterMode === "recent30" ? "最近 30 天" : filterMode === "recent7" ? "最近 7 天" : "最近 3 天";
   const chartLabel = (d) => filterMode === "month" ? d.slice(8) : filterMode === "all" ? d : d.slice(5);
   const categoryData = useMemo(() => group(expenseRecords, (r) => r.category), [expenseRecords]);
@@ -2096,18 +2090,6 @@ return { ...row, balanceGreen: balance > limit ? balance : null, balanceRed: bal
 }, [filteredRecords, expenseRecords, trendCategory, filterMode, balanceLimit]);
 
   const forecastMonth = filterMode === "month" ? selectedMonth : monthNow();
-  const forecast = useMemo(() => {
-    const totalDays = daysInMonth(forecastMonth);
-    const currentDay = forecastMonth === monthNow() ? Number(today().slice(8)) : totalDays;
-    const monthRecords = records.filter((r) => r.date.startsWith(forecastMonth) && Number(r.date.slice(8)) <= currentDay);
-    const currentBalance = sumType(monthRecords, "income") - sumType(monthRecords, "expense");
-    const avgDailyExpense = sumType(monthRecords, "expense") / Math.max(currentDay, 1);
-    const daysLeft = Math.max(totalDays - currentDay, 0);
-    const predictedBalance = currentBalance - avgDailyExpense * daysLeft;
-    const data = Array.from({ length: daysLeft + 1 }, (_, i) => ({ day: pad(currentDay + i), balance: Math.round((currentBalance - avgDailyExpense * i) * 100) / 100 }));
-    return { stats: { currentBalance, avgDailyExpense, daysLeft, predictedBalance }, data };
-  }, [records, forecastMonth]);
-
   const heatmapDays = useMemo(() => {
     const amounts = {};
     expenseRecords.forEach((r) => { amounts[r.date] = (amounts[r.date] || 0) + Number(r.amount || 0); });
@@ -2807,33 +2789,55 @@ return (
 
     <TodaySummaryCard stats={todaySummaryStats} />
 
-<TransferCard
+<FinanceTransferPanel
   transferForm={transferForm}
   setTransferForm={setTransferForm}
-methodOptions={accountMethodOptions}
+  methodOptions={uniqueOptions(accountMethodOptions, transfers.flatMap(row => [row.fromMethod,row.toMethod]))}
   transfers={transfers}
+  deletedTransfers={deletedTransfers}
+  undoTransfer={undoTransfer}
   onTransfer={addTransfer}
+  onUpdateTransfer={updateTransfer}
+  onDeleteTransfer={deleteTransfer}
+  onRestoreTransfer={restoreTransfer}
 />
 
   </div>
 
   <div className="space-y-6">
             <Card><div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between"><h2 className="text-xl font-bold">Filters</h2><div className="flex flex-col gap-3 md:flex-row md:flex-wrap md:justify-end"><select value={filterMode} onChange={(e) => setFilterMode(e.target.value)} className="rounded-2xl border border-slate-200 px-4 py-3 outline-none"><option value="all">全部</option><option value="month">按月份</option><option value="year">按年份</option><option value="recent30">最近 30 天</option><option value="recent7">最近 7 天</option><option value="recent3">最近 3 天</option></select>{filterMode === "month" && <input type="month" value={selectedMonth} onChange={(e) => setSelectedMonth(e.target.value)} className="rounded-2xl border border-slate-200 px-4 py-3 outline-none" />}{filterMode === "year" && <input type="number" value={selectedYear} onChange={(e) => setSelectedYear(e.target.value)} className="rounded-2xl border border-slate-200 px-4 py-3 outline-none" />}<input value={keyword} onChange={(e) => setKeyword(e.target.value)} placeholder="Search category, method or note" className="rounded-2xl border border-slate-200 px-4 py-3 outline-none" /></div></div></Card>
-            <section className={`grid gap-4 ${showBudget ? "md:grid-cols-4" : "md:grid-cols-3"}`}><StatCard title="Filtered Income" value={money(filteredIncome)} icon="📈" desc={`Current filter: ${filterLabel}`} /><StatCard title="Filtered Expense" value={money(filteredExpense)} icon="📉" desc={`Current filter: ${filterLabel}`} /><BalanceCard title="Filtered Balance" value={filteredIncome - filteredExpense} desc={`Current filter: ${filterLabel}`} limit={balanceLimit} />{showBudget && <BudgetCard
-  totalBudget={totalBudget}
-  used={budgetUsed}
-  budgets={budgets}
-  setBudgets={updateBudgets}
-  spentMap={spentMap}
-  expenseCategoryOptions={expenseCategoryOptions}
-/>}</section>
-            <section className="grid gap-6 xl:grid-cols-3"><ForecastCard stats={forecast.stats} data={forecast.data} month={forecastMonth} /><HeatmapCard days={heatmapDays} label={filterLabel} /><TopExpensesCard
-  records={topExpenses}
-  label={filterLabel}
-  category={topExpenseCategory}
-  setCategory={setTopExpenseCategory}
-  expenseCategoryOptions={expenseCategoryOptions}
-/></section>
+            <section className="grid gap-4 md:grid-cols-3">
+              <StatCard title="Filtered Income" value={money(filteredIncome)} icon="📈" desc={"Current filter: " + filterLabel} />
+              <StatCard title="Filtered Expense" value={money(filteredExpense)} icon="📉" desc={"Current filter: " + filterLabel} />
+              <BalanceCard title="Filtered Balance" value={filteredIncome - filteredExpense} desc={"Current filter: " + filterLabel} limit={balanceLimit} />
+            </section>
+            <FinanceBudgetPanel
+              records={records}
+              budgetMonth={budgetMonth}
+              setBudgetMonth={setBudgetMonth}
+              monthRows={monthRows}
+              budgetTemplate={budgets}
+              categories={expenseCategoryOptions}
+              onSaveMonthly={saveMonthlyBudget}
+              onSaveTemplate={saveTemplateBudget}
+            />
+            <section className="grid gap-6 xl:grid-cols-2">
+              <FinanceForecastPanel
+                records={records}
+                selectedMonth={forecastMonth}
+                asOfDate={localToday}
+                plannedIncomes={forecastPlans}
+                onSavePlans={saveExpectedIncomePlans}
+              />
+              <div className="space-y-6">
+                <HeatmapCard days={heatmapDays} label={filterLabel} />
+                <TopExpensesCard
+                  records={topExpenses} label={filterLabel}
+                  category={topExpenseCategory} setCategory={setTopExpenseCategory}
+                  expenseCategoryOptions={expenseCategoryOptions}
+                />
+              </div>
+            </section>
             <section className="grid gap-6 xl:grid-cols-2">
               <Card><h2 className="text-xl font-bold">Daily Income vs Expense</h2><p className="mt-1 text-sm text-slate-500">Current range: {filterLabel}</p><div className="mt-4 h-64">{dailyData.length ? <ResponsiveContainer width="100%" height="100%"><BarChart data={dailyData}><CartesianGrid strokeDasharray="3 3" /><XAxis dataKey="day" /><YAxis /><Tooltip formatter={(v) => money(v)} /><Legend /><Bar dataKey="income" name="Income" fill="#22c55e" /><Bar dataKey="expense" name="Expense" fill="#ef4444" /></BarChart></ResponsiveContainer> : <div className="flex h-full items-center justify-center text-slate-500">No data.</div>}</div><div className="mt-5 rounded-2xl bg-slate-50 p-3 ring-1 ring-slate-200"><div className="mb-2 flex justify-between gap-2"><p className="text-sm font-bold text-slate-700">消费趋势图</p><select
   value={trendCategory}
@@ -2860,11 +2864,7 @@ methodOptions={accountMethodOptions}
         Showing {filteredRecords.length} records for {filterLabel} · Click a date to expand records
       </p>
     </div>
-    {totalBudget > 0 && filteredExpense > totalBudget && (
-      <div className="rounded-2xl bg-red-50 px-4 py-3 text-sm font-semibold text-red-700">
-        ⚠ Expense exceeded budget by {money(filteredExpense - totalBudget)}.
-      </div>
-    )}
+
   </div>
 
   <div className="mt-5 space-y-3">
