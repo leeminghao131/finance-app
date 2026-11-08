@@ -31,7 +31,8 @@ test("transfers are edited with owner + revision guard, soft-deleted and restora
 });
 
 test("month budgets are separate from filtered transactions and revision-checked",()=>{
- assert.match(app,/\.from\("monthly_budgets"\)/);
+ const cloud = source("../src/financeCloudService.js");
+ assert.match(cloud,/\.from\("monthly_budgets"\)/);
  assert.match(app,/\.eq\("version", expectedVersion\)/);
  assert.match(budgets,/Monthly Budget/);
  assert.match(budgets,/summarizeMonthlyBudget\(records,activeBudgets,budgetMonth,categories\)/);
