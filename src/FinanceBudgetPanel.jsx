@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { localMonthMY } from "./financeCalendar.js";
 import { summarizeMonthlyBudget, normalizeBudgetsInput } from "./financeInsights.js";
 const money = n => new Intl.NumberFormat("en-MY",{style:"currency",currency:"MYR"}).format(Number(n||0));
@@ -13,16 +13,21 @@ export default function FinanceBudgetPanel({
   const [editingVersion,setEditingVersion] = useState(null);
   const [dirty,setDirty] = useState(false);
   const [busy,setBusy] = useState(false);
+  const displayedMonthRef = useRef(null);
 
   useEffect(()=>{
-    // Month switching starts a fresh editor snapshot; remote changes must not silently
-    // overwrite unsaved input or update the version the user originally edited.
-    const original = savedRow?.category_budgets
-      || (budgetMonth >= localMonthMY() ? budgetTemplate : {});
-    setDraft({...original});
-    setEditingVersion(savedVersion);
-    setDirty(false);
-  },[budgetMonth]);
+    // Always reset when changing month. For a remote change in the same month,
+    // refresh only a clean editor; never erase unsaved drafts or its old version.
+    const changedMonth = displayedMonthRef.current !== budgetMonth;
+    if (changedMonth || !dirty) {
+      const original = savedRow?.category_budgets
+        || (budgetMonth >= localMonthMY() ? budgetTemplate : {});
+      setDraft({...original});
+      setEditingVersion(savedVersion);
+      setDirty(false);
+    }
+    displayedMonthRef.current = budgetMonth;
+  },[budgetMonth,savedVersion,budgetTemplate]);
 
   const activeBudgets = savedRow?.category_budgets
     || (budgetMonth >= localMonthMY() ? budgetTemplate : {});
@@ -53,7 +58,7 @@ export default function FinanceBudgetPanel({
     try { 
       const valid = normalizeBudgetsInput(draft);
       const ok = await onSaveTemplate(valid);
-      if (ok) alert("Default budget template update queued. It will be checked against the cloud version.");
+      if (ok) alert("Default budget template saved to the cloud.");
     } catch(e) { alert(e.message); }
     finally {setBusy(false);}
   }
