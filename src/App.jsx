@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useRef, useState } from "react";
 import * as XLSX from "xlsx";
 import { supabase, hasSupabaseEnv, isTestEnvironment } from "./supabaseClient";
 import { parseEditedAmount, splitRecordStatus, loadEveryOwnedRow } from "./financeData";
+import { malaysiaDate, malaysiaMonth, malaysiaYear, validCalendarDate, shiftCalendarDate, recentCalendarStart, daysInCalendarMonth, summarizeMonthlyBudget, forecastCashFlow } from "./financePhase2";
 import {
   BarChart, Bar, PieChart, Pie, Cell, XAxis, YAxis, Tooltip,
   ResponsiveContainer, CartesianGrid, Legend, LineChart, Line,
@@ -33,13 +34,9 @@ const DELETE_CATEGORY_VALUE = "__delete_category__";
 const DELETE_METHOD_VALUE = "__delete_method__";
 const COLORS = ["#6366f1", "#22c55e", "#f97316", "#ef4444", "#06b6d4", "#a855f7", "#eab308", "#64748b", "#ec4899"];
 
-const today = () => {
-  const date = new Date();
-  const localDate = new Date(date.getTime() - date.getTimezoneOffset() * 60000);
-  return localDate.toISOString().slice(0, 10);
-};
-const monthNow = () => new Date().toISOString().slice(0, 7);
-const yearNow = () => String(new Date().getFullYear());
+const today = malaysiaDate;
+const monthNow = malaysiaMonth;
+const yearNow = malaysiaYear;
 const makeId = () => (crypto?.randomUUID ? crypto.randomUUID() : `${Date.now()}-${Math.random()}`);
 const pad = (n) => String(n).padStart(2, "0");
 const money = (v) => new Intl.NumberFormat("en-MY", { style: "currency", currency: "MYR" }).format(Number(v || 0));
@@ -100,26 +97,13 @@ const recordTypeStyle = (type) =>
         label: "🔥 Expense",
       };
 
-function daysInMonth(ym) {
-  const [y, m] = ym.split("-").map(Number);
-  return new Date(y, m, 0).getDate();
-}
-
-function addDays(dateString, amount) {
-  const d = new Date(dateString);
-  d.setDate(d.getDate() + amount);
-  return d.toISOString().slice(0, 10);
-}
-
+function daysInMonth(ym) { return daysInCalendarMonth(ym); }
+function addDays(dateString, amount) { return shiftCalendarDate(dateString, amount); }
 function dateRange(start, count) {
   return Array.from({ length: count }, (_, i) => addDays(start, i));
 }
 
-function recentStart(days) {
-  const d = new Date();
-  d.setDate(d.getDate() - (days - 1));
-  return d.toISOString().slice(0, 10);
-}
+function recentStart(days) { return recentCalendarStart(days, today()); }
 
 function sumType(records, type) {
   return records.filter((r) => r.type === type).reduce((s, r) => s + Number(r.amount || 0), 0);
@@ -1354,6 +1338,14 @@ export default function FinanceVisualizerApp() {
   const [records, setRecords] = useState([]);
   const [deletedRecords, setDeletedRecords] = useState([]);
   const [transfers, setTransfers] = useState([]);
+  const [deletedTransfers, setDeletedTransfers] = useState([]);
+  const [monthlyBudgetRows, setMonthlyBudgetRows] = useState([]);
+  const [budgetMonth, setBudgetMonth] = useState(monthNow());
+  const [forecastPlans, setForecastPlans] = useState([]);
+  const [forecastHorizon, setForecastHorizon] = useState("month");
+  const [forecastWindow, setForecastWindow] = useState(30);
+  const [clockDate, setClockDate] = useState(today());
+  const pendingTransfersRef = useRef(new Set());
   const [undoDeleted, setUndoDeleted] = useState(null);
   const [trashOpen, setTrashOpen] = useState(false);
   const [syncProgress, setSyncProgress] = useState("");
@@ -1443,6 +1435,9 @@ const [customCardImage, setCustomCardImage] = useState(() => {
       setRecords([]);
       setDeletedRecords([]);
       setTransfers([]);
+      setDeletedTransfers([]);
+      setMonthlyBudgetRows([]);
+      setForecastPlans([]);
       setBudgets(DEFAULT_BUDGETS);
       setCustomOptions(DEFAULT_CUSTOM_OPTIONS);
       setUndoDeleted(null);
@@ -1499,6 +1494,14 @@ const [customCardImage, setCustomCardImage] = useState(() => {
     };
   }, [user?.id]);
 
+  // A long-lived tab must refresh the Malaysia calendar date at midnight.
+  useEffect(() => {
+    const timer = window.setInterval(() => setClockDate((previous) => {
+      const current = today();
+      return current === previous ? previous : current;
+    }), 30000);
+    return () => window.clearInterval(timer);
+  }, []);
   useEffect(() => localStorage.setItem(SOUND_KEY, String(soundEnabled)), [soundEnabled]);
   useEffect(() => {
   localStorage.setItem(BALANCE_LIMIT_KEY, String(balanceLimit || "1500"));
