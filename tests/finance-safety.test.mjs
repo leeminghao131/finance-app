@@ -60,3 +60,10 @@ test("Realtime, count-checked paging and recycle bin remain enabled", () => {
   assert.match(app, /Recycle Bin/);
   assert.match(app, /setUndoDeleted\(removed\)/);
 });
+
+test("This preview build fails closed instead of connecting to production Supabase", () => {
+  assert.match(client, /SANDBOX_PROJECT_ID = "qrkaxxdwqgffhkalvtby"/);
+  assert.match(client, /isTestEnvironment = supabaseUrl === requiredSandboxUrl/);
+  assert.match(client, /hasSupabaseEnv = Boolean\(isTestEnvironment && supabaseAnonKey\)/);
+  assert.match(app, /TEST MODE \/ 测试环境/);
+});
