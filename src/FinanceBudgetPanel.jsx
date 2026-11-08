@@ -5,7 +5,7 @@ const money = n => new Intl.NumberFormat("en-MY",{style:"currency",currency:"MYR
 
 export default function FinanceBudgetPanel({
   records, budgetMonth, setBudgetMonth, monthRows, budgetTemplate, categories,
-  onSaveMonthly, onSaveTemplate,
+  onSaveMonthly, onSaveTemplate, onDirtyChange, embedded = false,
 }) {
   const savedRow = monthRows.find(row=>row.month===budgetMonth);
   const savedVersion = savedRow?.version ?? null;
@@ -14,6 +14,7 @@ export default function FinanceBudgetPanel({
   const [dirty,setDirty] = useState(false);
   const [busy,setBusy] = useState(false);
   const displayedMonthRef = useRef(null);
+  useEffect(() => { onDirtyChange?.(dirty); }, [dirty, onDirtyChange]);
 
   useEffect(()=>{
     // Always reset when changing month. For a remote change in the same month,
@@ -64,7 +65,7 @@ export default function FinanceBudgetPanel({
   }
 
   return (
-    <div className="rounded-2xl bg-white p-5 shadow-sm ring-1 ring-slate-200">
+    <div className={embedded ? "min-w-0 bg-white p-1" : "rounded-2xl bg-white p-5 shadow-sm ring-1 ring-slate-200"}>
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <h2 className="text-xl font-bold">Monthly Budget / 分类预算</h2>

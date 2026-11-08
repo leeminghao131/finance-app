@@ -6,6 +6,7 @@ import { normalizeBudgetsInput } from "./financeInsights.js";
 import FinanceTransferPanel from "./FinanceTransferPanel.jsx";
 import FinanceBudgetPanel from "./FinanceBudgetPanel.jsx";
 import FinanceForecastPanel from "./FinanceForecastPanel.jsx";
+import FinanceOverlay from "./FinanceOverlay.jsx";
 import FinanceCsvImportPanel from "./FinanceCsvImportPanel.jsx";
 import FinanceExcelExportPanel from "./FinanceExcelExportPanel.jsx";
 import { normalizeRecord, normalizeTransfer, toRecordPayload } from "./financeRecords.js";
@@ -212,7 +213,7 @@ function filterRecords(records, mode, month, year, keyword) {
 function Card({ children, className = "" }) {
   return <div className={`rounded-2xl bg-white p-5 shadow-sm ring-1 ring-slate-200 ${className}`}>{children}</div>;
 }
-function StatCard({ title, value, icon, desc }) {
+function StatCard({ title, value, icon, desc, action }) {
   return (
     <Card>
       <div className="flex items-start justify-between gap-3">
@@ -221,7 +222,7 @@ function StatCard({ title, value, icon, desc }) {
           <p className="mt-2 text-2xl font-bold text-slate-900">{value}</p>
           <p className="mt-1 text-sm text-slate-500">{desc}</p>
         </div>
-        <div className="rounded-2xl bg-slate-100 px-3 py-2 text-xl">{icon}</div>
+        {action || <div className="rounded-2xl bg-slate-100 px-3 py-2 text-xl">{icon}</div>}
       </div>
     </Card>
   );
@@ -498,6 +499,8 @@ if (field === "category" || field === "method") {
       type={field === "date" ? "date" : "text"}
       inputMode={field === "amount" ? "decimal" : "text"}
       value={draft}
+      onFocus={(event) => { if (field === "amount") event.target.select(); }}
+      title={field === "amount" ? "Enter normal RM amount: 100 means RM100.00" : undefined}
       onChange={(e) => setDraft(e.target.value)}
       onBlur={commit}
       onKeyDown={(e) => e.key === "Enter" && commit()}
@@ -596,6 +599,8 @@ export default function FinanceVisualizerApp() {
   const [undoTransfer, setUndoTransfer] = useState(null);
   const [monthRows, setMonthRows] = useState([]);
   const [budgetMonth, setBudgetMonth] = useState(monthNow());
+  const [budgetOpen, setBudgetOpen] = useState(false);
+  const [budgetDraftDirty, setBudgetDraftDirty] = useState(false);
   const [forecastPlans, setForecastPlans] = useState([]);
   const [undoDeleted, setUndoDeleted] = useState(null);
   const [trashOpen, setTrashOpen] = useState(false);
@@ -628,6 +633,7 @@ export default function FinanceVisualizerApp() {
 });
   const [deleteOptionPanel, setDeleteOptionPanel] = useState({ kind: "", type: "" });
   const [calculationText, setCalculationText] = useState("0.00");
+  const [amountEntryMode, setAmountEntryMode] = useState("rm");
   const [calculationResult, setCalculationResult] = useState(null);
   const [filterMode, setFilterMode] = useState("month");
   const [selectedMonth, setSelectedMonth] = useState(monthNow());
@@ -1414,8 +1420,9 @@ async function addRecord(e) {
   e.preventDefault();
   if (!user) return alert("Please sign in first.");
 
- const amount = parseMoneyInput(form.amount);
-  if (!amount || amount <= 0) return alert("Please enter a valid amount.");
+ let amount;
+  try { amount = parseEditedAmount(form.amount); }
+  catch(error) { alert(error.message); return; }
 
   const payload = toRecordPayload(
     { ...form, amount, note: form.note.trim() },
@@ -1825,19 +1832,44 @@ return (
   💰 Income
 </button></div>
 <label className="block">
-  <span className="text-sm font-medium text-slate-600">Amount</span>
+  <span className="flex flex-wrap items-center justify-between gap-2 text-sm font-medium text-slate-600">
+    <span>Amount (RM)</span>
+    <span className="inline-flex rounded-lg bg-slate-100 p-1 text-xs" role="group" aria-label="Amount input mode">
+      <button type="button" aria-pressed={amountEntryMode === "rm"}
+        onClick={() => setAmountEntryMode("rm")}
+        className={`rounded-md px-2 py-1 font-semibold ${amountEntryMode === "rm" ? "bg-white text-slate-900 shadow-sm" : "text-slate-500"}`}>
+        RM typing
+      </button>
+      <button type="button" aria-pressed={amountEntryMode === "cents"}
+        onClick={() => {
+          setAmountEntryMode("cents");
+          setForm(previous => ({
+            ...previous,
+            amount: Number.isFinite(Number(previous.amount)) ? Number(previous.amount).toFixed(2) : previous.amount,
+          }));
+        }}
+        className={`rounded-md px-2 py-1 font-semibold ${amountEntryMode === "cents" ? "bg-white text-slate-900 shadow-sm" : "text-slate-500"}`}>
+        Cents keypad
+      </button>
+    </span>
+  </span>
   <input
     value={form.amount}
     onChange={(event) =>
       setForm((previous) => ({
         ...previous,
-        amount: formatMoneyTyping(event.target.value),
+        amount: amountEntryMode === "cents" ? formatMoneyTyping(event.target.value) : event.target.value,
       }))
     }
     type="text"
-    inputMode="numeric"
+    inputMode={amountEntryMode === "cents" ? "numeric" : "decimal"}
+    onFocus={event => { if (amountEntryMode === "rm") event.target.select(); }}
+    title={amountEntryMode === "cents" ? "2455 means RM24.55" : "100 means RM100.00"}
     className="mt-1 w-full rounded-2xl border border-slate-200 px-4 py-3 outline-none"
   />
+  <span className="mt-1 block text-xs text-slate-500">
+    {amountEntryMode === "cents" ? "Cents keypad: 2455 → RM24.55" : "Normal RM: 100 → RM100.00 · 24.55 → RM24.55"}
+  </span>
 </label>
               <div className="rounded-2xl bg-slate-50 p-4 ring-1 ring-slate-200"><p className="text-sm font-bold text-slate-700">小计算器</p><textarea
   value={calculationText}
@@ -1946,19 +1978,36 @@ return (
             <Card><div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between"><h2 className="text-xl font-bold">Filters</h2><div className="flex flex-col gap-3 md:flex-row md:flex-wrap md:justify-end"><select value={filterMode} onChange={(e) => setFilterMode(e.target.value)} className="rounded-2xl border border-slate-200 px-4 py-3 outline-none"><option value="all">全部</option><option value="month">按月份</option><option value="year">按年份</option><option value="recent30">最近 30 天</option><option value="recent7">最近 7 天</option><option value="recent3">最近 3 天</option></select>{filterMode === "month" && <input type="month" value={selectedMonth} onChange={(e) => setSelectedMonth(e.target.value)} className="rounded-2xl border border-slate-200 px-4 py-3 outline-none" />}{filterMode === "year" && <input type="number" value={selectedYear} onChange={(e) => setSelectedYear(e.target.value)} className="rounded-2xl border border-slate-200 px-4 py-3 outline-none" />}<input value={keyword} onChange={(e) => setKeyword(e.target.value)} placeholder="Search category, method or note" className="rounded-2xl border border-slate-200 px-4 py-3 outline-none" /></div></div></Card>
             <section className="grid gap-4 md:grid-cols-3">
               <StatCard title="Filtered Income" value={money(filteredIncome)} icon="📈" desc={"Current filter: " + filterLabel} />
-              <StatCard title="Filtered Expense" value={money(filteredExpense)} icon="📉" desc={"Current filter: " + filterLabel} />
+              <StatCard title="Filtered Expense" value={money(filteredExpense)} icon="📉" desc={"Current filter: " + filterLabel}
+                action={<button type="button" aria-label="Open Monthly Budget" aria-haspopup="dialog"
+                  aria-expanded={budgetOpen} title="Monthly Budget / 分类预算"
+                  onClick={() => setBudgetOpen(true)}
+                  className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-amber-50 text-xl text-amber-900 ring-1 ring-amber-200 transition hover:bg-amber-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-amber-600">
+                    📊
+                </button>}
+              />
               <BalanceCard title="Filtered Balance" value={filteredIncome - filteredExpense} desc={"Current filter: " + filterLabel} limit={balanceLimit} />
             </section>
-            <FinanceBudgetPanel
-              records={records}
-              budgetMonth={budgetMonth}
-              setBudgetMonth={setBudgetMonth}
-              monthRows={monthRows}
-              budgetTemplate={budgets}
-              categories={expenseCategoryOptions}
-              onSaveMonthly={saveMonthlyBudget}
-              onSaveTemplate={saveTemplateBudget}
-            />
+            <FinanceOverlay open={budgetOpen} title="Monthly Budget / 分类预算"
+              onClose={() => {
+                if (budgetDraftDirty && !window.confirm("Discard unsaved budget changes?")) return;
+                setBudgetDraftDirty(false);
+                setBudgetOpen(false);
+              }}
+              widthClass="max-w-3xl">
+              <FinanceBudgetPanel
+                embedded
+                records={records}
+                budgetMonth={budgetMonth}
+                setBudgetMonth={setBudgetMonth}
+                monthRows={monthRows}
+                budgetTemplate={budgets}
+                categories={expenseCategoryOptions}
+                onSaveMonthly={saveMonthlyBudget}
+                onSaveTemplate={saveTemplateBudget}
+                onDirtyChange={setBudgetDraftDirty}
+              />
+            </FinanceOverlay>
             <section className="grid gap-6 xl:grid-cols-2">
               <FinanceForecastPanel
                 records={records}
