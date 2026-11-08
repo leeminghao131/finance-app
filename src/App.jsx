@@ -1168,7 +1168,10 @@ function EditableCell({ value, field, recordType, onSave, categoryOptionsFor, me
     setDraft(value ?? "");
   }, [value]);
 
+  const savingRef = useRef(false);
   function commit() {
+    if (savingRef.current) return;
+    savingRef.current = true;
     setEditing(false);
     if (String(draft) !== String(value ?? "")) {
       onSave(draft);
@@ -1179,7 +1182,7 @@ function EditableCell({ value, field, recordType, onSave, categoryOptionsFor, me
     return (
       <span
         className="cursor-pointer rounded px-1 py-0.5 hover:bg-slate-100"
-        onClick={() => setEditing(true)}
+        onClick={() => { savingRef.current = false; setEditing(true); }}
       >
       {value ? (
   field === "category"
@@ -1218,9 +1221,8 @@ if (field === "category" || field === "method") {
   return (
     <input
       autoFocus
-      type={field === "date" ? "date" : field === "amount" ? "number" : "text"}
-      min="0"
-      step="0.01"
+      type={field === "date" ? "date" : "text"}
+      inputMode={field === "amount" ? "decimal" : "text"}
       value={draft}
       onChange={(e) => setDraft(e.target.value)}
       onBlur={commit}
@@ -1363,6 +1365,7 @@ export default function FinanceVisualizerApp() {
   const recordsLoadCounterRef = useRef(0);
   const liveUserIdRef = useRef(null);
   const undoTimeoutRef = useRef(null);
+  const pendingRecordsRef = useRef(new Set());
   const reloadDebounceRef = useRef(null);
   const [budgets, setBudgets] = useState(DEFAULT_BUDGETS);
   const [customOptions, setCustomOptions] = useState(DEFAULT_CUSTOM_OPTIONS);
@@ -1816,11 +1819,14 @@ function renderDeleteCustomOptionPanel(kind, type) {
   );
 }
   function updateBudgets(updater) {
-    setBudgets((previous) => {
-      const next = typeof updater === "function" ? updater(previous) : updater;
+    const next = typeof updater === "function" ? updater(budgetsRef.current) : updater;
+    budgetsRef.current = next;
+    setBudgets(next);
+    clearTimeout(budgetSaveTimerRef.current);
+    budgetSaveTimerRef.current = setTimeout(() => {
+      budgetSaveTimerRef.current = null;
       saveBudgets(next);
-      return next;
-    });
+    }, 500);
   }
 const expenseCategoryOptions = useMemo(
   () => uniqueOptions(EXPENSE_CATEGORIES, customOptions.expenseCategories),
@@ -2116,7 +2122,7 @@ async function addRecord(e) {
   const { data, error } = await supabase
     .from("records")
     .insert(payload)
-    .select("id,type,amount,category,method,note,date,created_at")
+    .select("id,type,amount,category,method,note,date,created_at,updated_at,version,deleted_at")
     .single();
 
   if (error) return alert(error.message);
@@ -2189,36 +2195,112 @@ if (insertedRecord.type === "expense") {
   }
 
   async function updateRecord(recordId, field, value) {
-    const current = records.find((r) => r.id === recordId);
-    if (!current) return;
-const updates = field === "type"
-  ? {
-      type: value,
-      category: categoryOptionsFor(value)[0],
-      method: methodOptionsFor(value)[0],
+    const current = records.find((row) => row.id === recordId);
+    if (!current || !user) return;
+    if (pendingRecordsRef.current.has(recordId)) return;
+    let updates;
+    try {
+      updates = field === "type"
+        ? { type: value, category: categoryOptionsFor(value)[0], method: methodOptionsFor(value)[0] }
+        : { [field]: field === "amount" ? parseEditedAmount(value) : value };
+      if (field === "date" && !/^\d{4}-\d{2}-\d{2}$/.test(String(value))) {
+        throw new Error("Please select a valid date.");
+      }
+      if (field === "amount" && current.amount === updates.amount) return;
+    } catch (error) {
+      alert(error.message);
+      return;
     }
- : { [field]: field === "amount" ? parseMoneyInput(value) : value };
-    const { error } = await supabase.from("records").update(updates).eq("id", recordId);
-    if (error) return alert(error.message);
-    setRecords((p) => p.map((r) => (r.id === recordId ? { ...r, ...updates } : r)));
-    setSyncStatus("Record synced");
+    pendingRecordsRef.current.add(recordId);
+    try {
+      const { data, error } = await supabase.from("records")
+        .update(updates)
+        .eq("id", recordId)
+        .eq("user_id", user.id)
+        .eq("version", current.version)
+        .is("deleted_at", null)
+        .select("id,type,amount,category,method,note,date,created_at,updated_at,version,deleted_at")
+        .maybeSingle();
+      if (error) throw error;
+      if (!data) {
+        setSyncStatus("Conflict: this record changed on another device. Nothing overwritten.");
+        await loadCloudData({ background: true });
+        alert("This record was changed on another device. Your edit was not saved; latest cloud data has been loaded.");
+        return;
+      }
+      const result = normalizeRecord(data);
+      setRecords((previous) => previous.map((row) => row.id === recordId ? result : row));
+      setSyncStatus("Record synced");
+    } catch (error) {
+      setSyncStatus("Record edit not saved: " + error.message);
+      alert(error.message);
+    } finally {
+      pendingRecordsRef.current.delete(recordId);
+    }
   }
 
   async function deleteRecord(recordId) {
-  const { error } = await supabase
-    .from("records")
-    .delete()
-    .eq("id", recordId);
-
-  if (error) {
-    alert(error.message);
-    return;
+    const current = records.find((row) => row.id === recordId);
+    if (!current || !user || pendingRecordsRef.current.has(recordId)) return;
+    pendingRecordsRef.current.add(recordId);
+    try {
+      const { data, error } = await supabase.from("records")
+        .update({ deleted_at: new Date().toISOString() })
+        .eq("id", recordId).eq("user_id", user.id)
+        .eq("version", current.version).is("deleted_at", null)
+        .select("id,type,amount,category,method,note,date,created_at,updated_at,version,deleted_at")
+        .maybeSingle();
+      if (error) throw error;
+      if (!data) {
+        await loadCloudData({ background: true });
+        alert("Delete cancelled: the record changed on another device.");
+        return;
+      }
+      const removed = normalizeRecord(data);
+      setRecords((previous) => previous.filter((row) => row.id !== recordId));
+      setDeletedRecords((previous) => [removed, ...previous]);
+      setDeleteConfirm(null);
+      setUndoDeleted(removed);
+      clearTimeout(undoTimeoutRef.current);
+      undoTimeoutRef.current = setTimeout(() => setUndoDeleted(null), 10000);
+      setSyncStatus("Record moved to Recycle Bin — can be restored anytime.");
+    } catch (error) {
+      setSyncStatus("Delete failed: " + error.message);
+      alert(error.message);
+    } finally {
+      pendingRecordsRef.current.delete(recordId);
+    }
   }
 
-  setRecords((p) => p.filter((r) => r.id !== recordId));
-  setDeleteConfirm(null);
-  setSyncStatus("Record deleted from cloud");
-}
+  async function restoreRecord(recordId) {
+    const current = deletedRecords.find((row) => row.id === recordId);
+    if (!current || !user || pendingRecordsRef.current.has(recordId)) return;
+    pendingRecordsRef.current.add(recordId);
+    try {
+      const { data, error } = await supabase.from("records")
+        .update({ deleted_at: null })
+        .eq("id", recordId).eq("user_id", user.id)
+        .eq("version", current.version).not("deleted_at", "is", null)
+        .select("id,type,amount,category,method,note,date,created_at,updated_at,version,deleted_at")
+        .maybeSingle();
+      if (error) throw error;
+      if (!data) {
+        await loadCloudData({ background: true });
+        alert("Restore could not be completed: this record changed on another device. Latest data loaded.");
+        return;
+      }
+      const restored = normalizeRecord(data);
+      setDeletedRecords((previous) => previous.filter((row) => row.id !== recordId));
+      setRecords((previous) => [restored, ...previous]);
+      if (undoDeleted?.id === recordId) setUndoDeleted(null);
+      setSyncStatus("Record restored from Recycle Bin");
+    } catch (error) {
+      setSyncStatus("Restore failed: " + error.message);
+      alert(error.message);
+    } finally {
+      pendingRecordsRef.current.delete(recordId);
+    }
+  }
 
   function toExcelDate(dateString) {
   if (!dateString) return "";
@@ -2310,6 +2392,20 @@ function exportExcel() {
 
   if (!session) {
     return <AuthScreen />;
+  }
+  if (!initialDataReady) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-slate-50 p-5 text-slate-900">
+        <div className="w-full max-w-lg rounded-3xl bg-white p-7 shadow-sm ring-1 ring-slate-200">
+          <h1 className="text-xl font-bold">Verifying your finance records</h1>
+          <p className="mt-3 text-sm text-slate-600">{syncStatus || "Loading..."}</p>
+          {syncProgress && <p className="mt-2 text-sm font-semibold text-blue-700">{syncProgress}</p>}
+          <p className="mt-2 text-xs text-slate-500">Totals remain hidden until all cloud records are loaded and checked.</p>
+          <button onClick={() => loadCloudData()} className="mt-5 rounded-xl bg-slate-900 px-4 py-2 text-sm font-bold text-white">Retry loading</button>
+          <button onClick={signOut} className="ml-3 rounded-xl border border-slate-200 px-4 py-2 text-sm">Sign out</button>
+        </div>
+      </div>
+    );
   }
 const addRecordTheme =
   form.type === "income"
