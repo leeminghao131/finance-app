@@ -2199,7 +2199,7 @@ if (insertedRecord.type === "expense") {
   const { data, error } = await supabase
     .from("transfers")
     .insert(payload)
-    .select("id,from_method,to_method,amount,note,date,created_at")
+    .select("id,from_method,to_method,amount,note,date,created_at,updated_at,version,deleted_at")
     .single();
 
   if (error) return alert(error.message);
@@ -2217,6 +2217,63 @@ if (insertedRecord.type === "expense") {
 
   setSyncStatus("Transfer added to cloud");
 }
+  const transferSelectColumns = "id,from_method,to_method,amount,note,date,created_at,updated_at,version,deleted_at";
+  async function updateTransfer(transfer,draft) {
+    if(!user || pendingTransfersRef.current.has(transfer.id))return false;
+    let amount;
+    try{
+      amount=parseEditedAmount(draft.amount);
+      if(draft.fromMethod===draft.toMethod)throw Error("From and To cannot be the same.");
+      if(!validCalendarDate(draft.date))throw Error("Select a valid transfer date.");
+    }catch(error){alert(error.message);return false;}
+    pendingTransfersRef.current.add(transfer.id);
+    try{
+      const {data,error}=await supabase.from("transfers")
+        .update({from_method:draft.fromMethod,to_method:draft.toMethod,amount,date:draft.date,note:String(draft.note||"").trim()})
+        .eq("id",transfer.id).eq("user_id",user.id).eq("version",transfer.version).is("deleted_at",null)
+        .select(transferSelectColumns).maybeSingle();
+      if(error)throw error;
+      if(!data){await loadCloudData({background:true});alert("Transfer changed on another device. Nothing overwritten.");return false;}
+      setTransfers(p=>p.map(x=>x.id===transfer.id?normalizeTransfer(data):x));
+      setSyncStatus("Transfer updated");return true;
+    }catch(error){alert(error.message);setSyncStatus("Transfer edit failed");return false;}
+    finally{pendingTransfersRef.current.delete(transfer.id);}
+  }
+  async function deleteTransfer(transfer) {
+    if(!user || pendingTransfersRef.current.has(transfer.id))return;
+    pendingTransfersRef.current.add(transfer.id);
+    try{
+      const {data,error}=await supabase.from("transfers")
+        .update({deleted_at:new Date().toISOString()})
+        .eq("id",transfer.id).eq("user_id",user.id).eq("version",transfer.version).is("deleted_at",null)
+        .select(transferSelectColumns).maybeSingle();
+      if(error)throw error;
+      if(!data){await loadCloudData({background:true});alert("Transfer changed on another device. Nothing deleted.");return;}
+      const removed=normalizeTransfer(data);
+      setTransfers(p=>p.filter(x=>x.id!==transfer.id));setDeletedTransfers(p=>[removed,...p]);
+      setUndoDeleted({kind:"transfer",...removed});
+      clearTimeout(undoTimeoutRef.current);
+      undoTimeoutRef.current=setTimeout(()=>setUndoDeleted(null),10000);
+      setSyncStatus("Transfer moved to Recycle Bin");
+    }catch(error){alert(error.message);setSyncStatus("Transfer delete failed");}
+    finally{pendingTransfersRef.current.delete(transfer.id);}
+  }
+  async function restoreTransfer(transfer) {
+    if(!user || pendingTransfersRef.current.has(transfer.id))return;
+    pendingTransfersRef.current.add(transfer.id);
+    try{
+      const {data,error}=await supabase.from("transfers").update({deleted_at:null})
+        .eq("id",transfer.id).eq("user_id",user.id).eq("version",transfer.version)
+        .not("deleted_at","is",null).select(transferSelectColumns).maybeSingle();
+      if(error)throw error;
+      if(!data){await loadCloudData({background:true});alert("Transfer changed on another device. Please retry.");return;}
+      setDeletedTransfers(p=>p.filter(x=>x.id!==transfer.id));
+      setTransfers(p=>[normalizeTransfer(data),...p]);
+      if(undoDeleted?.kind==="transfer"&&undoDeleted.id===transfer.id)setUndoDeleted(null);
+      setSyncStatus("Transfer restored");
+    }catch(error){alert(error.message);setSyncStatus("Transfer restore failed");}
+    finally{pendingTransfersRef.current.delete(transfer.id);}
+  }
   function fillCalculation() {
     try {
       const total = calculate(calculationText);
@@ -2291,7 +2348,7 @@ if (insertedRecord.type === "expense") {
       setRecords((previous) => previous.filter((row) => row.id !== recordId));
       setDeletedRecords((previous) => [removed, ...previous]);
       setDeleteConfirm(null);
-      setUndoDeleted(removed);
+      setUndoDeleted({kind:'record',...removed});
       clearTimeout(undoTimeoutRef.current);
       undoTimeoutRef.current = setTimeout(() => setUndoDeleted(null), 10000);
       setSyncStatus("Record moved to Recycle Bin — can be restored anytime.");
@@ -2481,8 +2538,8 @@ return (
         )}
         {undoDeleted && (
           <div role="status" className="flex flex-wrap items-center justify-between gap-3 rounded-2xl bg-blue-50 p-4 text-sm text-blue-900 ring-1 ring-blue-200">
-            <span><b>Moved to Recycle Bin:</b> {undoDeleted.category} · {money(undoDeleted.amount)}</span>
-            <button type="button" onClick={() => restoreRecord(undoDeleted.id)} className="rounded-xl bg-blue-700 px-4 py-2 font-bold text-white hover:bg-blue-800">Undo</button>
+            <span><b>Moved to Recycle Bin:</b> {undoDeleted.kind==="transfer"?"Transfer":undoDeleted.category} · {money(undoDeleted.amount)}</span>
+            <button type="button" onClick={() => undoDeleted.kind==="transfer"?restoreTransfer(undoDeleted):restoreRecord(undoDeleted.id)} className="rounded-xl bg-blue-700 px-4 py-2 font-bold text-white hover:bg-blue-800">Undo</button>
           </div>
         )}
         <div className="flex flex-col gap-2 rounded-2xl bg-white px-4 py-3 text-sm text-slate-600 ring-1 ring-slate-200 md:flex-row md:items-center md:justify-between">
@@ -2647,7 +2704,11 @@ return (
   setTransferForm={setTransferForm}
 methodOptions={accountMethodOptions}
   transfers={transfers}
+  deletedTransfers={deletedTransfers}
   onTransfer={addTransfer}
+  onEditTransfer={updateTransfer}
+  onDeleteTransfer={deleteTransfer}
+  onRestoreTransfer={restoreTransfer}
 />
 
   </div>
