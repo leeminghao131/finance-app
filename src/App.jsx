@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import * as XLSX from "xlsx";
-import { supabase, hasSupabaseEnv } from "./supabaseClient";
+import { supabase, hasSupabaseEnv, isTestEnvironment } from "./supabaseClient";
+import { parseEditedAmount, splitRecordStatus, loadEveryOwnedRow } from "./financeData";
 import {
   BarChart, Bar, PieChart, Pie, Cell, XAxis, YAxis, Tooltip,
   ResponsiveContainer, CartesianGrid, Legend, LineChart, Line,
@@ -1164,10 +1165,14 @@ function EditableCell({ value, field, recordType, onSave, categoryOptionsFor, me
   const [draft, setDraft] = useState(value ?? "");
 
   useEffect(() => {
-    setDraft(value ?? "");
-  }, [value]);
+    // A cloud refresh must never erase a value that the user is actively typing.
+    if (!editing) setDraft(value ?? "");
+  }, [value, editing]);
 
+  const savingRef = useRef(false);
   function commit() {
+    if (savingRef.current) return;
+    savingRef.current = true;
     setEditing(false);
     if (String(draft) !== String(value ?? "")) {
       onSave(draft);
@@ -1178,7 +1183,7 @@ function EditableCell({ value, field, recordType, onSave, categoryOptionsFor, me
     return (
       <span
         className="cursor-pointer rounded px-1 py-0.5 hover:bg-slate-100"
-        onClick={() => setEditing(true)}
+        onClick={() => { savingRef.current = false; setEditing(true); }}
       >
       {value ? (
   field === "category"
@@ -1217,9 +1222,8 @@ if (field === "category" || field === "method") {
   return (
     <input
       autoFocus
-      type={field === "date" ? "date" : field === "amount" ? "number" : "text"}
-      min="0"
-      step="0.01"
+      type={field === "date" ? "date" : "text"}
+      inputMode={field === "amount" ? "decimal" : "text"}
       value={draft}
       onChange={(e) => setDraft(e.target.value)}
       onBlur={commit}
@@ -1253,6 +1257,9 @@ function normalizeRecord(row) {
     method: row.method,
     note: row.note || "",
     date: row.date,
+    version: Number(row.version || 1),
+    updated_at: row.updated_at || row.created_at,
+    deleted_at: row.deleted_at || null,
   };
 }
 function normalizeTransfer(row) {
@@ -1304,7 +1311,7 @@ function AuthScreen() {
       <div className="min-h-screen bg-slate-50 p-6 text-slate-900">
         <div className="mx-auto mt-16 max-w-xl rounded-3xl bg-white p-8 shadow-sm ring-1 ring-red-200">
           <h1 className="text-2xl font-bold text-red-700">Supabase is not configured</h1>
-          <p className="mt-3 text-sm text-slate-600">Please add VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY in Vercel Environment Variables, then redeploy.</p>
+          <p className="mt-3 text-sm text-slate-600">This unapproved development build only allows the isolated MH Finance Test database. The live Finance App database is blocked. Please check the Preview environment variables.</p>
         </div>
       </div>
     );
@@ -1345,7 +1352,22 @@ export default function FinanceVisualizerApp() {
   const [dataLoading, setDataLoading] = useState(false);
   const [syncStatus, setSyncStatus] = useState("");
   const [records, setRecords] = useState([]);
+  const [deletedRecords, setDeletedRecords] = useState([]);
   const [transfers, setTransfers] = useState([]);
+  const [undoDeleted, setUndoDeleted] = useState(null);
+  const [trashOpen, setTrashOpen] = useState(false);
+  const [syncProgress, setSyncProgress] = useState("");
+  const [settingsVersion, setSettingsVersion] = useState(null);
+  const [initialDataReady, setInitialDataReady] = useState(false);
+  const budgetsRef = useRef(DEFAULT_BUDGETS);
+  const settingsVersionRef = useRef(null);
+  const settingsQueueRef = useRef(Promise.resolve());
+  const budgetSaveTimerRef = useRef(null);
+  const recordsLoadCounterRef = useRef(0);
+  const liveUserIdRef = useRef(null);
+  const undoTimeoutRef = useRef(null);
+  const pendingRecordsRef = useRef(new Set());
+  const reloadDebounceRef = useRef(null);
   const [budgets, setBudgets] = useState(DEFAULT_BUDGETS);
   const [customOptions, setCustomOptions] = useState(DEFAULT_CUSTOM_OPTIONS);
   const [form, setForm] = useState({ type: "expense", amount: "0.00", category: "饮食", method: "TNG", note: "", date: today() });
@@ -1388,25 +1410,93 @@ const [customCardImage, setCustomCardImage] = useState(() => {
       setAuthLoading(false);
       return;
     }
-    supabase.auth.getSession().then(({ data }) => {
+    let mounted = true;
+    supabase.auth.getSession().then(({ data, error }) => {
+      if (!mounted) return;
+      if (error) setSyncStatus(error.message);
+      liveUserIdRef.current = data.session?.user?.id || null;
       setSession(data.session || null);
       setUser(data.session?.user || null);
       setAuthLoading(false);
+    }).catch((error) => {
+      if (mounted) { setSyncStatus(error.message); setAuthLoading(false); }
     });
     const { data: listener } = supabase.auth.onAuthStateChange((_event, nextSession) => {
+      liveUserIdRef.current = nextSession?.user?.id || null;
       setSession(nextSession || null);
       setUser(nextSession?.user || null);
     });
-    return () => listener.subscription.unsubscribe();
+    return () => { mounted = false; listener.subscription.unsubscribe(); };
   }, []);
 
   useEffect(() => {
-    if (user) loadCloudData();
-    else {
-setRecords([]);
-setTransfers([]);
-setBudgets(DEFAULT_BUDGETS);
+    if (user) {
+      liveUserIdRef.current = user.id;
+      setInitialDataReady(false);
+      loadCloudData();
+    } else {
+      recordsLoadCounterRef.current += 1;
+      liveUserIdRef.current = null;
+      settingsVersionRef.current = null;
+      budgetsRef.current = DEFAULT_BUDGETS;
+      setInitialDataReady(false);
+      setRecords([]);
+      setDeletedRecords([]);
+      setTransfers([]);
+      setBudgets(DEFAULT_BUDGETS);
+      setCustomOptions(DEFAULT_CUSTOM_OPTIONS);
+      setUndoDeleted(null);
+      setSettingsVersion(null);
     }
+    return () => {
+      recordsLoadCounterRef.current += 1;
+      clearTimeout(reloadDebounceRef.current);
+      clearTimeout(budgetSaveTimerRef.current);
+      clearTimeout(undoTimeoutRef.current);
+    };
+  }, [user?.id]);
+
+  // Realtime is a change notification; always refetch verified pages after a change.
+  // Reconnect/focus reconciliation covers missed events during sleep or network loss.
+  useEffect(() => {
+    if (!user || !supabase) return;
+    const accountId = user.id;
+    const scheduleRefresh = () => {
+      if (liveUserIdRef.current !== accountId) return;
+      clearTimeout(reloadDebounceRef.current);
+      reloadDebounceRef.current = setTimeout(() => {
+        if (liveUserIdRef.current === accountId) loadCloudData({ background: true });
+      }, 350);
+    };
+    const channel = supabase.channel("finance-updates-" + accountId);
+    for (const table of ["records", "transfers", "user_settings"]) {
+      channel.on("postgres_changes", {
+        event: "*", schema: "public", table, filter: "user_id=eq." + accountId,
+      }, scheduleRefresh);
+    }
+    channel.subscribe((status) => {
+      if (status === "SUBSCRIBED") scheduleRefresh();
+      if (status === "CHANNEL_ERROR" || status === "TIMED_OUT") {
+        setSyncStatus("Live sync interrupted — reconnecting; refresh when online.");
+      }
+    });
+    const onFocus = () => scheduleRefresh();
+    const onOnline = () => scheduleRefresh();
+    const onVisibility = () => { if (!document.hidden) scheduleRefresh(); };
+    window.addEventListener("focus", onFocus);
+    window.addEventListener("online", onOnline);
+    document.addEventListener("visibilitychange", onVisibility);
+    const interval = window.setInterval(() => {
+      if (!document.hidden && navigator.onLine) scheduleRefresh();
+    }, 120000);
+    return () => {
+      clearTimeout(reloadDebounceRef.current);
+      window.clearInterval(interval);
+      window.removeEventListener("focus", onFocus);
+      window.removeEventListener("online", onOnline);
+      document.removeEventListener("visibilitychange", onVisibility);
+      supabase.removeChannel(channel);
+    };
   }, [user?.id]);
 
   useEffect(() => localStorage.setItem(SOUND_KEY, String(soundEnabled)), [soundEnabled]);
@@ -1444,77 +1534,114 @@ useEffect(() => {
   });
 }, [form.type, customOptions]);
 
-  async function loadCloudData() {
-    if (!user) return;
+  async function loadCloudData({ background = false } = {}) {
+    const accountId = user?.id;
+    if (!accountId || !supabase) return;
+    const requestId = ++recordsLoadCounterRef.current;
+    const isCurrent = () => requestId === recordsLoadCounterRef.current && liveUserIdRef.current === accountId;
+    if (!background) setInitialDataReady(false);
     setDataLoading(true);
-    setSyncStatus("Loading cloud data...");
-    const { data: recordRows, error: recordError } = await supabase
-      .from("records")
-      .select("id,type,amount,category,method,note,date,created_at")
-      .order("date", { ascending: false })
-      .order("created_at", { ascending: false });
-    if (recordError) {
-      setSyncStatus(recordError.message);
+    setSyncProgress("");
+    setSyncStatus(background ? "Refreshing finance data..." : "Loading complete cloud data...");
+    try {
+      const progress = (loaded, total, table) => {
+        if (isCurrent()) setSyncProgress(table + ": " + loaded + " / " + total);
+      };
+      const recordRows = await loadEveryOwnedRow(
+        supabase, "records",
+        "id,type,amount,category,method,note,date,created_at,updated_at,version,deleted_at",
+        accountId, progress
+      );
+      if (!isCurrent()) return;
+      const transferRows = await loadEveryOwnedRow(
+        supabase, "transfers",
+        "id,from_method,to_method,amount,note,date,created_at",
+        accountId, progress
+      );
+      if (!isCurrent()) return;
+      const { data: settingsRow, error: settingsError } = await supabase
+        .from("user_settings")
+        .select("category_budgets,custom_options,version")
+        .eq("user_id", accountId)
+        .maybeSingle();
+      if (settingsError) throw settingsError;
+      if (!isCurrent()) return;
+      const byNewest = (a, b) => String(b.date || "").localeCompare(String(a.date || ""))
+        || new Date(b.created_at || 0) - new Date(a.created_at || 0);
+      const { active, deleted } = splitRecordStatus(recordRows.slice().sort(byNewest).map(normalizeRecord));
+      // A complete, count-checked snapshot replaces all three states together.
+      setRecords(active);
+      setDeletedRecords(deleted);
+      setTransfers(transferRows.slice().sort(byNewest).map(normalizeTransfer));
+      const nextBudgets = settingsRow?.category_budgets
+        ? { ...DEFAULT_BUDGETS, ...settingsRow.category_budgets }
+        : DEFAULT_BUDGETS;
+      budgetsRef.current = nextBudgets;
+      setBudgets(nextBudgets);
+      setCustomOptions(settingsRow?.custom_options
+        ? { ...DEFAULT_CUSTOM_OPTIONS, ...settingsRow.custom_options }
+        : DEFAULT_CUSTOM_OPTIONS);
+      const version = settingsRow ? Number(settingsRow.version || 1) : null;
+      settingsVersionRef.current = version;
+      setSettingsVersion(version);
+      setSyncStatus("Cloud synced — all records loaded");
+      setSyncProgress("");
+      setInitialDataReady(true);
       setDataLoading(false);
-      return;
+    } catch (error) {
+      if (!isCurrent()) return;
+      setSyncStatus("Cloud sync failed: " + (error.message || "unknown error") + ". No partial totals were applied.");
+      setSyncProgress("");
+      setDataLoading(false);
     }
-    setRecords((recordRows || []).map(normalizeRecord));
-    const { data: transferRows, error: transferError } = await supabase
-  .from("transfers")
-  .select("id,from_method,to_method,amount,note,date,created_at")
-  .order("date", { ascending: false })
-  .order("created_at", { ascending: false });
-
-if (transferError) {
-  setSyncStatus(transferError.message);
-} else {
-  setTransfers((transferRows || []).map(normalizeTransfer));
-}
-    const { data: settingsRow, error: settingsError } = await supabase
-      .from("user_settings")
-      .select("category_budgets,custom_options")
-      .eq("user_id", user.id)
-      .maybeSingle();
-    if (settingsError) setSyncStatus(settingsError.message);
-    if (settingsRow?.category_budgets) {
-      setBudgets({ ...DEFAULT_BUDGETS, ...settingsRow.category_budgets });
-    } else {
-      setBudgets(DEFAULT_BUDGETS);
-      await saveBudgets(DEFAULT_BUDGETS);
-    }
-    if (settingsRow?.custom_options) {
-  setCustomOptions({ ...DEFAULT_CUSTOM_OPTIONS, ...settingsRow.custom_options });
-} else {
-  setCustomOptions(DEFAULT_CUSTOM_OPTIONS);
-}
-    setSyncStatus("Cloud synced");
-    setDataLoading(false);
   }
 
-  async function saveBudgets(nextBudgets) {
-    if (!user) return;
-    const { error } = await supabase
-      .from("user_settings")
-      .upsert({ user_id: user.id, category_budgets: nextBudgets, updated_at: new Date().toISOString() });
-    if (error) setSyncStatus(error.message);
-    else setSyncStatus("Budget synced");
-  }
-  
-  async function saveCustomOptions(nextOptions) {
-  if (!user) return;
-
-  const { error } = await supabase
-    .from("user_settings")
-    .upsert({
-      user_id: user.id,
-      custom_options: nextOptions,
-      updated_at: new Date().toISOString(),
+  // Settings writes are serialized, version-checked, and patch only one field.
+  // This prevents a budget update from overwriting someone else's custom-options edits.
+  function queueSettingsField(column, value) {
+    const accountId = user?.id;
+    if (!accountId) return;
+    settingsQueueRef.current = settingsQueueRef.current.catch(() => {}).then(async () => {
+      if (liveUserIdRef.current !== accountId) return;
+      const currentVersion = settingsVersionRef.current;
+      let request;
+      if (currentVersion === null) {
+        request = supabase.from("user_settings").insert({ user_id: accountId, [column]: value });
+      } else {
+        request = supabase.from("user_settings")
+          .update({ [column]: value })
+          .eq("user_id", accountId)
+          .eq("version", currentVersion);
+      }
+      try {
+        const { data, error } = await request.select("version").maybeSingle();
+        if (liveUserIdRef.current !== accountId) return;
+        if (error) throw error;
+        if (!data) {
+          setSyncStatus("Settings conflict — another device updated settings; reloading.");
+          await loadCloudData({ background: true });
+          alert("Settings were changed on another device. Your change was not saved. Latest settings have been loaded.");
+          return;
+        }
+        const nextVersion = Number(data.version);
+        settingsVersionRef.current = nextVersion;
+        setSettingsVersion(nextVersion);
+        setSyncStatus("Settings synced");
+      } catch (error) {
+        setSyncStatus("Settings not saved: " + error.message + ". Please retry.");
+      }
     });
+  }
 
-  if (error) setSyncStatus(error.message);
-  else setSyncStatus("Custom options synced");
-}
-function addCustomOption(kind, type) {
+  function saveBudgets(nextBudgets) {
+    queueSettingsField("category_budgets", nextBudgets);
+  }
+
+  function saveCustomOptions(nextOptions) {
+    queueSettingsField("custom_options", nextOptions);
+  }
+
+  function addCustomOption(kind, type) {
   const isCategory = kind === "category";
   const label = isCategory ? "category" : "method";
   const input = window.prompt(`Enter new ${type} ${label}:`);
@@ -1696,11 +1823,14 @@ function renderDeleteCustomOptionPanel(kind, type) {
   );
 }
   function updateBudgets(updater) {
-    setBudgets((previous) => {
-      const next = typeof updater === "function" ? updater(previous) : updater;
+    const next = typeof updater === "function" ? updater(budgetsRef.current) : updater;
+    budgetsRef.current = next;
+    setBudgets(next);
+    clearTimeout(budgetSaveTimerRef.current);
+    budgetSaveTimerRef.current = setTimeout(() => {
+      budgetSaveTimerRef.current = null;
       saveBudgets(next);
-      return next;
-    });
+    }, 500);
   }
 const expenseCategoryOptions = useMemo(
   () => uniqueOptions(EXPENSE_CATEGORIES, customOptions.expenseCategories),
@@ -1996,7 +2126,7 @@ async function addRecord(e) {
   const { data, error } = await supabase
     .from("records")
     .insert(payload)
-    .select("id,type,amount,category,method,note,date,created_at")
+    .select("id,type,amount,category,method,note,date,created_at,updated_at,version,deleted_at")
     .single();
 
   if (error) return alert(error.message);
@@ -2069,36 +2199,112 @@ if (insertedRecord.type === "expense") {
   }
 
   async function updateRecord(recordId, field, value) {
-    const current = records.find((r) => r.id === recordId);
-    if (!current) return;
-const updates = field === "type"
-  ? {
-      type: value,
-      category: categoryOptionsFor(value)[0],
-      method: methodOptionsFor(value)[0],
+    const current = records.find((row) => row.id === recordId);
+    if (!current || !user) return;
+    if (pendingRecordsRef.current.has(recordId)) return;
+    let updates;
+    try {
+      updates = field === "type"
+        ? { type: value, category: categoryOptionsFor(value)[0], method: methodOptionsFor(value)[0] }
+        : { [field]: field === "amount" ? parseEditedAmount(value) : value };
+      if (field === "date" && !/^\d{4}-\d{2}-\d{2}$/.test(String(value))) {
+        throw new Error("Please select a valid date.");
+      }
+      if (field === "amount" && current.amount === updates.amount) return;
+    } catch (error) {
+      alert(error.message);
+      return;
     }
- : { [field]: field === "amount" ? parseMoneyInput(value) : value };
-    const { error } = await supabase.from("records").update(updates).eq("id", recordId);
-    if (error) return alert(error.message);
-    setRecords((p) => p.map((r) => (r.id === recordId ? { ...r, ...updates } : r)));
-    setSyncStatus("Record synced");
+    pendingRecordsRef.current.add(recordId);
+    try {
+      const { data, error } = await supabase.from("records")
+        .update(updates)
+        .eq("id", recordId)
+        .eq("user_id", user.id)
+        .eq("version", current.version)
+        .is("deleted_at", null)
+        .select("id,type,amount,category,method,note,date,created_at,updated_at,version,deleted_at")
+        .maybeSingle();
+      if (error) throw error;
+      if (!data) {
+        setSyncStatus("Conflict: this record changed on another device. Nothing overwritten.");
+        await loadCloudData({ background: true });
+        alert("This record was changed on another device. Your edit was not saved; latest cloud data has been loaded.");
+        return;
+      }
+      const result = normalizeRecord(data);
+      setRecords((previous) => previous.map((row) => row.id === recordId ? result : row));
+      setSyncStatus("Record synced");
+    } catch (error) {
+      setSyncStatus("Record edit not saved: " + error.message);
+      alert(error.message);
+    } finally {
+      pendingRecordsRef.current.delete(recordId);
+    }
   }
 
   async function deleteRecord(recordId) {
-  const { error } = await supabase
-    .from("records")
-    .delete()
-    .eq("id", recordId);
-
-  if (error) {
-    alert(error.message);
-    return;
+    const current = records.find((row) => row.id === recordId);
+    if (!current || !user || pendingRecordsRef.current.has(recordId)) return;
+    pendingRecordsRef.current.add(recordId);
+    try {
+      const { data, error } = await supabase.from("records")
+        .update({ deleted_at: new Date().toISOString() })
+        .eq("id", recordId).eq("user_id", user.id)
+        .eq("version", current.version).is("deleted_at", null)
+        .select("id,type,amount,category,method,note,date,created_at,updated_at,version,deleted_at")
+        .maybeSingle();
+      if (error) throw error;
+      if (!data) {
+        await loadCloudData({ background: true });
+        alert("Delete cancelled: the record changed on another device.");
+        return;
+      }
+      const removed = normalizeRecord(data);
+      setRecords((previous) => previous.filter((row) => row.id !== recordId));
+      setDeletedRecords((previous) => [removed, ...previous]);
+      setDeleteConfirm(null);
+      setUndoDeleted(removed);
+      clearTimeout(undoTimeoutRef.current);
+      undoTimeoutRef.current = setTimeout(() => setUndoDeleted(null), 10000);
+      setSyncStatus("Record moved to Recycle Bin — can be restored anytime.");
+    } catch (error) {
+      setSyncStatus("Delete failed: " + error.message);
+      alert(error.message);
+    } finally {
+      pendingRecordsRef.current.delete(recordId);
+    }
   }
 
-  setRecords((p) => p.filter((r) => r.id !== recordId));
-  setDeleteConfirm(null);
-  setSyncStatus("Record deleted from cloud");
-}
+  async function restoreRecord(recordId) {
+    const current = deletedRecords.find((row) => row.id === recordId);
+    if (!current || !user || pendingRecordsRef.current.has(recordId)) return;
+    pendingRecordsRef.current.add(recordId);
+    try {
+      const { data, error } = await supabase.from("records")
+        .update({ deleted_at: null })
+        .eq("id", recordId).eq("user_id", user.id)
+        .eq("version", current.version).not("deleted_at", "is", null)
+        .select("id,type,amount,category,method,note,date,created_at,updated_at,version,deleted_at")
+        .maybeSingle();
+      if (error) throw error;
+      if (!data) {
+        await loadCloudData({ background: true });
+        alert("Restore could not be completed: this record changed on another device. Latest data loaded.");
+        return;
+      }
+      const restored = normalizeRecord(data);
+      setDeletedRecords((previous) => previous.filter((row) => row.id !== recordId));
+      setRecords((previous) => [restored, ...previous]);
+      if (undoDeleted?.id === recordId) setUndoDeleted(null);
+      setSyncStatus("Record restored from Recycle Bin");
+    } catch (error) {
+      setSyncStatus("Restore failed: " + error.message);
+      alert(error.message);
+    } finally {
+      pendingRecordsRef.current.delete(recordId);
+    }
+  }
 
   function toExcelDate(dateString) {
   if (!dateString) return "";
@@ -2191,6 +2397,20 @@ function exportExcel() {
   if (!session) {
     return <AuthScreen />;
   }
+  if (!initialDataReady) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-slate-50 p-5 text-slate-900">
+        <div className="w-full max-w-lg rounded-3xl bg-white p-7 shadow-sm ring-1 ring-slate-200">
+          <h1 className="text-xl font-bold">Verifying your finance records</h1>
+          <p className="mt-3 text-sm text-slate-600">{syncStatus || "Loading..."}</p>
+          {syncProgress && <p className="mt-2 text-sm font-semibold text-blue-700">{syncProgress}</p>}
+          <p className="mt-2 text-xs text-slate-500">Totals remain hidden until all cloud records are loaded and checked.</p>
+          <button onClick={() => loadCloudData()} className="mt-5 rounded-xl bg-slate-900 px-4 py-2 text-sm font-bold text-white">Retry loading</button>
+          <button onClick={signOut} className="ml-3 rounded-xl border border-slate-200 px-4 py-2 text-sm">Sign out</button>
+        </div>
+      </div>
+    );
+  }
 const addRecordTheme =
   form.type === "income"
     ? {
@@ -2222,7 +2442,22 @@ return (
           <div><p className="text-sm font-medium text-slate-300">Personal Finance Dashboard</p><h1 className="mt-2 text-3xl font-bold md:text-4xl">记账可视化软件</h1><p className="mt-2 text-sm text-slate-300">记录收入与支出，自动生成统计、分类比例、每日趋势和预算使用情况。</p></div>
           <div className="flex flex-wrap gap-3"><button onClick={() => setSoundEnabled((v) => !v)} className="rounded-2xl bg-slate-800 px-4 py-3 text-sm font-semibold text-white ring-1 ring-slate-600">{soundEnabled ? "🔊" : "🔇"} Sound</button><button onClick={exportExcel} className="rounded-2xl bg-white px-4 py-3 text-sm font-semibold text-slate-900">⬇ Export Excel</button><label className="cursor-pointer rounded-2xl bg-slate-700 px-4 py-3 text-sm font-semibold text-white ring-1 ring-slate-600">⬆ Import CSV<input type="file" accept=".csv" className="hidden" onChange={importCsv} /></label><button onClick={signOut} className="rounded-2xl bg-white px-4 py-3 text-sm font-semibold text-slate-900">Sign out</button></div>
         </header>
-        <div className="rounded-2xl bg-white px-4 py-3 text-sm text-slate-600 ring-1 ring-slate-200">Signed in as <b>{user?.email}</b> · {dataLoading ? "Syncing..." : syncStatus || "Cloud ready"}</div>
+        <div className="rounded-2xl bg-white px-4 py-3 text-sm text-slate-600 ring-1 ring-slate-200">
+          Signed in as <b>{user?.email}</b> · {dataLoading ? "Syncing..." : syncStatus || "Cloud ready"}
+          {syncProgress && <span className="ml-2 font-semibold text-blue-700">{syncProgress}</span>}
+        </div>
+        {isTestEnvironment && (
+          <div className="rounded-2xl border border-amber-300 bg-amber-50 px-4 py-3 text-sm font-semibold text-amber-900">
+            <span className="mr-2">🧪 TEST MODE / 测试环境</span>
+            Only fake transactions. This development build cannot connect to the production database.
+          </div>
+        )}
+        {undoDeleted && (
+          <div role="status" className="flex flex-wrap items-center justify-between gap-3 rounded-2xl bg-blue-50 p-4 text-sm text-blue-900 ring-1 ring-blue-200">
+            <span><b>Moved to Recycle Bin:</b> {undoDeleted.category} · {money(undoDeleted.amount)}</span>
+            <button type="button" onClick={() => restoreRecord(undoDeleted.id)} className="rounded-xl bg-blue-700 px-4 py-2 font-bold text-white hover:bg-blue-800">Undo</button>
+          </div>
+        )}
         <div className="flex flex-col gap-2 rounded-2xl bg-white px-4 py-3 text-sm text-slate-600 ring-1 ring-slate-200 md:flex-row md:items-center md:justify-between">
   <div>
     <p className="font-bold text-slate-800">Balance Alert Limit</p>
@@ -2551,7 +2786,7 @@ categoryOptionsFor={categoryOptionsFor}
                         ) : (
                           <button
                             onClick={() => setDeleteConfirm(record.id)}
-                            className="rounded-lg px-2 py-1 text-xs font-bold text-slate-400 opacity-0 transition hover:bg-red-50 hover:text-red-600 group-hover:opacity-100"
+                            className="rounded-lg px-2 py-1 text-xs font-bold text-red-700 opacity-100 transition hover:bg-red-50 md:text-slate-400 md:opacity-0 md:hover:text-red-600 md:group-hover:opacity-100"
                           >
                             Delete
                           </button>
@@ -2583,6 +2818,42 @@ categoryOptionsFor={categoryOptionsFor}
     </div>
   )}
 </Card>
+
+        <Card>
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <h2 className="text-xl font-bold">Recycle Bin / 回收站</h2>
+              <p className="mt-1 text-sm text-slate-500">
+                {deletedRecords.length} saved deleted records · Deleted entries are excluded from all balances and reports.
+              </p>
+            </div>
+            <button type="button" onClick={() => setTrashOpen((value) => !value)}
+              aria-expanded={trashOpen}
+              className="rounded-xl border border-slate-300 bg-white px-4 py-2 text-sm font-bold hover:bg-slate-50">
+              {trashOpen ? "Hide Recycle Bin" : "Open Recycle Bin"}
+            </button>
+          </div>
+          {trashOpen && (
+            <div className="mt-4 space-y-2">
+              {deletedRecords.length === 0 ? (
+                <p className="rounded-xl bg-slate-50 p-4 text-sm text-slate-500">The Recycle Bin is empty.</p>
+              ) : deletedRecords.slice().sort((a, b) => new Date(b.deleted_at) - new Date(a.deleted_at)).map((record) => (
+                <div key={record.id} className="flex flex-wrap items-center justify-between gap-3 rounded-xl bg-slate-50 p-3 ring-1 ring-slate-200">
+                  <div className="min-w-0">
+                    <p className="font-bold text-slate-900">{record.category} · {money(record.amount)}</p>
+                    <p className="text-xs text-slate-500">{record.date} · {record.type} · {recordMethod(record)} · {record.note || "No note"}</p>
+                    <p className="mt-1 text-xs text-slate-400">Deleted {new Date(record.deleted_at).toLocaleString("en-MY")}</p>
+                  </div>
+                  <button type="button" onClick={() => restoreRecord(record.id)}
+                    className="rounded-xl bg-emerald-600 px-4 py-2 text-sm font-bold text-white hover:bg-emerald-700">
+                    Restore
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+          <p className="mt-3 text-xs text-slate-500">Records remain recoverable after 10 seconds, after closing this tab, and across devices. There is no permanent delete button.</p>
+        </Card>
 
         <footer className="pb-6 text-center text-xs text-slate-400">记账可视化软件 · Data synced with Supabase cloud · {records.length} total records</footer>
       </div>
