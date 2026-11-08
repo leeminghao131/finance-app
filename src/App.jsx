@@ -1165,8 +1165,9 @@ function EditableCell({ value, field, recordType, onSave, categoryOptionsFor, me
   const [draft, setDraft] = useState(value ?? "");
 
   useEffect(() => {
-    setDraft(value ?? "");
-  }, [value]);
+    // A cloud refresh must never erase a value that the user is actively typing.
+    if (!editing) setDraft(value ?? "");
+  }, [value, editing]);
 
   const savingRef = useRef(false);
   function commit() {
