@@ -1,5 +1,4 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
-import * as XLSX from "xlsx";
 import { supabase, hasSupabaseEnv, isTestEnvironment } from "./supabaseClient";
 import { parseEditedAmount, splitRecordStatus, loadEveryOwnedRow } from "./financeData";
 import { localDateMY, localMonthMY, localYearMY, shiftCalendarDay, calendarDaysRange, previousCalendarDays, calendarMonthDays, requireCalendarDate } from "./financeCalendar";
@@ -7,6 +6,8 @@ import { normalizeBudgetsInput } from "./financeInsights.js";
 import FinanceTransferPanel from "./FinanceTransferPanel.jsx";
 import FinanceBudgetPanel from "./FinanceBudgetPanel.jsx";
 import FinanceForecastPanel from "./FinanceForecastPanel.jsx";
+import FinanceCsvImportPanel from "./FinanceCsvImportPanel.jsx";
+import FinanceExcelExportPanel from "./FinanceExcelExportPanel.jsx";
 import {
   BarChart, Bar, PieChart, Pie, Cell, XAxis, YAxis, Tooltip,
   ResponsiveContainer, CartesianGrid, Legend, LineChart, Line,
@@ -1353,6 +1354,8 @@ export default function FinanceVisualizerApp() {
   const [syncProgress, setSyncProgress] = useState("");
   const [settingsVersion, setSettingsVersion] = useState(null);
   const [initialDataReady, setInitialDataReady] = useState(false);
+  const [importOpen, setImportOpen] = useState(false);
+  const [exportOpen, setExportOpen] = useState(false);
   const budgetsRef = useRef(DEFAULT_BUDGETS);
   const settingsVersionRef = useRef(null);
   const settingsQueueRef = useRef(Promise.resolve());
@@ -2471,86 +2474,6 @@ if (insertedRecord.type === "expense") {
     }
   }
 
-  function toExcelDate(dateString) {
-  if (!dateString) return "";
-
-  const [year, month, day] = String(dateString).split("-").map(Number);
-  if (!year || !month || !day) return dateString;
-
-  return new Date(year, month - 1, day);
-}
-
-function exportExcel() {
-  const headers = ["Date", "Type", "Category", "Method", "Amount", "Note"];
-
-  const rows = records.map((record) => [
-    toExcelDate(record.date),
-    record.type,
-    record.category,
-    recordMethod(record),
-    Number(record.amount || 0),
-    record.note || "",
-  ]);
-
-  const worksheet = XLSX.utils.aoa_to_sheet([headers, ...rows], {
-    cellDates: true,
-  });
-
-  const range = XLSX.utils.decode_range(worksheet["!ref"]);
-
-  worksheet["!autofilter"] = {
-    ref: XLSX.utils.encode_range(range),
-  };
-
-  worksheet["!cols"] = [
-    { wch: 14 },
-    { wch: 12 },
-    { wch: 16 },
-    { wch: 18 },
-    { wch: 12 },
-    { wch: 40 },
-  ];
-
-  for (let row = 2; row <= rows.length + 1; row += 1) {
-    const dateCell = worksheet[`A${row}`];
-    if (dateCell) dateCell.z = "yyyy-mm-dd";
-
-    const amountCell = worksheet[`E${row}`];
-    if (amountCell) amountCell.z = "#,##0.00";
-  }
-
-  const workbook = XLSX.utils.book_new();
-  XLSX.utils.book_append_sheet(workbook, worksheet, "Finance Records");
-
-  XLSX.writeFile(workbook, `finance-records-${today()}.xlsx`);
-}
-  function importCsv(event) {
-    const file = event.target.files?.[0];
-    if (!file || !user) return;
-    const reader = new FileReader();
-    reader.onload = async (e) => {
-      try {
-      const lines = String(e.target.result || "").split(/\r?\n/).slice(1).filter(Boolean);
-        const imported = lines.map((line) => {
-          const match = line.match(/^([^,]*),([^,]*),([^,]*),([^,]*),([^,]*),(.*)$/);
-          if (!match) return null;
-          const [, date, type, category, method, amount, note] = match;
-          return { date: date.trim(), type: type.trim(), category: category.trim(), method: method.trim(), amount: Number(amount), note: note.replace(/^"|"$/g, "").trim() };
-        }).filter(Boolean);
-        if (!imported.length) return alert("No valid records found in CSV.");
-        const payloads = imported.map((record) => toRecordPayload(record, user.id));
-        const { data, error } = await supabase.from("records").insert(payloads).select("id,type,amount,category,method,note,date,created_at");
-        if (error) return alert(error.message);
-        setRecords((p) => [...(data || []).map(normalizeRecord), ...p]);
-        setSyncStatus(`Imported ${data?.length || 0} records to cloud`);
-      } catch {
-        alert("Failed to parse CSV.");
-      }
-    };
-    reader.readAsText(file);
-    event.target.value = "";
-  }
-
   async function signOut() {
     await supabase.auth.signOut();
   }
@@ -2605,8 +2528,21 @@ return (
       <div className="mx-auto max-w-7xl space-y-6">
         <header className="flex flex-col gap-4 rounded-3xl bg-slate-900 p-6 text-white md:flex-row md:items-center md:justify-between">
           <div><p className="text-sm font-medium text-slate-300">Personal Finance Dashboard</p><h1 className="mt-2 text-3xl font-bold md:text-4xl">记账可视化软件</h1><p className="mt-2 text-sm text-slate-300">记录收入与支出，自动生成统计、分类比例、每日趋势和预算使用情况。</p></div>
-          <div className="flex flex-wrap gap-3"><button onClick={() => setSoundEnabled((v) => !v)} className="rounded-2xl bg-slate-800 px-4 py-3 text-sm font-semibold text-white ring-1 ring-slate-600">{soundEnabled ? "🔊" : "🔇"} Sound</button><button onClick={exportExcel} className="rounded-2xl bg-white px-4 py-3 text-sm font-semibold text-slate-900">⬇ Export Excel</button><label className="cursor-pointer rounded-2xl bg-slate-700 px-4 py-3 text-sm font-semibold text-white ring-1 ring-slate-600">⬆ Import CSV<input type="file" accept=".csv" className="hidden" onChange={importCsv} /></label><button onClick={signOut} className="rounded-2xl bg-white px-4 py-3 text-sm font-semibold text-slate-900">Sign out</button></div>
+          <div className="flex flex-wrap gap-3"><button onClick={() => setSoundEnabled((v) => !v)} className="rounded-2xl bg-slate-800 px-4 py-3 text-sm font-semibold text-white ring-1 ring-slate-600">{soundEnabled ? "🔊" : "🔇"} Sound</button><button type="button" disabled={!initialDataReady || dataLoading} onClick={() => { setExportOpen((v) => !v); setImportOpen(false); }} className="rounded-2xl bg-white px-4 py-3 text-sm font-semibold text-slate-900 disabled:opacity-50">⬇ Export Excel</button><button type="button" disabled={!initialDataReady || dataLoading} onClick={() => { setImportOpen((v) => !v); setExportOpen(false); }} className="rounded-2xl bg-slate-700 px-4 py-3 text-sm font-semibold text-white ring-1 ring-slate-600 disabled:opacity-50">⬆ Import CSV</button><button onClick={signOut} className="rounded-2xl bg-white px-4 py-3 text-sm font-semibold text-slate-900">Sign out</button></div>
         </header>
+        {importOpen && <FinanceCsvImportPanel
+          supabase={supabase} user={user}
+          existingRecords={[...records,...deletedRecords]}
+          onClose={() => setImportOpen(false)}
+          onImported={() => loadCloudData({background:true})}
+        />}
+        {exportOpen && <FinanceExcelExportPanel
+          records={records} deletedRecords={deletedRecords}
+          transfers={transfers} deletedTransfers={deletedTransfers}
+          monthRows={monthRows} budgetTemplate={budgets}
+          forecastPlans={forecastPlans} dataReady={initialDataReady}
+          dataLoading={dataLoading} onClose={() => setExportOpen(false)}
+        />}
         <div className="rounded-2xl bg-white px-4 py-3 text-sm text-slate-600 ring-1 ring-slate-200">
           Signed in as <b>{user?.email}</b> · {dataLoading ? "Syncing..." : syncStatus || "Cloud ready"}
           {syncProgress && <span className="ml-2 font-semibold text-blue-700">{syncProgress}</span>}
