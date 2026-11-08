@@ -2261,6 +2261,7 @@ if (insertedRecord.type === "expense") {
   if (transferForm.fromMethod === transferForm.toMethod) {
     return alert("From Method and To Method cannot be the same.");
   }
+  try {requireCalendarDate(transferForm.date);} catch(e){return alert(e.message);}
 
   const payload = {
     user_id: user.id,
@@ -2274,7 +2275,7 @@ if (insertedRecord.type === "expense") {
   const { data, error } = await supabase
     .from("transfers")
     .insert(payload)
-    .select("id,from_method,to_method,amount,note,date,created_at")
+    .select("id,from_method,to_method,amount,note,date,created_at,updated_at,version,deleted_at")
     .single();
 
   if (error) return alert(error.message);
@@ -2292,6 +2293,97 @@ if (insertedRecord.type === "expense") {
 
   setSyncStatus("Transfer added to cloud");
 }
+
+  async function updateTransfer(transferId, edit) {
+    const current = transfers.find(r=>r.id===transferId);
+    if (!current || !user || pendingTransfersRef.current.has(transferId)) return false;
+    let payload;
+    try {
+      const amount=parseEditedAmount(edit.amount);
+      requireCalendarDate(edit.date);
+      if (!edit.fromMethod || !edit.toMethod || edit.fromMethod===edit.toMethod) {
+        throw new Error("From and To methods must be different.");
+      }
+      payload={
+        from_method:edit.fromMethod,to_method:edit.toMethod,
+        amount, date:edit.date,note:String(edit.note||"").trim(),
+      };
+    } catch(e) {alert(e.message);return false;}
+    const fromBalance=methodBalances.find(x=>x.method===normalizeMethodForBalance(edit.fromMethod))?.balance??0;
+    if (fromBalance < payload.amount) {
+      setSyncStatus("Notice: the recorded source balance is below the transfer amount; opening balances may not be included.");
+    }
+    pendingTransfersRef.current.add(transferId);
+    try {
+      const {data,error}=await supabase.from("transfers")
+        .update(payload)
+        .eq("id",transferId).eq("user_id",user.id)
+        .eq("version",current.version).is("deleted_at",null)
+        .select("id,from_method,to_method,amount,note,date,created_at,updated_at,version,deleted_at")
+        .maybeSingle();
+      if(error)throw error;
+      if(!data){
+        setSyncStatus("Transfer conflict — latest cloud data loaded; edit not applied.");
+        await loadCloudData({background:true});
+        alert("The transfer changed on another device. Your edit was not saved.");
+        return false;
+      }
+      const edited=normalizeTransfer(data);
+      setTransfers(rows=>rows.map(r=>r.id===transferId?edited:r));
+      setSyncStatus("Transfer updated");
+      return true;
+    }catch(e){setSyncStatus("Transfer update failed: "+e.message);alert(e.message);return false;}
+    finally{pendingTransfersRef.current.delete(transferId);}
+  }
+
+  async function deleteTransfer(transferId) {
+    const current=transfers.find(r=>r.id===transferId);
+    if(!current || !user || pendingTransfersRef.current.has(transferId))return false;
+    pendingTransfersRef.current.add(transferId);
+    try {
+      const {data,error}=await supabase.from("transfers")
+        .update({deleted_at:new Date().toISOString()})
+        .eq("id",transferId).eq("user_id",user.id)
+        .eq("version",current.version).is("deleted_at",null)
+        .select("id,from_method,to_method,amount,note,date,created_at,updated_at,version,deleted_at")
+        .maybeSingle();
+      if(error)throw error;
+      if(!data){await loadCloudData({background:true});alert("Transfer changed on another device; nothing deleted.");return false;}
+      const deleted=normalizeTransfer(data);
+      setTransfers(rows=>rows.filter(r=>r.id!==transferId));
+      setDeletedTransfers(rows=>[deleted,...rows.filter(r=>r.id!==transferId)]);
+      setUndoTransfer(deleted);
+      clearTimeout(undoTransferTimeoutRef.current);
+      undoTransferTimeoutRef.current=setTimeout(()=>setUndoTransfer(null),10000);
+      setSyncStatus("Transfer moved to Recycle Bin");
+      return true;
+    }catch(e){setSyncStatus("Transfer delete failed: "+e.message);alert(e.message);return false;}
+    finally{pendingTransfersRef.current.delete(transferId);}
+  }
+
+  async function restoreTransfer(transferId) {
+    const current=deletedTransfers.find(r=>r.id===transferId);
+    if(!current || !user || pendingTransfersRef.current.has(transferId))return false;
+    pendingTransfersRef.current.add(transferId);
+    try{
+      const {data,error}=await supabase.from("transfers")
+        .update({deleted_at:null})
+        .eq("id",transferId).eq("user_id",user.id)
+        .eq("version",current.version).not("deleted_at","is",null)
+        .select("id,from_method,to_method,amount,note,date,created_at,updated_at,version,deleted_at")
+        .maybeSingle();
+      if(error)throw error;
+      if(!data){await loadCloudData({background:true});alert("Transfer changed on another device; please refresh.");return false;}
+      const restored=normalizeTransfer(data);
+      setDeletedTransfers(rows=>rows.filter(r=>r.id!==transferId));
+      setTransfers(rows=>[restored,...rows]);
+      if(undoTransfer?.id===transferId)setUndoTransfer(null);
+      setSyncStatus("Transfer restored");
+      return true;
+    }catch(e){setSyncStatus("Transfer restore failed: "+e.message);alert(e.message);return false;}
+    finally{pendingTransfersRef.current.delete(transferId);}
+  }
+
   function fillCalculation() {
     try {
       const total = calculate(calculationText);
