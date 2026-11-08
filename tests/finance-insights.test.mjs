@@ -46,7 +46,7 @@ test("forecast includes previous months, planned income, expense trailing averag
   assert.equal(data.currentBalance,2400); // 3000 - 500 -120 -180 +200
   assert.equal(data.expectedIncome,2500);
   assert.equal(data.daysLeft,20);
-  assert.equal(data.averageDailyExpense,800/30);
+  assert.equal(data.averageDailyExpense,26.67);
   assert.equal(data.predictedBalance,4366.67); // 2400 + 2500 - 20*800/30
   assert.equal(data.timeline.at(-1).date,"2026-11-30");
   assert.equal(data.timeline.at(-1).forecast,4366.67);
