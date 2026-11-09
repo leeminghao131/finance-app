@@ -1,3 +1,4 @@
+import { localizedFinanceAlert, localizedFinanceConfirm } from "./FinanceLanguageLayer.jsx";
 import React, { useMemo, useState } from "react";
 import { requireCalendarDate } from "./financeCalendar.js";
 
@@ -37,7 +38,7 @@ export default function FinanceTransferPanel({
   }
   async function saveEdit() {
     if (!editing) return;
-    try { requireCalendarDate(editing.date); } catch(e) { alert(e.message); return; }
+    try { requireCalendarDate(editing.date); } catch(e) { localizedFinanceAlert(e.message); return; }
     setPending(true);
     try {
       const ok = await onUpdateTransfer(editing.id,editing);
@@ -181,7 +182,7 @@ export default function FinanceTransferPanel({
             <div className="flex flex-wrap items-start justify-between gap-2">
               <div className="min-w-0">
                 <p className="font-bold text-slate-900">{row.fromMethod} → {row.toMethod}</p>
-                <p className="text-xs text-slate-500">{row.date} · {row.note || "No note"}</p>
+                <p className="text-xs text-slate-500">{row.date} · {row.note ? <span data-i18n-ignore>{row.note}</span> : "No note"}</p>
               </div>
               <p className="font-bold text-blue-700">{money(row.amount)}</p>
             </div>
