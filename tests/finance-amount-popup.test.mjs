@@ -40,7 +40,7 @@ test("09: budget editor only opens from Filtered Expense and preserves old month
   assert.match(app,/onSaveMonthly=\{saveMonthlyBudget\}/);
   assert.match(app,/onSaveTemplate=\{saveTemplateBudget\}/);
   assert.match(app,/onDirtyChange=\{setBudgetDraftDirty\}/);
-  assert.match(app,/budgetDraftDirty && !window\.confirm/);
+  assert.match(app,/budgetDraftDirty && !localizedFinanceConfirm/);
   assert.match(budget,/onDirtyChange\?\.\(dirty\)/);
 });
 
