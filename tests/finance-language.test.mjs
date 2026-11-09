@@ -104,3 +104,13 @@ test("Translation boundary never touches select/input values and includes Vercel
   for(const file of files) assert.ok(source(file).length>100, file);
   assert.match(app,/data-i18n-ignore=\{field === "note"/);
 });
+
+test("Mixed-language legacy captions normalize in both directions", () => {
+  assert.equal(translateFinanceText("今日摘要 ·","en"),"Today's overview ·");
+  assert.equal(translateFinanceText("最大消费排行 ·","en"),"Largest expenses ·");
+  assert.equal(translateFinanceText("记账可视化软件 · Data synced with Supabase cloud ·","en"),"Personal Finance Visualizer · Data synced with Supabase cloud ·");
+  assert.equal(translateFinanceText("记账可视化软件 · Data synced with Supabase cloud ·","zh"),"记账可视化软件 · 数据已同步至 Supabase 云端 ·");
+  assert.equal(translateFinanceText("Saved snapshot · version 3","zh"),"已保存的月度快照 · 版本 3");
+  assert.equal(translateFinanceText("Income RM100.00 · Expense RM25.00","zh"),"收入 RM100.00 · 支出 RM25.00");
+  assert.equal(translateFinanceText("Note, amount...","zh"),"备注、金额…");
+});
