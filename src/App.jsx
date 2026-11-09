@@ -12,6 +12,7 @@ import FinanceExcelExportPanel from "./FinanceExcelExportPanel.jsx";
 import { normalizeRecord, normalizeTransfer, toRecordPayload } from "./financeRecords.js";
 import { fetchFinanceSnapshot } from "./financeCloudService.js";
 import { CoinRainEffect, IncomeCoinSpinEffect } from "./FinanceVisualEffects.jsx";
+import { FinanceLanguageProvider, FinanceLanguageButton, localizedFinanceAlert, localizedFinanceConfirm } from "./FinanceLanguageLayer.jsx";
 import {
   BarChart, Bar, PieChart, Pie, Cell, XAxis, YAxis, Tooltip,
   ResponsiveContainer, CartesianGrid, Legend, LineChart, Line,
@@ -377,7 +378,7 @@ function TopExpensesCard({ records, label, category, setCategory, expenseCategor
               </span>
               <div>
                 <p className="font-bold text-slate-900">{formatCategoryLabel(record.category)} · {recordMethod(record)}</p>
-                <p className="text-slate-500">{record.date} · {record.note || "No note"}</p>
+                <p className="text-slate-500">{record.date} · {record.note ? <span data-i18n-ignore>{record.note}</span> : "No note"}</p>
               </div>
             </div>
             <p className="whitespace-nowrap font-bold text-red-600">{money(record.amount)}</p>
@@ -456,6 +457,7 @@ function EditableCell({ value, field, recordType, onSave, categoryOptionsFor, me
   if (!editing) {
     return (
       <span
+        data-i18n-ignore={field === "note" ? "" : undefined}
         className="cursor-pointer rounded px-1 py-0.5 hover:bg-slate-100"
         onClick={() => { savingRef.current = false; setEditing(true); }}
       >
@@ -518,7 +520,7 @@ function TrendTooltip({ active, payload, records, category }) {
       <p className="font-bold text-slate-800">{date}</p>
       <p className="text-xs font-bold text-blue-600">Expense: {money(total)}</p>
       <div className="mt-2 max-h-44 space-y-2 overflow-y-auto">
-        {rows.length ? rows.map((r) => <div key={r.id} className="rounded-xl bg-slate-50 p-2 ring-1 ring-slate-100"><div className="flex justify-between gap-2"><div><p className="font-semibold text-slate-800">{r.category}</p><p className="text-xs text-slate-500">{recordMethod(r)} · {r.note || "No note"}</p></div><p className="font-bold text-blue-600">{money(r.amount)}</p></div></div>) : <p className="text-xs text-slate-500">No records.</p>}
+        {rows.length ? rows.map((r) => <div key={r.id} className="rounded-xl bg-slate-50 p-2 ring-1 ring-slate-100"><div className="flex justify-between gap-2"><div><p className="font-semibold text-slate-800">{r.category}</p><p className="text-xs text-slate-500">{recordMethod(r)} · {r.note ? <span data-i18n-ignore>{r.note}</span> : "No note"}</p></div><p className="font-bold text-blue-600">{money(r.amount)}</p></div></div>) : <p className="text-xs text-slate-500">No records.</p>}
       </div>
     </div>
   );
@@ -550,6 +552,7 @@ function AuthScreen() {
     return (
       <div className="min-h-screen bg-slate-50 p-6 text-slate-900">
         <div className="mx-auto mt-16 max-w-xl rounded-3xl bg-white p-8 shadow-sm ring-1 ring-red-200">
+          <div className="mb-3 flex justify-end"><FinanceLanguageButton /></div>
           <h1 className="text-2xl font-bold text-red-700">Supabase is not configured</h1>
           <p className="mt-3 text-sm text-slate-600">This unapproved development build only allows the isolated MH Finance Test database. The live Finance App database is blocked. Please check the Preview environment variables.</p>
         </div>
@@ -560,6 +563,7 @@ function AuthScreen() {
   return (
     <div className="min-h-screen bg-slate-50 p-6 text-slate-900">
       <div className="mx-auto mt-16 max-w-md rounded-3xl bg-white p-8 shadow-sm ring-1 ring-slate-200">
+        <div className="mb-3 flex justify-end"><FinanceLanguageButton /></div>
         <p className="text-sm font-medium text-slate-500">Personal Finance Dashboard</p>
         <h1 className="mt-2 text-3xl font-bold">记账可视化软件</h1>
         <p className="mt-2 text-sm text-slate-500">Sign in to sync your data across computer and phone.</p>
@@ -585,7 +589,7 @@ function AuthScreen() {
   );
 }
 
-export default function FinanceVisualizerApp() {
+function FinanceVisualizerAppContent() {
   const [session, setSession] = useState(null);
   const [user, setUser] = useState(null);
   const [authLoading, setAuthLoading] = useState(true);
@@ -801,7 +805,7 @@ useEffect(() => {
   } catch {
     localStorage.removeItem(CUSTOM_CARD_IMAGE_KEY);
     setCustomCardImage("");
-    alert("Image is too large to save. Please upload a smaller image.");
+    localizedFinanceAlert("Image is too large to save. Please upload a smaller image.");
   }
 }, [customCardImage]);
 
@@ -880,7 +884,7 @@ useEffect(() => {
         if (!data) {
           setSyncStatus("Settings conflict — another device updated settings; reloading.");
           await loadCloudData({ background: true });
-          alert("Settings were changed on another device. Your change was not saved. Latest settings have been loaded.");
+          localizedFinanceAlert("Settings were changed on another device. Your change was not saved. Latest settings have been loaded.");
           return false;
         }
         const nextVersion = Number(data.version);
@@ -924,7 +928,7 @@ useEffect(() => {
       if (liveUserIdRef.current !== accountId) return false;
       if (!data) {
         setSyncStatus("Monthly budget conflict; no other device's budget was overwritten.");
-        alert("This month budget was changed on another device. Reopen this month after refreshing.");
+        localizedFinanceAlert("This month budget was changed on another device. Reopen this month after refreshing.");
         await loadCloudData({background:true});
         return false;
       }
@@ -933,7 +937,7 @@ useEffect(() => {
       return true;
     } catch(e) {
       setSyncStatus("Budget not saved: " + e.message);
-      alert("Budget not saved. It may have been changed on another device: " + e.message);
+      localizedFinanceAlert("Budget not saved. It may have been changed on another device: " + e.message);
       await loadCloudData({background:true});
       return false;
     }
@@ -943,7 +947,7 @@ useEffect(() => {
     const clean = normalizeBudgetsInput(nextBudgets);
     const ok = await queueSettingsField("category_budgets",clean);
     if(ok) {budgetsRef.current = clean;setBudgets(clean);}
-    else alert("Default budget template was not saved. Please refresh and try again.");
+    else localizedFinanceAlert("Default budget template was not saved. Please refresh and try again.");
     return ok;
   }
 
@@ -959,9 +963,9 @@ useEffect(() => {
       // Existing past-dated plans may remain visible/removable; they are excluded from future forecasts.
       const ok=await queueSettingsField("forecast_plans",normalized);
       if (ok) setForecastPlans(normalized);
-      else alert("Expected income was not saved. Refresh and try again.");
+      else localizedFinanceAlert("Expected income was not saved. Refresh and try again.");
       return ok;
-    } catch(e) {alert(e.message);return false;}
+    } catch(e) {localizedFinanceAlert(e.message);return false;}
   }
 
   function addCustomOption(kind, type) {
@@ -973,7 +977,7 @@ useEffect(() => {
   if (!newValue) return null;
 
   if ([ADD_CATEGORY_VALUE, ADD_METHOD_VALUE, DELETE_CATEGORY_VALUE, DELETE_METHOD_VALUE].includes(newValue)) {
-    alert("This name is not allowed.");
+    localizedFinanceAlert("This name is not allowed.");
     return null;
   }
 
@@ -1127,7 +1131,7 @@ function renderDeleteCustomOptionPanel(kind, type) {
               key={item}
               type="button"
               onClick={() => {
-                const confirmed = window.confirm(`Delete "${item}" from custom ${label} list? Existing records will not be deleted.`);
+                const confirmed = localizedFinanceConfirm(`Delete "${item}" from custom ${label} list? Existing records will not be deleted.`);
                 if (confirmed) deleteCustomOption(kind, type, item);
               }}
               className="inline-flex items-center gap-2 rounded-full bg-white px-3 py-1.5 text-xs font-bold text-slate-700 ring-1 ring-slate-200 hover:bg-red-50 hover:text-red-700 hover:ring-red-200"
@@ -1418,11 +1422,11 @@ function playIncomeCoinSound() {
 
 async function addRecord(e) {
   e.preventDefault();
-  if (!user) return alert("Please sign in first.");
+  if (!user) return localizedFinanceAlert("Please sign in first.");
 
  let amount;
   try { amount = parseEditedAmount(form.amount); }
-  catch(error) { alert(error.message); return; }
+  catch(error) { localizedFinanceAlert(error.message); return; }
 
   const payload = toRecordPayload(
     { ...form, amount, note: form.note.trim() },
@@ -1435,7 +1439,7 @@ async function addRecord(e) {
     .select("id,type,amount,category,method,note,date,created_at,updated_at,version,deleted_at")
     .single();
 
-  if (error) return alert(error.message);
+  if (error) return localizedFinanceAlert(error.message);
 
   const insertedRecord = normalizeRecord(data);
 
@@ -1453,16 +1457,16 @@ if (insertedRecord.type === "expense") {
 }
   async function addTransfer(event) {
     event.preventDefault();
-    if (!user) {alert("Please sign in first.");return;}
+    if (!user) {localizedFinanceAlert("Please sign in first.");return;}
     if (transferCreationPendingRef.current) return;
     const amount = parseMoneyInput(transferForm.amount);
     if (!Number.isFinite(amount) || amount <= 0 || !Number.isSafeInteger(Math.round(amount*100))) {
-      alert("Please enter a valid positive transfer amount."); return;
+      localizedFinanceAlert("Please enter a valid positive transfer amount."); return;
     }
     if (transferForm.fromMethod === transferForm.toMethod) {
-      alert("From Method and To Method cannot be the same."); return;
+      localizedFinanceAlert("From Method and To Method cannot be the same."); return;
     }
-    try {requireCalendarDate(transferForm.date);} catch(e){alert(e.message);return;}
+    try {requireCalendarDate(transferForm.date);} catch(e){localizedFinanceAlert(e.message);return;}
 
     transferCreationPendingRef.current = true;
     try {
@@ -1482,7 +1486,7 @@ if (insertedRecord.type === "expense") {
       setSyncStatus("Transfer added to cloud");
     }catch(error){
       setSyncStatus("Transfer could not be saved: "+error.message);
-      alert(error.message);
+      localizedFinanceAlert(error.message);
     }finally{
       transferCreationPendingRef.current = false;
     }
@@ -1502,7 +1506,7 @@ if (insertedRecord.type === "expense") {
         from_method:edit.fromMethod,to_method:edit.toMethod,
         amount, date:edit.date,note:String(edit.note||"").trim(),
       };
-    } catch(e) {alert(e.message);return false;}
+    } catch(e) {localizedFinanceAlert(e.message);return false;}
     const fromBalance=methodBalances.find(x=>x.method===normalizeMethodForBalance(edit.fromMethod))?.balance??0;
     if (fromBalance < payload.amount) {
       setSyncStatus("Notice: the recorded source balance is below the transfer amount; opening balances may not be included.");
@@ -1519,14 +1523,14 @@ if (insertedRecord.type === "expense") {
       if(!data){
         setSyncStatus("Transfer conflict — latest cloud data loaded; edit not applied.");
         await loadCloudData({background:true});
-        alert("The transfer changed on another device. Your edit was not saved.");
+        localizedFinanceAlert("The transfer changed on another device. Your edit was not saved.");
         return false;
       }
       const edited=normalizeTransfer(data);
       setTransfers(rows=>rows.map(r=>r.id===transferId?edited:r));
       setSyncStatus("Transfer updated");
       return true;
-    }catch(e){setSyncStatus("Transfer update failed: "+e.message);alert(e.message);return false;}
+    }catch(e){setSyncStatus("Transfer update failed: "+e.message);localizedFinanceAlert(e.message);return false;}
     finally{pendingTransfersRef.current.delete(transferId);}
   }
 
@@ -1542,7 +1546,7 @@ if (insertedRecord.type === "expense") {
         .select("id,from_method,to_method,amount,note,date,created_at,updated_at,version,deleted_at")
         .maybeSingle();
       if(error)throw error;
-      if(!data){await loadCloudData({background:true});alert("Transfer changed on another device; nothing deleted.");return false;}
+      if(!data){await loadCloudData({background:true});localizedFinanceAlert("Transfer changed on another device; nothing deleted.");return false;}
       const deleted=normalizeTransfer(data);
       setTransfers(rows=>rows.filter(r=>r.id!==transferId));
       setDeletedTransfers(rows=>[deleted,...rows.filter(r=>r.id!==transferId)]);
@@ -1551,7 +1555,7 @@ if (insertedRecord.type === "expense") {
       undoTransferTimeoutRef.current=setTimeout(()=>setUndoTransfer(null),10000);
       setSyncStatus("Transfer moved to Recycle Bin");
       return true;
-    }catch(e){setSyncStatus("Transfer delete failed: "+e.message);alert(e.message);return false;}
+    }catch(e){setSyncStatus("Transfer delete failed: "+e.message);localizedFinanceAlert(e.message);return false;}
     finally{pendingTransfersRef.current.delete(transferId);}
   }
 
@@ -1567,14 +1571,14 @@ if (insertedRecord.type === "expense") {
         .select("id,from_method,to_method,amount,note,date,created_at,updated_at,version,deleted_at")
         .maybeSingle();
       if(error)throw error;
-      if(!data){await loadCloudData({background:true});alert("Transfer changed on another device; please refresh.");return false;}
+      if(!data){await loadCloudData({background:true});localizedFinanceAlert("Transfer changed on another device; please refresh.");return false;}
       const restored=normalizeTransfer(data);
       setDeletedTransfers(rows=>rows.filter(r=>r.id!==transferId));
       setTransfers(rows=>[restored,...rows]);
       if(undoTransfer?.id===transferId)setUndoTransfer(null);
       setSyncStatus("Transfer restored");
       return true;
-    }catch(e){setSyncStatus("Transfer restore failed: "+e.message);alert(e.message);return false;}
+    }catch(e){setSyncStatus("Transfer restore failed: "+e.message);localizedFinanceAlert(e.message);return false;}
     finally{pendingTransfersRef.current.delete(transferId);}
   }
 
@@ -1583,7 +1587,7 @@ if (insertedRecord.type === "expense") {
       const total = calculate(calculationText);
       setCalculationResult(total);
       setForm((p) => ({ ...p, amount: total.toFixed(2) }));
-    } catch { alert("Invalid calculation. Example: 3.50 + 12.90 + 2*5.40"); }
+    } catch { localizedFinanceAlert("Invalid calculation. Example: 3.50 + 12.90 + 2*5.40"); }
   }
 
   async function updateRecord(recordId, field, value) {
@@ -1598,7 +1602,7 @@ if (insertedRecord.type === "expense") {
       if (field === "date") requireCalendarDate(value);
       if (field === "amount" && current.amount === updates.amount) return;
     } catch (error) {
-      alert(error.message);
+      localizedFinanceAlert(error.message);
       return;
     }
     pendingRecordsRef.current.add(recordId);
@@ -1615,7 +1619,7 @@ if (insertedRecord.type === "expense") {
       if (!data) {
         setSyncStatus("Conflict: this record changed on another device. Nothing overwritten.");
         await loadCloudData({ background: true });
-        alert("This record was changed on another device. Your edit was not saved; latest cloud data has been loaded.");
+        localizedFinanceAlert("This record was changed on another device. Your edit was not saved; latest cloud data has been loaded.");
         return;
       }
       const result = normalizeRecord(data);
@@ -1623,7 +1627,7 @@ if (insertedRecord.type === "expense") {
       setSyncStatus("Record synced");
     } catch (error) {
       setSyncStatus("Record edit not saved: " + error.message);
-      alert(error.message);
+      localizedFinanceAlert(error.message);
     } finally {
       pendingRecordsRef.current.delete(recordId);
     }
@@ -1643,7 +1647,7 @@ if (insertedRecord.type === "expense") {
       if (error) throw error;
       if (!data) {
         await loadCloudData({ background: true });
-        alert("Delete cancelled: the record changed on another device.");
+        localizedFinanceAlert("Delete cancelled: the record changed on another device.");
         return;
       }
       const removed = normalizeRecord(data);
@@ -1656,7 +1660,7 @@ if (insertedRecord.type === "expense") {
       setSyncStatus("Record moved to Recycle Bin — can be restored anytime.");
     } catch (error) {
       setSyncStatus("Delete failed: " + error.message);
-      alert(error.message);
+      localizedFinanceAlert(error.message);
     } finally {
       pendingRecordsRef.current.delete(recordId);
     }
@@ -1676,7 +1680,7 @@ if (insertedRecord.type === "expense") {
       if (error) throw error;
       if (!data) {
         await loadCloudData({ background: true });
-        alert("Restore could not be completed: this record changed on another device. Latest data loaded.");
+        localizedFinanceAlert("Restore could not be completed: this record changed on another device. Latest data loaded.");
         return;
       }
       const restored = normalizeRecord(data);
@@ -1686,7 +1690,7 @@ if (insertedRecord.type === "expense") {
       setSyncStatus("Record restored from Recycle Bin");
     } catch (error) {
       setSyncStatus("Restore failed: " + error.message);
-      alert(error.message);
+      localizedFinanceAlert(error.message);
     } finally {
       pendingRecordsRef.current.delete(recordId);
     }
@@ -1746,7 +1750,7 @@ return (
       <div className="mx-auto max-w-7xl space-y-6">
         <header className="flex flex-col gap-4 rounded-3xl bg-slate-900 p-6 text-white md:flex-row md:items-center md:justify-between">
           <div><p className="text-sm font-medium text-slate-300">Personal Finance Dashboard</p><h1 className="mt-2 text-3xl font-bold md:text-4xl">记账可视化软件</h1><p className="mt-2 text-sm text-slate-300">记录收入与支出，自动生成统计、分类比例、每日趋势和预算使用情况。</p></div>
-          <div className="flex flex-wrap gap-3"><button onClick={() => setSoundEnabled((v) => !v)} className="rounded-2xl bg-slate-800 px-4 py-3 text-sm font-semibold text-white ring-1 ring-slate-600">{soundEnabled ? "🔊" : "🔇"} Sound</button><button type="button" disabled={!initialDataReady || dataLoading} onClick={() => { setExportOpen((v) => !v); setImportOpen(false); }} className="rounded-2xl bg-white px-4 py-3 text-sm font-semibold text-slate-900 disabled:opacity-50">⬇ Export Excel</button><button type="button" disabled={!initialDataReady || dataLoading} onClick={() => { setImportOpen((v) => !v); setExportOpen(false); }} className="rounded-2xl bg-slate-700 px-4 py-3 text-sm font-semibold text-white ring-1 ring-slate-600 disabled:opacity-50">⬆ Import CSV</button><button onClick={signOut} className="rounded-2xl bg-white px-4 py-3 text-sm font-semibold text-slate-900">Sign out</button></div>
+          <div className="flex flex-wrap gap-3"><button onClick={() => setSoundEnabled((v) => !v)} className="rounded-2xl bg-slate-800 px-4 py-3 text-sm font-semibold text-white ring-1 ring-slate-600">{soundEnabled ? "🔊" : "🔇"} Sound</button><FinanceLanguageButton /><button type="button" disabled={!initialDataReady || dataLoading} onClick={() => { setExportOpen((v) => !v); setImportOpen(false); }} className="rounded-2xl bg-white px-4 py-3 text-sm font-semibold text-slate-900 disabled:opacity-50">⬇ Export Excel</button><button type="button" disabled={!initialDataReady || dataLoading} onClick={() => { setImportOpen((v) => !v); setExportOpen(false); }} className="rounded-2xl bg-slate-700 px-4 py-3 text-sm font-semibold text-white ring-1 ring-slate-600 disabled:opacity-50">⬆ Import CSV</button><button onClick={signOut} className="rounded-2xl bg-white px-4 py-3 text-sm font-semibold text-slate-900">Sign out</button></div>
         </header>
         {importOpen && <FinanceCsvImportPanel
           supabase={supabase} user={user}
@@ -1762,7 +1766,7 @@ return (
           dataLoading={dataLoading} onClose={() => setExportOpen(false)}
         />}
         <div className="rounded-2xl bg-white px-4 py-3 text-sm text-slate-600 ring-1 ring-slate-200">
-          Signed in as <b>{user?.email}</b> · {dataLoading ? "Syncing..." : syncStatus || "Cloud ready"}
+          Signed in as <b data-i18n-ignore>{user?.email}</b> · {dataLoading ? "Syncing..." : syncStatus || "Cloud ready"}
           {syncProgress && <span className="ml-2 font-semibold text-blue-700">{syncProgress}</span>}
         </div>
         {isTestEnvironment && (
@@ -1990,7 +1994,7 @@ return (
             </section>
             <FinanceOverlay open={budgetOpen} title="Monthly Budget / 分类预算"
               onClose={() => {
-                if (budgetDraftDirty && !window.confirm("Discard unsaved budget changes?")) return;
+                if (budgetDraftDirty && !localizedFinanceConfirm("Discard unsaved budget changes?")) return;
                 setBudgetDraftDirty(false);
                 setBudgetOpen(false);
               }}
@@ -2038,7 +2042,7 @@ return (
     </option>
   ))}
 </select></div><div className="h-36">{trendData.length ? <ResponsiveContainer width="100%" height="100%"><LineChart data={trendData}><CartesianGrid strokeDasharray="3 3" /><XAxis dataKey="day" /><YAxis /><Tooltip content={<TrendTooltip records={filteredRecords} category={trendCategory} />} /><Legend /><Line type="monotone" dataKey="expense" name="Expense" stroke="#3b82f6" strokeWidth={3} dot={{ r: 4 }} /></LineChart></ResponsiveContainer> : <div className="flex h-full items-center justify-center text-slate-500">No expense trend data.</div>}</div><div className="mt-4 border-t border-slate-200 pt-3"><p className="mb-2 text-sm font-bold text-slate-700">Filtered Balance Trend</p><div className="h-36">{trendData.length ? <ResponsiveContainer width="100%" height="100%"><LineChart data={trendData}><CartesianGrid strokeDasharray="3 3" /><XAxis dataKey="day" /><YAxis /><Tooltip formatter={(v) => money(v)} /><Legend /><Line connectNulls type="monotone" dataKey="balanceGreen" name="Balance > RM1500" stroke="#22c55e" strokeWidth={3} dot={{ r: 4 }} /><Line connectNulls type="monotone" dataKey="balanceRed" name="Balance ≤ RM1500" stroke="#ef4444" strokeWidth={3} dot={{ r: 4 }} /></LineChart></ResponsiveContainer> : <div className="flex h-full items-center justify-center text-slate-500">No balance trend data.</div>}</div></div></div></Card>
-              <Card><h2 className="text-xl font-bold">Expense by Category</h2><p className="mt-1 text-sm text-slate-500">点击分类查看记录；Method Ratio 显示全部支出方式比例。</p><div className="mt-4 h-60"><MiniPie data={categoryData} emptyText="No expense data." onClick={(entry) => setSelectedPieCategory(entry.name)} selectedName={selectedPieCategory} /></div><div className="mt-4 rounded-2xl bg-slate-50 p-3 ring-1 ring-slate-200"><p className="text-sm font-bold text-slate-700">{selectedPieCategory ? `${selectedPieCategory} records` : "Category records"}</p><div className="mt-2 max-h-40 space-y-2 overflow-y-auto">{selectedCategoryRecords.length ? selectedCategoryRecords.map((r) => <div key={r.id} className="flex justify-between gap-3 rounded-xl bg-white p-3 text-sm ring-1 ring-slate-100"><div><p className="font-semibold">{r.date}</p><p className="text-slate-500">{recordMethod(r)} · {r.note || "No note"}</p></div><p className="font-bold text-red-600">{money(r.amount)}</p></div>) : <div className="rounded-xl bg-white p-4 text-center text-sm text-slate-500">点击 pie chart 的某个分类后，这里会显示对应记录。</div>}</div></div><div className="mt-4 rounded-2xl bg-slate-50 p-3 ring-1 ring-slate-200"><div className="mb-2 flex justify-between"><p className="text-sm font-bold text-slate-700">Method Ratio</p><p className="text-xs text-slate-500">所有支出方式比例</p></div><div className="h-60"><MiniPie data={methodData} emptyText="No method data." /></div></div></Card>
+              <Card><h2 className="text-xl font-bold">Expense by Category</h2><p className="mt-1 text-sm text-slate-500">点击分类查看记录；Method Ratio 显示全部支出方式比例。</p><div className="mt-4 h-60"><MiniPie data={categoryData} emptyText="No expense data." onClick={(entry) => setSelectedPieCategory(entry.name)} selectedName={selectedPieCategory} /></div><div className="mt-4 rounded-2xl bg-slate-50 p-3 ring-1 ring-slate-200"><p className="text-sm font-bold text-slate-700">{selectedPieCategory ? `${selectedPieCategory} records` : "Category records"}</p><div className="mt-2 max-h-40 space-y-2 overflow-y-auto">{selectedCategoryRecords.length ? selectedCategoryRecords.map((r) => <div key={r.id} className="flex justify-between gap-3 rounded-xl bg-white p-3 text-sm ring-1 ring-slate-100"><div><p className="font-semibold">{r.date}</p><p className="text-slate-500">{recordMethod(r)} · {r.note ? <span data-i18n-ignore>{r.note}</span> : "No note"}</p></div><p className="font-bold text-red-600">{money(r.amount)}</p></div>) : <div className="rounded-xl bg-white p-4 text-center text-sm text-slate-500">点击 pie chart 的某个分类后，这里会显示对应记录。</div>}</div></div><div className="mt-4 rounded-2xl bg-slate-50 p-3 ring-1 ring-slate-200"><div className="mb-2 flex justify-between"><p className="text-sm font-bold text-slate-700">Method Ratio</p><p className="text-xs text-slate-500">所有支出方式比例</p></div><div className="h-60"><MiniPie data={methodData} emptyText="No method data." /></div></div></Card>
             </section>
           </div>
         </section>
@@ -2220,7 +2224,7 @@ categoryOptionsFor={categoryOptionsFor}
                 <div key={record.id} className="flex flex-wrap items-center justify-between gap-3 rounded-xl bg-slate-50 p-3 ring-1 ring-slate-200">
                   <div className="min-w-0">
                     <p className="font-bold text-slate-900">{record.category} · {money(record.amount)}</p>
-                    <p className="text-xs text-slate-500">{record.date} · {record.type} · {recordMethod(record)} · {record.note || "No note"}</p>
+                    <p className="text-xs text-slate-500">{record.date} · {record.type} · {recordMethod(record)} · {record.note ? <span data-i18n-ignore>{record.note}</span> : "No note"}</p>
                     <p className="mt-1 text-xs text-slate-400">Deleted {new Date(record.deleted_at).toLocaleString("en-MY")}</p>
                   </div>
                   <button type="button" onClick={() => restoreRecord(record.id)}
@@ -2238,4 +2242,9 @@ categoryOptionsFor={categoryOptionsFor}
       </div>
     </div>
   );
+}
+
+
+export default function FinanceVisualizerApp() {
+  return <FinanceLanguageProvider><FinanceVisualizerAppContent /></FinanceLanguageProvider>;
 }

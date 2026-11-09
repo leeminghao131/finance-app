@@ -1,3 +1,4 @@
+import { localizedFinanceAlert, localizedFinanceConfirm } from "./FinanceLanguageLayer.jsx";
 import React, { useMemo, useState } from "react";
 import { CartesianGrid, Legend, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { localDateMY, shiftCalendarDay, requireCalendarDate } from "./financeCalendar.js";
@@ -28,7 +29,7 @@ export default function FinanceForecastPanel({records,selectedMonth,asOfDate,pla
       requireCalendarDate(editForm.date);
       if(editForm.date<=asOfDate)throw new Error("Expected income date must be in the future.");
       amount=parseEditedAmount(editForm.amount);
-    }catch(e){alert(e.message);return;}
+    }catch(e){localizedFinanceAlert(e.message);return;}
     const newPlan = {
       id: crypto.randomUUID(), date:editForm.date, amount, note:String(editForm.note||"").trim(),
     };
@@ -39,7 +40,7 @@ export default function FinanceForecastPanel({records,selectedMonth,asOfDate,pla
     } finally{setBusy(false);}
   }
   async function removePlan(id){
-    if(!confirm("Remove this expected income? No actual financial records will be deleted."))return;
+    if(!localizedFinanceConfirm("Remove this expected income? No actual financial records will be deleted."))return;
     setBusy(true);
     try {await onSavePlans(plannedIncomes.filter(p=>p.id!==id));}
     finally {setBusy(false);}
@@ -147,7 +148,7 @@ export default function FinanceForecastPanel({records,selectedMonth,asOfDate,pla
         <div className="mt-3 space-y-2">
           {visiblePlans.map(row=>(
             <div key={row.id} className="flex flex-wrap items-center justify-between gap-2 rounded-xl bg-slate-50 p-3">
-              <div><p className="text-sm font-bold text-slate-900">{row.note||"Expected income"} · {money(row.amount)}</p>
+              <div><p className="text-sm font-bold text-slate-900">{row.note ? <span data-i18n-ignore>{row.note}</span> : "Expected income"} · {money(row.amount)}</p>
                 <p className="text-xs text-slate-500">{row.date} · Not actual income</p></div>
               <button type="button" disabled={busy} onClick={()=>removePlan(row.id)} className="rounded-xl border border-red-200 px-3 py-2 text-xs font-bold text-red-700">Remove plan</button>
             </div>

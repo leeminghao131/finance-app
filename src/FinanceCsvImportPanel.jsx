@@ -1,3 +1,4 @@
+import { localizedFinanceConfirm } from "./FinanceLanguageLayer.jsx";
 import React, { useMemo, useRef, useState } from "react";
 import { CSV_MAX_BYTES, inspectCsvText } from "./financeCsv.js";
 import { findImportedSourceRows, importReviewedCsvRows } from "./financeImportService.js";
@@ -56,7 +57,7 @@ export default function FinanceCsvImportPanel({
   }
   async function confirmImport() {
     if(!fileHash || busy || !selectedItems.length)return;
-    if(!window.confirm("Import "+selectedItems.length+" selected records into the TEST database? No existing records will be changed or deleted."))return;
+    if(!localizedFinanceConfirm("Import "+selectedItems.length+" selected records into the TEST database? No existing records will be changed or deleted."))return;
     setBusy(true);setError("");setSuccess(null);
     try {
       const result=await importReviewedCsvRows(
@@ -134,7 +135,7 @@ export default function FinanceCsvImportPanel({
                     {item.record&&<span> · {item.record.date} · {item.record.type} · {item.record.category} · RM{item.record.amount}</span>}
                     {imported?<span className="block text-xs font-bold text-slate-600">Already imported from this identical file — safely skipped</span>:
                       item.issue&&<span className={"block text-xs font-semibold "+(item.invalid?"text-red-700":"text-amber-700")}>{item.issue}</span>}
-                    {item.record?.note&&<span className="block text-xs text-slate-500">{item.record.note.slice(0,180)}</span>}
+                    {item.record?.note&&<span className="block text-xs text-slate-500"><span data-i18n-ignore>{item.record.note.slice(0,180)}</span></span>}
                   </span>
                 </label>
               </div>;
