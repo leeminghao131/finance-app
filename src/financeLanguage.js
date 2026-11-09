@@ -25,6 +25,24 @@ export function translateFinanceText(value,language){
     const item=bySource.get(prefixed[2].trim());
     if(item)return leading+prefixed[1]+item[language]+trailing;
   }
+  const render=(zh,en)=>leading+(language==="zh"?zh:en)+trailing;
+  let m;
+  if((m=core.match(/^(\d+) transfers · Latest 5 shown by default$/)))return render(m[1]+" 笔转账 · 默认只显示最近 5 笔",core);
+  if((m=core.match(/^(\d+) recoverable transfers$/)))return render(m[1]+" 笔可恢复转账",core);
+  if((m=core.match(/^(\d+) saved deleted records · Deleted entries are excluded from all balances and reports\.$/)))return render(m[1]+" 笔已删除记录 · 已删除记录不计入余额或报表。",core);
+  if((m=core.match(/^Showing (\d+) records for (.+) · Click a date to expand records$/)))return render("显示 "+m[1]+" 条记录 · 范围："+translateFinanceText(m[2],language)+" · 点击日期展开记录",core);
+  if((m=core.match(/^Total \((\d+) records\)$/)))return render("合计（"+m[1]+" 条记录）",core);
+  if((m=core.match(/^Show more \((\d+) remaining\)$/)))return render("显示更多（剩余 "+m[1]+" 条）",core);
+  if((m=core.match(/^Used ([\d.]+)% — 75% warning, 100% over budget$/)))return render("已使用 "+m[1]+"% · 达到 75% 提醒，100% 为超预算",core);
+  if((m=core.match(/^(\d+) days projected$/)))return render(m[1]+" 天预测",core);
+  if((m=core.match(/^(\d+) selected to import$/)))return render(m[1]+" 条待导入",core);
+  if((m=core.match(/^CSV row (\d+)$/)))return render("CSV 第 "+m[1]+" 行",core);
+  if((m=core.match(/^Save budget for (\d{4}-\d{2})$/)))return render("保存 "+m[1]+" 月份预算",core);
+  if((m=core.match(/^Budget for (\d{4}-\d{2}) \(RM\)$/)))return render(m[1]+" 预算（RM）",core);
+  if((m=core.match(/^Month-end \((\d{4}-\d{2})\)$/)))return render(m[1]+" 月底",core);
+  if((m=core.match(/^Current filter: (.+)$/)))return render("当前筛选："+translateFinanceText(m[1],language),"Current filter: "+translateFinanceText(m[1],language));
+  if((m=core.match(/^Current range: (.+)$/)))return render("当前范围："+translateFinanceText(m[1],language),"Current range: "+translateFinanceText(m[1],language));
+  if((m=core.match(/^(\d+) total records$/)))return render(m[1]+" 条记录",core);
   // Compound dashboard phrases are split at UI separators, never at user data.
   if(core.includes(" · ")){
     const pieces=core.split(/( · )/);
@@ -44,24 +62,6 @@ export function translateFinanceText(value,language){
   }
   const revision=core.match(/^Saved snapshot · version (\d+)$/);
   if(revision)return leading+(language==="zh"?"已保存的月度快照 · 版本 "+revision[1]:core)+trailing;
-  const render=(zh,en)=>leading+(language==="zh"?zh:en)+trailing;
-  let m;
-  if((m=core.match(/^(\d+) transfers · Latest 5 shown by default$/)))return render(m[1]+" 笔转账 · 默认只显示最近 5 笔",core);
-  if((m=core.match(/^(\d+) recoverable transfers$/)))return render(m[1]+" 笔可恢复转账",core);
-  if((m=core.match(/^(\d+) saved deleted records · Deleted entries are excluded from all balances and reports\.$/)))return render(m[1]+" 笔已删除记录 · 已删除记录不计入余额或报表。",core);
-  if((m=core.match(/^Showing (\d+) records for (.+) · Click a date to expand records$/)))return render("显示 "+m[1]+" 条记录 · 范围："+translateFinanceText(m[2],language)+" · 点击日期展开记录",core);
-  if((m=core.match(/^Total \((\d+) records\)$/)))return render("合计（"+m[1]+" 条记录）",core);
-  if((m=core.match(/^Show more \((\d+) remaining\)$/)))return render("显示更多（剩余 "+m[1]+" 条）",core);
-  if((m=core.match(/^Used ([\d.]+)% — 75% warning, 100% over budget$/)))return render("已使用 "+m[1]+"% · 达到 75% 提醒，100% 为超预算",core);
-  if((m=core.match(/^(\d+) days projected$/)))return render(m[1]+" 天预测",core);
-  if((m=core.match(/^(\d+) selected to import$/)))return render(m[1]+" 条待导入",core);
-  if((m=core.match(/^CSV row (\d+)$/)))return render("CSV 第 "+m[1]+" 行",core);
-  if((m=core.match(/^Save budget for (\d{4}-\d{2})$/)))return render("保存 "+m[1]+" 月份预算",core);
-  if((m=core.match(/^Budget for (\d{4}-\d{2}) \(RM\)$/)))return render(m[1]+" 预算（RM）",core);
-  if((m=core.match(/^Month-end \((\d{4}-\d{2})\)$/)))return render(m[1]+" 月底",core);
-  if((m=core.match(/^Current filter: (.+)$/)))return render("当前筛选："+translateFinanceText(m[1],language),"Current filter: "+translateFinanceText(m[1],language));
-  if((m=core.match(/^Current range: (.+)$/)))return render("当前范围："+translateFinanceText(m[1],language),"Current range: "+translateFinanceText(m[1],language));
-  if((m=core.match(/^(\d+) total records$/)))return render(m[1]+" 条记录",core);
   // Service errors that embed counts or technical details retain those values.
   const prefixes = [
     ["Export failed:","导出失败："],["Export checked:","导出已核对："],
