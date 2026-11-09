@@ -7,14 +7,14 @@ const LanguageContext = createContext(null);
 const originalText = new WeakMap();
 const originalAttributes = new WeakMap();
 const ATTRIBUTES = ["placeholder", "title", "aria-label"];
-const OMIT = "script, style, noscript, textarea, input, pre, code, [contenteditable], [data-i18n-ignore]";
+const OMIT = "script, style, noscript, pre, code, [contenteditable], [data-i18n-ignore]";
 
 function shouldSkip(element) {
   return !!element?.closest?.(OMIT);
 }
 
 function updateTextNode(node, language) {
-  if (node?.nodeType !== 3 || shouldSkip(node.parentElement)) return;
+  if (node?.nodeType !== 3 || shouldSkip(node.parentElement) || node.parentElement?.closest?.("textarea, input")) return;
   const actual = node.nodeValue;
   let cached = originalText.get(node);
   if (!cached) {
