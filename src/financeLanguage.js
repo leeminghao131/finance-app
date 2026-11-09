@@ -40,8 +40,8 @@ export function translateFinanceText(value,language){
   if((m=core.match(/^Save budget for (\d{4}-\d{2})$/)))return render("保存 "+m[1]+" 月份预算",core);
   if((m=core.match(/^Budget for (\d{4}-\d{2}) \(RM\)$/)))return render(m[1]+" 预算（RM）",core);
   if((m=core.match(/^Month-end \((\d{4}-\d{2})\)$/)))return render(m[1]+" 月底",core);
-  if((m=core.match(/^Current filter: (.+)$/)))return render("当前筛选："+translateFinanceText(m[1],language),core);
-  if((m=core.match(/^Current range: (.+)$/)))return render("当前范围："+translateFinanceText(m[1],language),core);
+  if((m=core.match(/^Current filter: (.+)$/)))return render("当前筛选："+translateFinanceText(m[1],language),"Current filter: "+translateFinanceText(m[1],language));
+  if((m=core.match(/^Current range: (.+)$/)))return render("当前范围："+translateFinanceText(m[1],language),"Current range: "+translateFinanceText(m[1],language));
   if((m=core.match(/^(\d+) total records$/)))return render(m[1]+" 条记录",core);
   return value;
 }
