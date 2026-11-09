@@ -1,3 +1,4 @@
+import { localizedFinanceAlert, localizedFinanceConfirm } from "./FinanceLanguageLayer.jsx";
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { localMonthMY } from "./financeCalendar.js";
 import { summarizeMonthlyBudget, normalizeBudgetsInput } from "./financeInsights.js";
@@ -51,7 +52,7 @@ export default function FinanceBudgetPanel({
       const valid = normalizeBudgetsInput(draft);
       const ok = await onSaveMonthly(budgetMonth, valid, editingVersion);
       if (ok) { setEditingVersion((n)=>n===null?1:n+1);setDirty(false); }
-    } catch (e) { alert(e.message); }
+    } catch (e) { localizedFinanceAlert(e.message); }
     finally {setBusy(false);}
   }
   async function saveTemplate() {
@@ -59,8 +60,8 @@ export default function FinanceBudgetPanel({
     try { 
       const valid = normalizeBudgetsInput(draft);
       const ok = await onSaveTemplate(valid);
-      if (ok) alert("Default budget template saved to the cloud.");
-    } catch(e) { alert(e.message); }
+      if (ok) localizedFinanceAlert("Default budget template saved to the cloud.");
+    } catch(e) { localizedFinanceAlert(e.message); }
     finally {setBusy(false);}
   }
 
@@ -75,7 +76,7 @@ export default function FinanceBudgetPanel({
           <input type="month" className="mt-1 block rounded-xl border border-slate-300 px-3 py-2 text-sm"
             value={budgetMonth} onChange={e=>{
               if (!e.target.value || e.target.value===budgetMonth) return;
-              if (dirty && !window.confirm("Discard unsaved budget edits for this month?")) return;
+              if (dirty && !localizedFinanceConfirm("Discard unsaved budget edits for this month?")) return;
               setBudgetMonth(e.target.value);
             }}/>
         </label>
