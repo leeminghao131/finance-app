@@ -2052,7 +2052,7 @@ return (
         </section>
 
        <FinanceOverlay open={recordsOpen} title="Transaction Records"
-         onClose={() => { setRecordsOpen(false); setDeleteConfirm(null); }} widthClass="max-w-6xl">
+         onClose={() => { setRecordsOpen(false); setDeleteConfirm(null); }} widthClass="max-w-6xl" showTitle={false}>
        <Card>
   <div className="flex flex-col gap-2 md:flex-row md:items-end md:justify-between">
     <div>
