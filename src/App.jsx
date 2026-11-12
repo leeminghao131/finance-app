@@ -8,6 +8,7 @@ import FinanceBudgetPanel from "./FinanceBudgetPanel.jsx";
 import FinanceForecastPanel from "./FinanceForecastPanel.jsx";
 import FinanceOverlay from "./FinanceOverlay.jsx";
 import FinanceMobileRecords from "./FinanceMobileRecords.jsx";
+import FinanceTrendSummaryTooltip from "./FinanceTrendSummaryTooltip.jsx";
 import "./financeUi.css";
 import FinanceCsvImportPanel from "./FinanceCsvImportPanel.jsx";
 import FinanceExcelExportPanel from "./FinanceExcelExportPanel.jsx";
@@ -1717,6 +1718,7 @@ async function addRecord(e) {
       </div>
     );
   }
+const balanceAlertLimitLabel = "RM" + Number(balanceLimit || 1500).toLocaleString("en-MY", { maximumFractionDigits: 2 });
 const addRecordTheme =
   form.type === "income"
     ? {
@@ -2045,7 +2047,7 @@ return (
       {formatCategoryLabel(category)}
     </option>
   ))}
-</select></div><div className="h-36">{trendData.length ? <ResponsiveContainer width="100%" height="100%"><LineChart data={trendData}><CartesianGrid strokeDasharray="3 3" /><XAxis dataKey="day" /><YAxis /><Tooltip content={<TrendTooltip records={filteredRecords} category={trendCategory} />} /><Legend /><Line isAnimationActive={false} type="monotone" dataKey="expense" name="Expense" stroke="#3b82f6" strokeWidth={3} dot={{ r: 4 }} /></LineChart></ResponsiveContainer> : <div className="flex h-full items-center justify-center text-slate-500">No expense trend data.</div>}</div><div className="mt-4 border-t border-slate-200 pt-3"><p className="mb-2 text-sm font-bold text-slate-700">Filtered Balance Trend</p><div className="h-36">{trendData.length ? <ResponsiveContainer width="100%" height="100%"><LineChart data={trendData}><CartesianGrid strokeDasharray="3 3" /><XAxis dataKey="day" /><YAxis /><Tooltip formatter={(v) => money(v)} /><Legend /><Line isAnimationActive={false} connectNulls type="monotone" dataKey="balanceGreen" name="Balance > RM1500" stroke="#22c55e" strokeWidth={3} dot={{ r: 4 }} /><Line isAnimationActive={false} connectNulls type="monotone" dataKey="balanceRed" name="Balance ≤ RM1500" stroke="#ef4444" strokeWidth={3} dot={{ r: 4 }} /></LineChart></ResponsiveContainer> : <div className="flex h-full items-center justify-center text-slate-500">No balance trend data.</div>}</div></div></div></Card>
+</select></div><div className="h-36">{trendData.length ? <ResponsiveContainer width="100%" height="100%"><LineChart data={trendData}><CartesianGrid strokeDasharray="3 3" /><XAxis dataKey="day" /><YAxis /><Tooltip content={<FinanceTrendSummaryTooltip kind="expense" />} /><Legend /><Line isAnimationActive={false} type="monotone" dataKey="expense" name="Expense" stroke="#3b82f6" strokeWidth={3} dot={{ r: 4 }} /></LineChart></ResponsiveContainer> : <div className="flex h-full items-center justify-center text-slate-500">No expense trend data.</div>}</div><div className="mt-4 border-t border-slate-200 pt-3"><p className="mb-2 text-sm font-bold text-slate-700">Filtered Balance Trend</p><div className="h-36">{trendData.length ? <ResponsiveContainer width="100%" height="100%"><LineChart data={trendData}><CartesianGrid strokeDasharray="3 3" /><XAxis dataKey="day" /><YAxis /><Tooltip content={<FinanceTrendSummaryTooltip kind="balance" />} /><Legend /><Line isAnimationActive={false} connectNulls type="monotone" dataKey="balanceGreen" name={`Balance > ${balanceAlertLimitLabel}`} stroke="#22c55e" strokeWidth={3} dot={{ r: 4 }} /><Line isAnimationActive={false} connectNulls type="monotone" dataKey="balanceRed" name={`Balance ≤ ${balanceAlertLimitLabel}`} stroke="#ef4444" strokeWidth={3} dot={{ r: 4 }} /></LineChart></ResponsiveContainer> : <div className="flex h-full items-center justify-center text-slate-500">No balance trend data.</div>}</div></div></div></Card>
               <Card>
                 <h2 className="text-xl font-bold">Expense by Category</h2>
                 <div className="mt-4 h-60">
