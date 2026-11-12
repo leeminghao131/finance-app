@@ -23,6 +23,9 @@ test("UI: transaction records move to an overlay without losing original fields 
   assert.match(records, /deleteRecord\(record\.id\)/);
   assert.match(records, /<FinanceMobileRecords/);
   assert.match(records, /Total \(\{filteredRecords\.length\} records\)/);
+  assert.match(records, /Recycle Bin \/ 回收站/);
+  assert.match(records, /deletedRecords\.slice\(\)\.sort/);
+  assert.match(records, /restoreRecord\(record\.id\)/);
 });
 
 test("UI: Balance Methods opens unchanged breakdown inside its own portal, not in-card", () => {
@@ -39,7 +42,7 @@ test("UI: heatmap displays complete amount in responsive minimum-width date cell
   const start = app.indexOf("function HeatmapCard(");
   const end = app.indexOf("function TopExpensesCard(", start);
   const section = app.slice(start, end);
-  assert.match(section, /gridTemplateColumns: "repeat\(auto-fit, minmax\(110px, 1fr\)\)"/);
+  assert.match(section, /gridTemplateColumns: "repeat\(auto-fit, minmax\(80px, 1fr\)\)"/);
   assert.match(section, /overflowWrap: "anywhere"/);
   assert.match(section, /money\(d\.amount\)/);
   assert.doesNotMatch(section, /className="mt-1 truncate"/);
@@ -52,4 +55,33 @@ test("UI: nested records mobile editor only responds to topmost modal keyboard h
   assert.match(overlay, /openDialogStack\.splice\(index, 1\)/);
   assert.match(overlay, /showTitle = true/);
   assert.match(overlay, /document\.body\.style\.overflow = previousOverflow/);
+});
+
+test("UI: category pie remains, but the duplicate category records list is removed", () => {
+  const start = app.indexOf('<h2 className="text-xl font-bold">Expense by Category</h2>');
+  const end = app.indexOf("</Card>", start);
+  assert.ok(start > 0 && end > start);
+  const section = app.slice(start, end);
+  assert.match(section, /MiniPie data=\{categoryData\}/);
+  assert.match(section, /Method Ratio/);
+  assert.match(section, /MiniPie data=\{methodData\}/);
+  assert.doesNotMatch(section, /selectedCategoryRecords\.map/);
+  assert.doesNotMatch(section, /selectedCategoryRecords\.length/);
+});
+
+test("UI: forecast is not stretched by right-hand cards and top five stays accessible", () => {
+  assert.match(app, /grid items-start gap-4 xl:grid-cols-\[minmax\(0,1fr\)_minmax\(0,1\.1fr\)\]/);
+  const start = app.indexOf('<section className="grid items-start gap-4');
+  const end = app.indexOf("</section>", start);
+  const section = app.slice(start, end);
+  assert.match(section, /<FinanceForecastPanel/);
+  assert.match(section, /<HeatmapCard/);
+  assert.match(section, /xl:col-span-2/);
+  assert.match(section, /<TopExpensesCard/);
+  const topStart = app.indexOf("function TopExpensesCard(");
+  const topEnd = app.indexOf("function TodaySummaryCard(", topStart);
+  const top = app.slice(topStart, topEnd);
+  assert.match(top, /records\.map\(\(record, index\) =>/);
+  assert.match(top, /sm:grid-cols-2 xl:grid-cols-5/);
+  assert.match(top, /setCategory\(event\.target\.value\)/);
 });

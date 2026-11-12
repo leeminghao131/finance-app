@@ -316,7 +316,7 @@ function HeatmapCard({ days, label }) {
     <Card>
       <h2 className="text-xl font-bold">Spending Heatmap / 消费热力图</h2>
       <p className="mt-1 text-sm text-slate-500">颜色越深 = 那天花费越高 · {label}</p>
-      <div className="mt-4 grid gap-2" style={{ gridTemplateColumns: "repeat(auto-fit, minmax(110px, 1fr))" }}>
+      <div className="mt-4 grid gap-2" style={{ gridTemplateColumns: "repeat(auto-fit, minmax(80px, 1fr))" }}>
         {days.map((d) => {
           const intensity = d.amount > 0 ? 0.18 + (d.amount / max) * 0.72 : 0.06;
           return <div key={d.date} title={`${d.date}: ${money(d.amount)}`} className="rounded-xl p-2 text-center text-xs font-bold ring-1 ring-slate-100" style={{ backgroundColor: `rgba(239, 68, 68, ${intensity})`, color: d.amount > 0 ? "#7f1d1d" : "#64748b" }}><p>{d.date.slice(8)}</p><p className="mt-1 break-words text-[11px] font-bold leading-tight tabular-nums" style={{ overflowWrap: "anywhere" }}>{d.amount > 0 ? money(d.amount).replace("MYR", "RM") : "-"}</p></div>;
@@ -349,19 +349,19 @@ function TopExpensesCard({ records, label, category, setCategory, expenseCategor
         </select>
       </div>
 
-      <div className="mt-4 space-y-2">
+      <div className="mt-3 grid gap-2 sm:grid-cols-2 xl:grid-cols-5">
         {records.length ? records.map((record, index) => (
-          <div key={record.id} className="flex items-start justify-between gap-3 rounded-2xl bg-slate-50 p-3 text-sm ring-1 ring-slate-100">
-            <div className="flex gap-3">
-              <span className="flex h-7 w-7 items-center justify-center rounded-full bg-slate-900 text-xs font-bold text-white">
+          <div key={record.id} className="flex min-w-0 flex-col justify-between gap-2 rounded-xl bg-slate-50 p-3 text-sm ring-1 ring-slate-100">
+            <div className="flex min-w-0 items-start gap-2">
+              <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-slate-900 text-xs font-bold text-white">
                 {index + 1}
               </span>
               <div>
-                <p className="font-bold text-slate-900">{formatCategoryLabel(record.category)} · {recordMethod(record)}</p>
-                <p className="text-slate-500">{record.date} · {record.note ? <span data-i18n-ignore>{record.note}</span> : "No note"}</p>
+                <p className="break-words font-bold text-slate-900">{formatCategoryLabel(record.category)} · {recordMethod(record)}</p>
+                <p className="break-words text-xs text-slate-500">{record.date} · {record.note ? <span data-i18n-ignore>{record.note}</span> : "No note"}</p>
               </div>
             </div>
-            <p className="whitespace-nowrap font-bold text-red-600">{money(record.amount)}</p>
+            <p className="break-words text-right font-bold tabular-nums text-red-600">{money(record.amount)}</p>
           </div>
         )) : (
           <div className="rounded-2xl bg-slate-50 p-6 text-center text-sm text-slate-500">
@@ -2016,7 +2016,7 @@ return (
                 onDirtyChange={setBudgetDraftDirty}
               />
             </FinanceOverlay>
-            <section className="grid gap-6 xl:grid-cols-2">
+            <section className="grid items-start gap-4 xl:grid-cols-[minmax(0,1fr)_minmax(0,1.1fr)]">
               <FinanceForecastPanel
                 records={records}
                 selectedMonth={forecastMonth}
@@ -2024,8 +2024,8 @@ return (
                 plannedIncomes={forecastPlans}
                 onSavePlans={saveExpectedIncomePlans}
               />
-              <div className="space-y-6">
-                <HeatmapCard days={heatmapDays} label={filterLabel} />
+              <HeatmapCard days={heatmapDays} label={filterLabel} />
+              <div className="min-w-0 xl:col-span-2">
                 <TopExpensesCard
                   records={topExpenses} label={filterLabel}
                   category={topExpenseCategory} setCategory={setTopExpenseCategory}
@@ -2046,7 +2046,21 @@ return (
     </option>
   ))}
 </select></div><div className="h-36">{trendData.length ? <ResponsiveContainer width="100%" height="100%"><LineChart data={trendData}><CartesianGrid strokeDasharray="3 3" /><XAxis dataKey="day" /><YAxis /><Tooltip content={<TrendTooltip records={filteredRecords} category={trendCategory} />} /><Legend /><Line isAnimationActive={false} type="monotone" dataKey="expense" name="Expense" stroke="#3b82f6" strokeWidth={3} dot={{ r: 4 }} /></LineChart></ResponsiveContainer> : <div className="flex h-full items-center justify-center text-slate-500">No expense trend data.</div>}</div><div className="mt-4 border-t border-slate-200 pt-3"><p className="mb-2 text-sm font-bold text-slate-700">Filtered Balance Trend</p><div className="h-36">{trendData.length ? <ResponsiveContainer width="100%" height="100%"><LineChart data={trendData}><CartesianGrid strokeDasharray="3 3" /><XAxis dataKey="day" /><YAxis /><Tooltip formatter={(v) => money(v)} /><Legend /><Line isAnimationActive={false} connectNulls type="monotone" dataKey="balanceGreen" name="Balance > RM1500" stroke="#22c55e" strokeWidth={3} dot={{ r: 4 }} /><Line isAnimationActive={false} connectNulls type="monotone" dataKey="balanceRed" name="Balance ≤ RM1500" stroke="#ef4444" strokeWidth={3} dot={{ r: 4 }} /></LineChart></ResponsiveContainer> : <div className="flex h-full items-center justify-center text-slate-500">No balance trend data.</div>}</div></div></div></Card>
-              <Card><h2 className="text-xl font-bold">Expense by Category</h2><p className="mt-1 text-sm text-slate-500">点击分类查看记录；Method Ratio 显示全部支出方式比例。</p><div className="mt-4 h-60"><MiniPie data={categoryData} emptyText="No expense data." onClick={(entry) => setSelectedPieCategory(entry.name)} selectedName={selectedPieCategory} /></div><div className="mt-4 rounded-2xl bg-slate-50 p-3 ring-1 ring-slate-200"><p className="text-sm font-bold text-slate-700">{selectedPieCategory ? `${selectedPieCategory} records` : "Category records"}</p><div className="mt-2 max-h-40 space-y-2 overflow-y-auto">{selectedCategoryRecords.length ? selectedCategoryRecords.map((r) => <div key={r.id} className="flex justify-between gap-3 rounded-xl bg-white p-3 text-sm ring-1 ring-slate-100"><div><p className="font-semibold">{r.date}</p><p className="text-slate-500">{recordMethod(r)} · {r.note ? <span data-i18n-ignore>{r.note}</span> : "No note"}</p></div><p className="font-bold text-red-600">{money(r.amount)}</p></div>) : <div className="rounded-xl bg-white p-4 text-center text-sm text-slate-500">点击 pie chart 的某个分类后，这里会显示对应记录。</div>}</div></div><div className="mt-4 rounded-2xl bg-slate-50 p-3 ring-1 ring-slate-200"><div className="mb-2 flex justify-between"><p className="text-sm font-bold text-slate-700">Method Ratio</p><p className="text-xs text-slate-500">所有支出方式比例</p></div><div className="h-60"><MiniPie data={methodData} emptyText="No method data." /></div></div></Card>
+              <Card>
+                <h2 className="text-xl font-bold">Expense by Category</h2>
+                <div className="mt-4 h-60">
+                  <MiniPie data={categoryData} emptyText="No expense data." />
+                </div>
+                <div className="mt-4 rounded-2xl bg-slate-50 p-3 ring-1 ring-slate-200">
+                  <div className="mb-2 flex flex-wrap justify-between gap-2">
+                    <p className="text-sm font-bold text-slate-700">Method Ratio</p>
+                    <p className="text-xs text-slate-500">所有支出方式比例</p>
+                  </div>
+                  <div className="h-60">
+                    <MiniPie data={methodData} emptyText="No method data." />
+                  </div>
+                </div>
+              </Card>
             </section>
           </div>
         </section>
@@ -2218,7 +2232,6 @@ categoryOptionsFor={categoryOptionsFor}
     </div>
   )}
 </Card>
-       </FinanceOverlay>
 
         <Card>
           <div className="flex flex-wrap items-center justify-between gap-3">
@@ -2255,6 +2268,7 @@ categoryOptionsFor={categoryOptionsFor}
           )}
           <p className="mt-3 text-xs text-slate-500">Records remain recoverable after 10 seconds, after closing this tab, and across devices. There is no permanent delete button.</p>
         </Card>
+       </FinanceOverlay>
 
         <footer className="pb-6 text-center text-xs text-slate-400">记账可视化软件 · Data synced with Supabase cloud · {records.length} total records</footer>
       </div>
