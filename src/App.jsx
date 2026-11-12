@@ -263,6 +263,7 @@ function BalanceCard({ title, value, desc, limit, methodBalances = [] }) {
                   <div>
                     <p className="font-bold text-slate-900">{item.method}</p>
 
+                    <p className="mt-1 text-xs text-slate-500">Opening {money(item.openingBalance)}</p>
                     <p className="mt-1 text-xs text-slate-500">
                       Income {money(item.income)} · Expense {money(item.expense)}
                     </p>
