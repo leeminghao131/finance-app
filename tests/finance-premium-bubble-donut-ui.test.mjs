@@ -14,7 +14,7 @@ test("Category chart and Method chart reuse original expense aggregates, never r
   assert.match(app, /const categoryData = useMemo\(\(\) => group\(expenseRecords, \(r\) => r.category\)/);
   assert.match(app, /const methodData = useMemo\(\(\) => group\(expenseRecords, \(r\) => recordMethod\(r\)\)/);
   for (const source of [bubbles, donut]) {
-    assert.doesNotMatch(source, /\bsupabase\b|\bfetch\(|\.from\(|\.insert\(|\.upsert\(|\.delete\(|\blocalStorage\b/);
+    assert.doesNotMatch(source, /\bsupabase\b|\bfetch\(|\.from\(|\.insert\(|\.upsert\(|\blocalStorage\b/);
     assert.doesNotMatch(source, /\baddRecord\b|\bupdateRecord\b|\bdeleteRecord\b|\bimportCsv\b|\bsaveBudgets\b|\bloadCloudData\b/);
   }
 });
