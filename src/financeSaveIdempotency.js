@@ -35,3 +35,33 @@ export function confirmRecordRequest(userId, requestId, storage) {
     try { storage.removeItem(key(userId)); } catch { /* already committed; keep UI success */ }
   }
 }
+
+const TRANSFER_PREFIX = "mh-finance-pending-transfer-v1:";
+export async function getTransferRequestId(userId, payload, storage, cryptoProvider) {
+  if (!userId || !storage || !cryptoProvider?.randomUUID || !cryptoProvider?.subtle?.digest) {
+    throw new Error("Secure transfer request tracking is unavailable; transfer not submitted.");
+  }
+  const signature = JSON.stringify([
+    userId,payload.from_method,payload.to_method,Number(payload.amount).toFixed(2),
+    payload.note,payload.date,
+  ]);
+  const bytes=await cryptoProvider.subtle.digest("SHA-256",new TextEncoder().encode(signature));
+  const fingerprint=Array.from(new Uint8Array(bytes),b=>b.toString(16).padStart(2,"0")).join("");
+  const storageKey=TRANSFER_PREFIX+userId;
+  let saved=null;
+  try {saved=JSON.parse(storage.getItem(storageKey)||"null");} catch {}
+  if (saved?.fingerprint===fingerprint && UUID.test(saved?.requestId||"")) return saved.requestId;
+  const requestId=cryptoProvider.randomUUID();
+  storage.setItem(storageKey,JSON.stringify({requestId,fingerprint}));
+  return requestId;
+}
+
+export function confirmTransferRequest(userId,requestId,storage) {
+  if (!userId || !requestId || !storage) return;
+  const storageKey=TRANSFER_PREFIX+userId;
+  let saved=null;
+  try {saved=JSON.parse(storage.getItem(storageKey)||"null");} catch {return;}
+  if(saved?.requestId===requestId) {
+    try {storage.removeItem(storageKey);} catch {}
+  }
+}
