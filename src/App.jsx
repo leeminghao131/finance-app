@@ -17,6 +17,7 @@ import FinanceCsvImportPanel from "./FinanceCsvImportPanel.jsx";
 import FinanceExcelExportPanel from "./FinanceExcelExportPanel.jsx";
 import { normalizeRecord, normalizeTransfer, toRecordPayload } from "./financeRecords.js";
 import { fetchFinanceSnapshot } from "./financeCloudService.js";
+import { getRecordRequestId, confirmRecordRequest } from "./financeSaveIdempotency.js";
 import { CoinRainEffect, IncomeCoinSpinEffect } from "./FinanceVisualEffects.jsx";
 import { FinanceLanguageProvider, FinanceLanguageButton, localizedFinanceAlert, localizedFinanceConfirm } from "./FinanceLanguageLayer.jsx";
 import {
@@ -1404,14 +1405,26 @@ async function addRecord(e) {
       { ...form, amount, note: form.note.trim() },
       user.id
     );
-    const { data, error } = await supabase
+    const requestId = await getRecordRequestId(user.id, payload, sessionStorage, crypto);
+    const columns = "id,type,amount,category,method,note,date,created_at,updated_at,version,deleted_at";
+    let { data, error } = await supabase
       .from("records")
-      .insert(payload)
-      .select("id,type,amount,category,method,note,date,created_at,updated_at,version,deleted_at")
+      .insert({ ...payload, client_request_id: requestId })
+      .select(columns)
       .single();
+    if (error?.code === "23505") {
+      // The first attempt may have committed before the HTTP response was lost.
+      // Recover that SAME row by its stable request ID, never insert another.
+      const resolved = await supabase.from("records").select(columns)
+        .eq("user_id", user.id).eq("client_request_id", requestId).maybeSingle();
+      if (resolved.error) throw resolved.error;
+      if (resolved.data) { data = resolved.data; error = null; }
+    }
     if (error) throw error;
     if (!data) throw new Error("The database did not acknowledge this record.");
+    if (data.deleted_at) throw new Error("A prior matching transaction is in the Recycle Bin. Review before retrying.");
     if (liveUserIdRef.current !== user.id) return;
+    confirmRecordRequest(user.id, requestId, sessionStorage);
     const insertedRecord = normalizeRecord(data);
     setRecords((p) => p.some(row => row.id === insertedRecord.id) ? p : [insertedRecord, ...p]);
     setForm((p) => ({ ...p, amount: amountEntryMode === "rm" ? "" : "0.00", note: "", date: today() }));
