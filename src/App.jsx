@@ -17,7 +17,7 @@ import FinanceCsvImportPanel from "./FinanceCsvImportPanel.jsx";
 import FinanceExcelExportPanel from "./FinanceExcelExportPanel.jsx";
 import { normalizeRecord, normalizeTransfer, toRecordPayload } from "./financeRecords.js";
 import { fetchFinanceSnapshot } from "./financeCloudService.js";
-import { getRecordRequestId, confirmRecordRequest } from "./financeSaveIdempotency.js";
+import { getRecordRequestId, confirmRecordRequest, getTransferRequestId, confirmTransferRequest } from "./financeSaveIdempotency.js";
 import { CoinRainEffect, IncomeCoinSpinEffect } from "./FinanceVisualEffects.jsx";
 import { FinanceLanguageProvider, FinanceLanguageButton, localizedFinanceAlert, localizedFinanceConfirm } from "./FinanceLanguageLayer.jsx";
 import {
@@ -1466,19 +1466,32 @@ async function addRecord(e) {
         user_id:user.id,from_method:transferForm.fromMethod,to_method:transferForm.toMethod,
         amount,note:String(transferForm.note||"").trim(),date:transferForm.date,
       };
-      const {data,error}=await supabase.from("transfers")
-        .insert(payload)
-        .select("id,from_method,to_method,amount,note,date,created_at,updated_at,version,deleted_at")
+      const requestId=await getTransferRequestId(user.id,payload,sessionStorage,crypto);
+      const columns="id,from_method,to_method,amount,note,date,created_at,updated_at,version,deleted_at";
+      let {data,error}=await supabase.from("transfers")
+        .insert({...payload,client_request_id:requestId})
+        .select(columns)
         .single();
-      if (error) throw error;
-      setTransfers(rows => [normalizeTransfer(data),...rows]);
+      if(error?.code==="23505") {
+        const found=await supabase.from("transfers").select(columns)
+          .eq("user_id",user.id).eq("client_request_id",requestId).maybeSingle();
+        if(found.error) throw found.error;
+        if(found.data){data=found.data;error=null;}
+      }
+      if(error) throw error;
+      if(!data) throw new Error("Transfer save was not acknowledged by the cloud.");
+      if(data.deleted_at) throw new Error("Previous transfer is in the Recycle Bin; verify before retrying.");
+      if(liveUserIdRef.current !== user.id) return;
+      confirmTransferRequest(user.id,requestId,sessionStorage);
+      const added=normalizeTransfer(data);
+      setTransfers(rows => rows.some(row=>row.id===added.id)?rows:[added,...rows]);
       setTransferForm(previous => ({
         ...previous,amount:"0.00",note:"",date:today(),
       }));
       setSyncStatus("Transfer added to cloud");
     }catch(error){
-      setSyncStatus("Transfer could not be saved: "+error.message);
-      localizedFinanceAlert(error.message);
+      setSyncStatus("Transfer save not confirmed — verify Transfer History before retrying.");
+      localizedFinanceAlert("Transfer save not confirmed. Check Transfer History before retrying. "+(error?.message||""));
     }finally{
       transferCreationPendingRef.current = false;
     }
