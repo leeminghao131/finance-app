@@ -55,7 +55,7 @@ export default function FinanceSavingsGoals({goals=[],onSave,disabled=false}) {
   const all=goals.slice().sort((a,b)=>a.title.localeCompare(b.title));
   return <section aria-label="Savings Goals" className="rounded-2xl bg-white p-4 shadow-sm ring-1 ring-slate-200 sm:p-5">
     <div className="flex flex-wrap items-center justify-between gap-3">
-      <div><h2 className="text-lg font-bold text-slate-900">Savings Goals / 储蓄目标</h2>
+      <div><h2 className="text-lg font-bold text-slate-900">Savings Goals</h2>
         <p className="mt-1 text-xs text-slate-500">Track saved amounts manually. Goals do not move money or create Income / Expense / Transfer records.</p>
       </div>
       <button type="button" disabled={disabled||busy||goals.length>=50} onClick={()=>start()}
