@@ -7,6 +7,8 @@ import FinanceTransferPanel from "./FinanceTransferPanel.jsx";
 import FinanceBudgetPanel from "./FinanceBudgetPanel.jsx";
 import FinanceForecastPanel from "./FinanceForecastPanel.jsx";
 import FinanceOverlay from "./FinanceOverlay.jsx";
+import FinanceMobileRecords from "./FinanceMobileRecords.jsx";
+import "./financeUi.css";
 import FinanceCsvImportPanel from "./FinanceCsvImportPanel.jsx";
 import FinanceExcelExportPanel from "./FinanceExcelExportPanel.jsx";
 import { normalizeRecord, normalizeTransfer, toRecordPayload } from "./financeRecords.js";
@@ -1734,7 +1736,7 @@ const addRecordTheme =
         icon: "💸",
       };
 return (
-  <div onClickCapture={(e) => e.target.closest("button,select") && playSound()} className="min-h-screen bg-slate-50 p-4 text-slate-900 md:p-8">
+  <div onClickCapture={(e) => e.target.closest("button,select") && playSound()} className="mh-ui min-h-screen bg-slate-50 p-3 text-slate-900 sm:p-4 md:p-8">
 <CoinRainEffect trigger={coinRainTrigger} />
 <IncomeCoinSpinEffect trigger={incomeCoinTrigger} />
       <div className="mx-auto max-w-7xl space-y-6">
@@ -2092,7 +2094,7 @@ return (
           </button>
 
           {isOpen && (
-            <div className="overflow-x-auto px-4 pb-4">
+            <div className="hidden overflow-x-auto px-4 pb-4 md:block">
               <table className="mt-3 w-full min-w-[920px] border-collapse text-left text-sm">
                 <thead>
                   <tr className="border-b border-slate-200">
@@ -2169,6 +2171,17 @@ categoryOptionsFor={categoryOptionsFor}
                   ))}
                 </tbody>
               </table>
+            </div>
+          )}
+          {isOpen && (
+            <div className="px-3 pb-4 md:hidden">
+              <FinanceMobileRecords
+                records={group.records}
+                categoryOptionsFor={categoryOptionsFor}
+                methodOptionsFor={methodOptionsFor}
+                onUpdate={updateRecord}
+                onDelete={deleteRecord}
+              />
             </div>
           )}
         </div>
