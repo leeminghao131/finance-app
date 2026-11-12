@@ -6,7 +6,7 @@ const openDialogStack = [];
 
 // A fixed viewport dialog rendered outside dashboard grids/cards.
 // It never changes the document layout or clips under an overflow-hidden card.
-export default function FinanceOverlay({ open, title, onClose, children, widthClass = "max-w-3xl" }) {
+export default function FinanceOverlay({ open, title, onClose, children, widthClass = "max-w-3xl", showTitle = true }) {
   const dialogRef = useRef(null);
   const onCloseRef = useRef(onClose);
   onCloseRef.current = onClose;
@@ -63,8 +63,8 @@ export default function FinanceOverlay({ open, title, onClose, children, widthCl
       <section ref={dialogRef} role="dialog" aria-modal="true" aria-label={title} tabIndex={-1}
         className={`w-full ${widthClass} min-w-0 overflow-y-auto rounded-2xl bg-white shadow-2xl outline-none`}
         style={{ maxHeight: "calc(100dvh - 1.5rem)" }}>
-        <div className="sticky top-0 z-10 flex items-center justify-between gap-3 border-b border-slate-200 bg-white/95 px-4 py-3 backdrop-blur sm:px-5">
-          <h2 className="min-w-0 text-lg font-bold text-slate-900">{title}</h2>
+        <div className={`sticky top-0 z-10 flex items-center gap-3 border-b border-slate-200 bg-white/95 px-4 py-3 backdrop-blur sm:px-5 ${showTitle ? "justify-between" : "justify-end"}`}>
+          <h2 className={showTitle ? "min-w-0 text-lg font-bold text-slate-900" : "sr-only"}>{title}</h2>
           <button type="button" onClick={() => onCloseRef.current?.()}
             aria-label={"Close " + title}
             className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-bold text-slate-700 hover:bg-slate-100">
