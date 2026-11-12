@@ -100,7 +100,7 @@ export function calculateSavingsAvailable(totalBalance, monthlyBudgets = {}) {
   for (const value of Object.values(monthlyBudgets)) {
     const raw = String(value ?? "").trim();
     if (!raw) continue;
-    if (!/^\\d+(?:\\.\\d{1,2})?$/.test(raw)) {
+    if (!/^[0-9]+(?:[.][0-9]{1,2})?$/.test(raw)) {
       throw new Error("Invalid monthly budget amount for Savings Goals.");
     }
     const [whole, decimals = ""] = raw.split(".");
