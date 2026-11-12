@@ -2,11 +2,12 @@ name: Finance Safety Checks
 
 on:
   pull_request:
-    branches: [main, safety/guardrails-2026-11-08, feature/finance-reliability-2026-11-08, feature/finance-transfer-budget-forecast-time-2026-11-08, feature/finance-safe-import-complete-export-refactor-2026-11-08, feature/finance-amount-popup-ui-2026-11-08]
+    branches: [main, safety/guardrails-2026-11-08, feature/finance-reliability-2026-11-08, feature/finance-transfer-budget-forecast-time-2026-11-08, feature/finance-safe-import-complete-export-refactor-2026-11-08, feature/finance-amount-popup-ui-2026-11-08, feature/finance-zh-en-interface-2026-11-09]
   push:
     branches:
       - "safety/**"
       - "feature/**"
+      - "fix/**"
   workflow_dispatch:
 
 permissions:

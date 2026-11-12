@@ -68,7 +68,7 @@ test("more than 1000 owned records are loaded in safe 500-row pages", async () =
   const result = await loadEveryOwnedRow(db, "records", "id,amount", "userA", (loaded, total) => progress.push([loaded,total]));
   assert.equal(result.length, 2501);
   assert.equal(result.at(-1).id, 2501);
-  assert.equal(db.calls.length, 6);
+  assert.equal(db.calls.length, 12); // two matching full reads guard against same-count edits
   assert.ok(db.calls.every((call) => call.end-call.start < 500 && call.owner === "userA"));
   assert.deepEqual(progress.at(-1), [2501,2501]);
 });
