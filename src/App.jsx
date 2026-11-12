@@ -1954,9 +1954,9 @@ return (
   </select>
 
   {renderDeleteCustomOptionPanel("category", form.type)}
-  <FinanceQuickNotes records={records} type={form.type} category={form.category}
-    onChoose={note=>setForm(previous=>({...previous,note}))} />
 </label>
+<FinanceQuickNotes records={records} type={form.type} category={form.category}
+  onChoose={note=>setForm(previous=>({...previous,note}))} />
               <label className="block">
   <span className="text-sm font-medium text-slate-600">Method</span>
   <select
