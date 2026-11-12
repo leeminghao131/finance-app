@@ -2080,7 +2080,7 @@ return (
               </div>
             </div>
 
-            <div className="grid grid-cols-3 gap-2 text-xs md:min-w-[360px]">
+            <div className="mh-day-totals grid grid-cols-1 gap-2 text-xs sm:grid-cols-3 md:min-w-[360px]">
               <div className="rounded-xl bg-green-50 px-3 py-2 text-right font-bold text-green-700">
                 +{money(group.income)}
               </div>
