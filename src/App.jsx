@@ -641,13 +641,22 @@ function FinanceVisualizerAppContent() {
   const [coinRainTrigger, setCoinRainTrigger] = useState(0);
   const [incomeCoinTrigger, setIncomeCoinTrigger] = useState(0);
   const [openDates, setOpenDates] = useState({});
-  const [customCardText, setCustomCardText] = useState(() => {
-  return localStorage.getItem(CUSTOM_CARD_TEXT_KEY) || "";
-});
-
-const [customCardImage, setCustomCardImage] = useState(() => {
-  return localStorage.getItem(CUSTOM_CARD_IMAGE_KEY) || "";
-});
+  // Custom card content is private to the signed-in account on this browser.
+  // Preserve legacy global keys without reading, deleting or assigning them
+  // to another account; never leak user A's card to user B.
+  const [personalCard, setPersonalCard] = useState({ owner: null, text: "", image: "" });
+  const customCardText = personalCard.owner === user?.id ? personalCard.text : "";
+  const customCardImage = personalCard.owner === user?.id ? personalCard.image : "";
+  const setCustomCardText = value => setPersonalCard(previous => ({
+    owner: user?.id || null,
+    text: typeof value === "function" ? value(previous.owner === user?.id ? previous.text : "") : value,
+    image: previous.owner === user?.id ? previous.image : "",
+  }));
+  const setCustomCardImage = value => setPersonalCard(previous => ({
+    owner: user?.id || null,
+    text: previous.owner === user?.id ? previous.text : "",
+    image: typeof value === "function" ? value(previous.owner === user?.id ? previous.image : "") : value,
+  }));
   const [balanceLimit, setBalanceLimit] = useState(() => {
   const saved = localStorage.getItem(BALANCE_LIMIT_KEY);
   return saved || "1500";
@@ -784,22 +793,35 @@ const [customCardImage, setCustomCardImage] = useState(() => {
   localStorage.setItem(BALANCE_LIMIT_KEY, String(balanceLimit || "1500"));
 }, [balanceLimit]);
   useEffect(() => {
-  localStorage.setItem(CUSTOM_CARD_TEXT_KEY, customCardText);
-}, [customCardText]);
-
-useEffect(() => {
-  try {
-    if (customCardImage) {
-      localStorage.setItem(CUSTOM_CARD_IMAGE_KEY, customCardImage);
-    } else {
-      localStorage.removeItem(CUSTOM_CARD_IMAGE_KEY);
+    if (!user?.id) {
+      setPersonalCard({owner:null,text:"",image:""});
+      return;
     }
-  } catch {
-    localStorage.removeItem(CUSTOM_CARD_IMAGE_KEY);
-    setCustomCardImage("");
-    localizedFinanceAlert("Image is too large to save. Please upload a smaller image.");
-  }
-}, [customCardImage]);
+    const id = user.id;
+    try {
+      setPersonalCard({
+        owner:id,
+        text:localStorage.getItem(CUSTOM_CARD_TEXT_KEY + ":" + id) || "",
+        image:localStorage.getItem(CUSTOM_CARD_IMAGE_KEY + ":" + id) || "",
+      });
+    } catch {
+      setPersonalCard({owner:id,text:"",image:""});
+    }
+  }, [user?.id]);
+
+  useEffect(() => {
+    if (!user?.id || personalCard.owner !== user.id) return;
+    try {
+      localStorage.setItem(CUSTOM_CARD_TEXT_KEY + ":" + user.id, personalCard.text);
+      if (personalCard.image)
+        localStorage.setItem(CUSTOM_CARD_IMAGE_KEY + ":" + user.id, personalCard.image);
+      else
+        localStorage.removeItem(CUSTOM_CARD_IMAGE_KEY + ":" + user.id);
+    } catch {
+      // Never remove a previously persisted card on a quota failure.
+      localizedFinanceAlert("Card content could not be stored on this device. Please use a smaller image.");
+    }
+  }, [user?.id, personalCard]);
 
 useEffect(() => {
   setForm((previous) => {
