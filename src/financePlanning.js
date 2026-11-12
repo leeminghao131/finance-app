@@ -82,3 +82,46 @@ export function savingsGoalProgress(goal) {
     percent:Math.round((g.saved/g.target)*10000)/100,
     completed:g.saved>=g.target};
 }
+
+/**
+ * Savings Goals use one shared, read-only available-balance estimate.
+ * The current month's saved budget snapshot (or default template) is reserved
+ * once. Do not write this calculated figure to any record or goal row.
+ */
+export function calculateSavingsAvailable(totalBalance, monthlyBudgets = {}) {
+  const balanceSen = Math.round(Number(totalBalance) * 100);
+  if (!Number.isFinite(Number(totalBalance)) || !Number.isSafeInteger(balanceSen)) {
+    throw new Error("Invalid total balance for Savings Goals.");
+  }
+  if (!monthlyBudgets || typeof monthlyBudgets !== "object" || Array.isArray(monthlyBudgets)) {
+    throw new Error("Invalid monthly budget for Savings Goals.");
+  }
+  let budgetSen = 0;
+  for (const value of Object.values(monthlyBudgets)) {
+    const raw = String(value ?? "").trim();
+    if (!raw) continue;
+    if (!/^[0-9]+(?:[.][0-9]{1,2})?$/.test(raw)) {
+      throw new Error("Invalid monthly budget amount for Savings Goals.");
+    }
+    const [whole, decimals = ""] = raw.split(".");
+    const amountSen = Number(whole) * 100 + Number(decimals.padEnd(2, "0"));
+    if (!Number.isSafeInteger(amountSen)) {
+      throw new Error("Monthly budget amount exceeds safe precision.");
+    }
+    budgetSen += amountSen;
+    if (!Number.isSafeInteger(budgetSen)) {
+      throw new Error("Monthly budget total exceeds safe precision.");
+    }
+  }
+  const netSen = balanceSen - budgetSen;
+  if (!Number.isSafeInteger(netSen)) {
+    throw new Error("Savings availability exceeds safe precision.");
+  }
+  return {
+    totalBalance: balanceSen / 100,
+    monthlyBudget: budgetSen / 100,
+    available: Math.max(0, netSen) / 100,
+    shortfall: Math.max(0, -netSen) / 100,
+    netAfterBudget: netSen / 100,
+  };
+}

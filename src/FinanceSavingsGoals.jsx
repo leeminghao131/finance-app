@@ -4,7 +4,12 @@ import {requireCalendarDate} from "./financeCalendar.js";
 
 const money=n=>new Intl.NumberFormat("en-MY",{currency:"MYR",style:"currency"}).format(Number(n||0));
 const blank=()=>({title:"",target:"",saved:"0.00",deadline:""});
-export default function FinanceSavingsGoals({goals=[],onSave,disabled=false}) {
+export default function FinanceSavingsGoals({goals=[],onSave,disabled=false,savingsAvailability,budgetMonth,calculationError}) {
+  // Shared, read-only available savings. Existing persisted goal.saved values are retained.
+  const available=savingsAvailability?.available ?? 0;
+  const reservedBudget=savingsAvailability?.monthlyBudget ?? 0;
+  const overallBalance=savingsAvailability?.totalBalance ?? 0;
+  const shortfall=savingsAvailability?.shortfall ?? 0;
   const [editor,setEditor]=useState(null);
   const [draft,setDraft]=useState(blank);
   const [base,setBase]=useState("");
@@ -52,11 +57,19 @@ export default function FinanceSavingsGoals({goals=[],onSave,disabled=false}) {
     const baseline=JSON.stringify(goals);
     if(await commit(goals.filter(g=>g.id!==goal.id),baseline))setEditor(null);
   }
+  if(calculationError || !savingsAvailability){
+    return <section className="rounded-2xl bg-white p-5 shadow-sm ring-1 ring-red-200" aria-label="Savings Goals">
+      <h2 className="text-lg font-bold">Savings Goals</h2>
+      <p role="alert" className="mt-2 text-sm text-red-700">
+        Savings calculation unavailable: {calculationError || "The current verified balance or budget is unavailable."}
+      </p>
+    </section>;
+  }
   const all=goals.slice().sort((a,b)=>a.title.localeCompare(b.title));
   return <section aria-label="Savings Goals" className="rounded-2xl bg-white p-4 shadow-sm ring-1 ring-slate-200 sm:p-5">
     <div className="flex flex-wrap items-center justify-between gap-3">
       <div><h2 className="text-lg font-bold text-slate-900">Savings Goals</h2>
-        <p className="mt-1 text-xs text-slate-500">Track saved amounts manually. Goals do not move money or create Income / Expense / Transfer records.</p>
+        <p className="mt-1 text-xs text-slate-500">Available savings are calculated from total Balance minus the current month budget. Goals do not move money or create transactions.</p>
       </div>
       <button type="button" disabled={disabled||busy||goals.length>=50} onClick={()=>start()}
         className="rounded-xl bg-slate-900 px-4 py-2 text-sm font-bold text-white disabled:opacity-50">
@@ -65,16 +78,22 @@ export default function FinanceSavingsGoals({goals=[],onSave,disabled=false}) {
     </div>
     {message&&<p role="status" className="mt-3 text-sm text-emerald-700">{message}</p>}
     {error&&<p role="alert" className="mt-3 text-sm text-red-700">{error}</p>}
+    <div className="mt-3 rounded-xl bg-slate-50 p-3 text-sm ring-1 ring-slate-200">
+      <p className="font-semibold text-slate-700">Available savings (shared): <span className="text-slate-900">{money(available)}</span></p>
+      <p className="mt-1 text-xs text-slate-600">Total Balance {money(overallBalance)} − {budgetMonth} Monthly Budget {money(reservedBudget)} = {money(savingsAvailability?.netAfterBudget ?? 0)}</p>
+      {shortfall>0&&<p className="mt-1 text-xs font-semibold text-amber-800">Budget exceeds Balance by {money(shortfall)}. Available savings shown as RM0.00.</p>}
+      <p className="mt-1 text-xs text-slate-500">This is one shared amount across all goals, not separate allocations. It is an estimate, not verified bank savings.</p>
+    </div>
     {!all.length&&!editor&&<p className="mt-4 rounded-xl bg-slate-50 p-4 text-sm text-slate-500">No Savings Goals yet. Add one to start tracking your progress.</p>}
     <div className="mt-3 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
       {all.map(g=>{
-        const p=savingsGoalProgress(g);
+        const p=savingsGoalProgress({...g,saved:available});
         return <article key={g.id} className="min-w-0 rounded-xl border border-slate-200 bg-slate-50 p-4">
           <div className="flex items-start justify-between gap-2">
             <h3 className="break-words text-sm font-bold text-slate-900" data-i18n-ignore>{g.title}</h3>
             <span className={"shrink-0 text-xs font-semibold "+(p.completed?"text-emerald-700":"text-slate-500")}>{p.completed?"Completed":"In progress"}</span>
           </div>
-          <p className="mt-2 text-lg font-bold text-slate-900">{money(g.saved)} <span className="text-sm font-normal text-slate-500">/ {money(g.target)}</span></p>
+          <p className="mt-2 text-lg font-bold text-slate-900">{money(available)} <span className="text-sm font-normal text-slate-500">/ {money(g.target)}</span></p>
           <div className="mt-2 h-2 w-full overflow-hidden rounded-full bg-slate-200">
             <div className="h-full rounded-full bg-emerald-600" style={{width:Math.min(100,Math.max(0,p.percent))+"%"}}/>
           </div>
@@ -100,16 +119,17 @@ export default function FinanceSavingsGoals({goals=[],onSave,disabled=false}) {
           <input required type="text" inputMode="decimal" value={draft.target} onChange={e=>setDraft(p=>({...p,target:e.target.value}))}
             className="mt-1 w-full rounded-xl border border-slate-300 px-3 py-2" placeholder="5000.00"/>
         </label>
-        <label className="text-sm">Saved amount (RM)
-          <input required type="text" inputMode="decimal" value={draft.saved} onChange={e=>setDraft(p=>({...p,saved:e.target.value}))}
-            className="mt-1 w-full rounded-xl border border-slate-300 px-3 py-2" placeholder="0.00"/>
-        </label>
+        <div className="rounded-xl bg-slate-50 p-3 text-sm">
+          <p className="text-slate-600">Saved amount (auto)</p>
+          <p className="mt-1 font-bold text-slate-900">{money(available)}</p>
+          <p className="text-xs text-slate-500">Total Balance − {budgetMonth} Monthly Budget</p>
+        </div>
         <label className="text-sm">Target date (optional)
           <input type="date" value={draft.deadline} onChange={e=>setDraft(p=>({...p,deadline:e.target.value}))}
             className="mt-1 w-full rounded-xl border border-slate-300 px-3 py-2"/>
         </label>
       </div>
-      <p className="mt-3 text-xs text-amber-800">Saved amount is a manually tracked planning value, not a verified bank balance. Editing it never changes your real transactions.</p>
+      <p className="mt-3 text-xs text-amber-800">Available savings update automatically from your ledger and current-month budget. They are shared by all goals; editing goals never changes real transactions.</p>
       <div className="mt-4 flex flex-wrap gap-2">
         <button type="submit" disabled={disabled||busy} className="rounded-xl bg-emerald-700 px-4 py-2 text-sm font-bold text-white disabled:opacity-50">{busy?"Saving...":"Save Goal"}</button>
         <button type="button" disabled={busy} onClick={close} className="rounded-xl border border-slate-300 px-4 py-2 text-sm">Cancel</button>

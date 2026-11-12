@@ -10,7 +10,7 @@ import FinanceOpeningBalancePanel from "./FinanceOpeningBalancePanel.jsx";
 import FinanceMonthComparison from "./FinanceMonthComparison.jsx";
 import FinanceQuickNotes from "./FinanceQuickNotes.jsx";
 import FinanceSavingsGoals from "./FinanceSavingsGoals.jsx";
-import {validateSavingsGoals,mostUsedNotes} from "./financePlanning.js";
+import {validateSavingsGoals,calculateSavingsAvailable} from "./financePlanning.js";
 import { openingTotal, calculateMethodBalances } from "./financeOpeningBalance.js";
 import FinanceOverlay from "./FinanceOverlay.jsx";
 import FinanceMobileRecords from "./FinanceMobileRecords.jsx";
@@ -215,7 +215,7 @@ function StatCard({ title, value, icon, desc, action }) {
   );
 }
 
-function BalanceCard({ title, value, desc, limit, methodBalances = [] }) {
+function BalanceCard({ title, value, desc, limit, methodBalances = [], openingBalanceControl = null }) {
   const safeLimit = Number(limit || 0);
   const low = value < safeLimit;
   const [open, setOpen] = useState(false);
@@ -239,15 +239,20 @@ function BalanceCard({ title, value, desc, limit, methodBalances = [] }) {
           </p>
         </div>
 
-        {showMethodBreakdown && (
-          <button
-            type="button"
-            onClick={() => setOpen(true)}
-             aria-label="Open Method Balance" aria-haspopup="dialog" aria-expanded={open}
-            className="rounded-xl bg-slate-100 px-3 py-2 text-xs font-bold text-slate-700 transition hover:bg-slate-200"
-          >
-            Methods
-          </button>
+        {(showMethodBreakdown || openingBalanceControl) && (
+          <div className="flex w-[112px] shrink-0 flex-col items-stretch gap-2">
+            {showMethodBreakdown && (
+                      <button
+                        type="button"
+                        onClick={() => setOpen(true)}
+                         aria-label="Open Method Balance" aria-haspopup="dialog" aria-expanded={open}
+                        className="min-h-9 w-full rounded-xl bg-slate-100 px-2 py-2 text-xs font-bold text-slate-700 transition hover:bg-slate-200"
+                      >
+                        Methods
+                      </button>
+                    )}
+            {openingBalanceControl}
+          </div>
         )}
       </div>
 
@@ -623,7 +628,6 @@ function FinanceVisualizerAppContent() {
   const [budgets, setBudgets] = useState(DEFAULT_BUDGETS);
   const [customOptions, setCustomOptions] = useState(DEFAULT_CUSTOM_OPTIONS);
   const [form, setForm] = useState({ type: "expense", amount: "", category: "饮食", method: "TNG", note: "", date: today() });
-  const [quickNotesOpen,setQuickNotesOpen] = useState(false);
   const [transferForm, setTransferForm] = useState({
   fromMethod: "BANK",
   toMethod: "TNG",
@@ -737,7 +741,6 @@ function FinanceVisualizerAppContent() {
       setForecastPlans([]);
       setOpeningBalances({});
       setSavingsGoals([]);
-      setQuickNotesOpen(false);
       setUndoTransfer(null);
       setBudgets(DEFAULT_BUDGETS);
       confirmedCustomOptionsRef.current = DEFAULT_CUSTOM_OPTIONS;
@@ -1264,6 +1267,15 @@ const methodBalances = useMemo(() => calculateMethodBalances(
   transfers, accountMethodOptions, openingBalances, normalizeMethodForBalance
 ), [accountMethodOptions, openingBalances, records, transfers]);
   const openingBalanceTotal = useMemo(() => openingTotal(openingBalances), [openingBalances]);
+  const totalBalance = openingBalanceTotal + income - expense;
+  // Savings Goals reserve the current natural month's budget, not the Dashboard filter.
+  // Saved month snapshot wins; only months without one use the default template.
+  const savingsBudgetMonth = localMonthMY();
+  const savingsBudgetCategories = monthRows.find(row => row.month === savingsBudgetMonth)?.category_budgets ?? budgets;
+  const savingsCalculation = useMemo(() => {
+    try { return { data: calculateSavingsAvailable(totalBalance, savingsBudgetCategories) }; }
+    catch (error) { return { error: error.message || "Savings calculation unavailable." }; }
+  }, [totalBalance, savingsBudgetCategories]);
   const spentMap = useMemo(() => {
   const map = Object.fromEntries(expenseCategoryOptions.map((c) => [c, 0]));
   expenseRecords.forEach((r) => {
@@ -1825,18 +1837,14 @@ return (
 
         <section className="grid gap-4 md:grid-cols-3"><StatCard title="Total Income" value={money(income)} icon="📈" desc="Overall records" /><StatCard title="Total Expense" value={money(expense)} icon="📉" desc="Overall records" /><BalanceCard
   title="Balance"
-  value={openingBalanceTotal + income - expense}
+  value={totalBalance}
   desc="Including Opening Balance"
   limit={balanceLimit}
   methodBalances={methodBalances}
+  openingBalanceControl={<FinanceOpeningBalancePanel
+    methods={methodBalances.map(row=>row.method)} balances={openingBalances}
+    disabled={!initialDataReady || dataLoading} onSave={saveOpeningBalances} />}
 /></section>
-        <FinanceOpeningBalancePanel methods={methodBalances.map(row=>row.method)} balances={openingBalances}
-          disabled={!initialDataReady || dataLoading} onSave={saveOpeningBalances} />
-        <div className="grid gap-4 xl:grid-cols-2">
-          <FinanceMonthComparison records={records} />
-          <FinanceSavingsGoals goals={savingsGoals} onSave={saveSavingsGoals}
-            disabled={!initialDataReady || dataLoading} />
-        </div>
 
 <section className="grid gap-6 lg:grid-cols-[380px_1fr]">
   <div className="space-y-6">
@@ -1858,7 +1866,7 @@ return (
             <form onSubmit={addRecord} className="mt-5 space-y-4">
               <div className="grid grid-cols-2 gap-3 rounded-2xl bg-slate-100 p-1"><button
   type="button"
-  onClick={() => {setForm((p) => ({ ...p, type: "expense" }));setQuickNotesOpen(false);}}
+  onClick={() => setForm((p) => ({ ...p, type: "expense" }))}
   className={`rounded-xl px-3 py-2 text-sm font-semibold transition ${form.type === "expense" ? "bg-red-600 text-white shadow-sm" : "text-slate-500 hover:bg-red-50 hover:text-red-700"}`}
 >
   💸 Expense
@@ -1866,7 +1874,7 @@ return (
 
 <button
   type="button"
-  onClick={() => {setForm((p) => ({ ...p, type: "income" }));setQuickNotesOpen(false);}}
+  onClick={() => setForm((p) => ({ ...p, type: "income" }))}
   className={`rounded-xl px-3 py-2 text-sm font-semibold transition ${form.type === "income" ? "bg-green-600 text-white shadow-sm" : "text-slate-500 hover:bg-green-50 hover:text-green-700"}`}
 >
   💰 Income
@@ -1942,7 +1950,6 @@ return (
       }
 
       setForm((previous) => ({ ...previous, category: value }));
-      setQuickNotesOpen(mostUsedNotes(records,form.type,value,7).length>0);
       setDeleteOptionPanel({ kind: "", type: "" });
     }}
     className="mt-1 w-full rounded-2xl border border-slate-200 px-4 py-3 outline-none"
@@ -1959,7 +1966,6 @@ return (
   {renderDeleteCustomOptionPanel("category", form.type)}
 </label>
 <FinanceQuickNotes records={records} type={form.type} category={form.category}
-  open={quickNotesOpen} onOpen={()=>setQuickNotesOpen(true)} onClose={()=>setQuickNotesOpen(false)}
   onChoose={note=>setForm(previous=>({...previous,note}))} />
               <label className="block">
   <span className="text-sm font-medium text-slate-600">Method</span>
@@ -2329,6 +2335,15 @@ categoryOptionsFor={categoryOptionsFor}
           <p className="mt-3 text-xs text-slate-500">Records remain recoverable after 10 seconds, after closing this tab, and across devices. There is no permanent delete button.</p>
         </Card>
        </FinanceOverlay>
+
+        <div className="grid gap-4 xl:grid-cols-2">
+          <FinanceMonthComparison records={records} />
+          <FinanceSavingsGoals goals={savingsGoals} onSave={saveSavingsGoals}
+            disabled={!initialDataReady || dataLoading}
+            savingsAvailability={savingsCalculation.data}
+            calculationError={savingsCalculation.error}
+            budgetMonth={savingsBudgetMonth} />
+        </div>
 
         <footer className="pb-6 text-center text-xs text-slate-400">记账可视化软件 · Data synced with Supabase cloud · {records.length} total records</footer>
       </div>

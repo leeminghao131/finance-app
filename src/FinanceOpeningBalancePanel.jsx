@@ -32,7 +32,7 @@ export default function FinanceOpeningBalancePanel({methods, balances, onSave, d
   }
   return <>
     <button type="button" disabled={disabled} onClick={()=>setOpen(true)}
-      className="rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm font-bold disabled:opacity-50">
+      className="min-h-9 w-full rounded-xl border border-slate-300 bg-white px-2 py-2 text-xs font-bold leading-tight disabled:opacity-50">
       🏦 Opening Balance / 初始余额
     </button>
     <FinanceOverlay open={open} title="Opening Balance / 初始余额" onClose={close} widthClass="max-w-xl">
