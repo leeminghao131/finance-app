@@ -10,6 +10,8 @@ import FinanceOverlay from "./FinanceOverlay.jsx";
 import FinanceMobileRecords from "./FinanceMobileRecords.jsx";
 import FinanceTrendSummaryTooltip from "./FinanceTrendSummaryTooltip.jsx";
 import FinanceExpandedTrendOverlay from "./FinanceExpandedTrendOverlay.jsx";
+import FinanceCategoryBubbleChart from "./FinanceCategoryBubbleChart.jsx";
+import FinanceMethodDonutChart from "./FinanceMethodDonutChart.jsx";
 import "./financeUi.css";
 import FinanceCsvImportPanel from "./FinanceCsvImportPanel.jsx";
 import FinanceExcelExportPanel from "./FinanceExcelExportPanel.jsx";
@@ -2060,16 +2062,16 @@ return (
   {trendData.length ? <ResponsiveContainer width="100%" height="100%"><LineChart data={trendData}><CartesianGrid strokeDasharray="3 3" /><XAxis dataKey="day" /><YAxis /><Tooltip content={<FinanceTrendSummaryTooltip kind="balance" />} /><Legend /><Line isAnimationActive={false} connectNulls type="monotone" dataKey="balanceGreen" name={`Balance > ${balanceAlertLimitLabel}`} stroke="#22c55e" strokeWidth={3} dot={{ r: 4 }} /><Line isAnimationActive={false} connectNulls type="monotone" dataKey="balanceRed" name={`Balance ≤ ${balanceAlertLimitLabel}`} stroke="#ef4444" strokeWidth={3} dot={{ r: 4 }} /></LineChart></ResponsiveContainer> : <div className="flex h-full items-center justify-center text-slate-500">No balance trend data.</div>}</div></div></div></Card>
               <Card>
                 <h2 className="text-xl font-bold">Expense by Category</h2>
-                <div className="mt-4 h-60">
-                  <MiniPie data={categoryData} emptyText="No expense data." />
+                <div className="mt-4 min-w-0">
+                  <FinanceCategoryBubbleChart data={categoryData} emptyText="No expense data." />
                 </div>
                 <div className="mt-4 rounded-2xl bg-slate-50 p-3 ring-1 ring-slate-200">
                   <div className="mb-2 flex flex-wrap justify-between gap-2">
                     <p className="text-sm font-bold text-slate-700">Method Ratio</p>
                     <p className="text-xs text-slate-500">所有支出方式比例</p>
                   </div>
-                  <div className="h-60">
-                    <MiniPie data={methodData} emptyText="No method data." />
+                  <div className="mt-3 min-w-0">
+                    <FinanceMethodDonutChart data={methodData} emptyText="No method data." />
                   </div>
                 </div>
               </Card>
