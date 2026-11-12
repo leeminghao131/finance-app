@@ -2016,7 +2016,7 @@ return (
                 onDirtyChange={setBudgetDraftDirty}
               />
             </FinanceOverlay>
-            <section className="grid gap-6 xl:grid-cols-2">
+            <section className="grid items-start gap-4 xl:grid-cols-[minmax(0,1fr)_minmax(0,1.1fr)]">
               <FinanceForecastPanel
                 records={records}
                 selectedMonth={forecastMonth}
@@ -2024,8 +2024,8 @@ return (
                 plannedIncomes={forecastPlans}
                 onSavePlans={saveExpectedIncomePlans}
               />
-              <div className="space-y-6">
-                <HeatmapCard days={heatmapDays} label={filterLabel} />
+              <HeatmapCard days={heatmapDays} label={filterLabel} />
+              <div className="min-w-0 xl:col-span-2">
                 <TopExpensesCard
                   records={topExpenses} label={filterLabel}
                   category={topExpenseCategory} setCategory={setTopExpenseCategory}
