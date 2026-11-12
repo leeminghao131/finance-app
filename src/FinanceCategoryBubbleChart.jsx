@@ -102,7 +102,7 @@ export default function FinanceCategoryBubbleChart({ data, emptyText = "No expen
     const observer = new IntersectionObserver(entries => setVisible(Boolean(entries[0]?.isIntersecting)), { threshold: 0.05 });
     observer.observe(el);
     return () => observer.disconnect();
-  }, []);
+  }, [data?.length]);
 
   const items = useMemo(() => (Array.isArray(data) ? data : [])
     .filter(item => Number.isFinite(Number(item.value)) && Number(item.value) > 0)
