@@ -140,12 +140,6 @@ function parseMoneyInput(value) {
   return Number(raw);
 }
 
-function normalizeMoneyNumbersInExpression(expression) {
-  return String(expression || "").replace(/\d+(\.\d+)?/g, (match) => {
-    if (match.includes(".")) return match;
-    return String(Number(match) / 100);
-  });
-}
 function formatMoneyTyping(value) {
   const digits = String(value ?? "").replace(/\D/g, "");
 
@@ -155,27 +149,10 @@ function formatMoneyTyping(value) {
 }
 
 function formatCalculatorTyping(value) {
-  const text = String(value ?? "")
-    .replaceAll("×", "*")
-    .replaceAll("x", "*")
-    .replaceAll("X", "*")
-    .replaceAll("÷", "/")
-    .replaceAll("，", "+")
-    .replaceAll("、", "+")
-    .replaceAll(",", "+");
-
-  const parts = text.match(/(\d[\d.]*)|[+\-*/()]/g) || [];
-
-  if (!parts.length) return "0.00";
-
-  return parts
-    .map((part) => {
-      if (/^\d[\d.]*$/.test(part)) return formatMoneyTyping(part);
-      return ` ${part} `;
-    })
-    .join("")
-    .replace(/\s+/g, " ")
-    .trim();
+  // The calculator uses normal RM arithmetic; cents conversion belongs only to Amount keypad.
+  return String(value ?? "").replaceAll("×", "*").replaceAll("x", "*")
+    .replaceAll("X", "*").replaceAll("÷", "/").replaceAll("，", "+")
+    .replaceAll("、", "+").replaceAll(",", "+");
 }
 function calculate(text) {
   const expression = String(text || "")
@@ -187,10 +164,8 @@ function calculate(text) {
     throw new Error("Invalid");
   }
 
-  const moneyExpression = normalizeMoneyNumbersInExpression(expression);
-  const value = Function(`"use strict"; return (${moneyExpression});`)();
-
-  if (!Number.isFinite(value) || value < 0) throw new Error("Invalid");
+  const value = Function(`"use strict"; return (${expression});`)();
+  if (!Number.isFinite(value) || value < 0 || !Number.isSafeInteger(Math.round(value * 100))) throw new Error("Invalid");
   return Math.round(value * 100) / 100;
 }
 
@@ -623,6 +598,8 @@ function FinanceVisualizerAppContent() {
   const undoTransferTimeoutRef = useRef(null);
   const pendingTransfersRef = useRef(new Set());
   const transferCreationPendingRef = useRef(false);
+  const recordCreationPendingRef = useRef(false);
+  const confirmedCustomOptionsRef = useRef(DEFAULT_CUSTOM_OPTIONS);
   const pendingRecordsRef = useRef(new Set());
   const reloadDebounceRef = useRef(null);
   const [budgets, setBudgets] = useState(DEFAULT_BUDGETS);
@@ -731,6 +708,7 @@ const [customCardImage, setCustomCardImage] = useState(() => {
       setForecastPlans([]);
       setUndoTransfer(null);
       setBudgets(DEFAULT_BUDGETS);
+      confirmedCustomOptionsRef.current = DEFAULT_CUSTOM_OPTIONS;
       setCustomOptions(DEFAULT_CUSTOM_OPTIONS);
       setUndoDeleted(null);
       setSettingsVersion(null);
@@ -845,9 +823,11 @@ useEffect(() => {
         ? {...DEFAULT_BUDGETS,...settingsRow.category_budgets}
         : DEFAULT_BUDGETS;
       budgetsRef.current=nextBudgets;setBudgets(nextBudgets);
-      setCustomOptions(settingsRow?.custom_options
+      const loadedOptions = settingsRow?.custom_options
         ? {...DEFAULT_CUSTOM_OPTIONS,...settingsRow.custom_options}
-        : DEFAULT_CUSTOM_OPTIONS);
+        : DEFAULT_CUSTOM_OPTIONS;
+      confirmedCustomOptionsRef.current = loadedOptions;
+      setCustomOptions(loadedOptions);
       setForecastPlans(Array.isArray(settingsRow?.forecast_plans)?settingsRow.forecast_plans:[]);
       const version=settingsRow?Number(settingsRow.version||1):null;
       settingsVersionRef.current=version;setSettingsVersion(version);
@@ -904,8 +884,17 @@ useEffect(() => {
     queueSettingsField("category_budgets", nextBudgets);
   }
 
-  function saveCustomOptions(nextOptions) {
-    queueSettingsField("custom_options", nextOptions);
+  async function saveCustomOptions(nextOptions) {
+    const accountId = user?.id;
+    const ok = await queueSettingsField("custom_options", nextOptions);
+    if (liveUserIdRef.current !== accountId) return false;
+    if (ok) {
+      confirmedCustomOptionsRef.current = nextOptions;
+      return true;
+    }
+    setCustomOptions(current => current === nextOptions ? confirmedCustomOptionsRef.current : current);
+    localizedFinanceAlert("Custom categories/methods were not saved. Please retry after synchronization.");
+    return false;
   }
 
 
@@ -1423,37 +1412,38 @@ function playIncomeCoinSound() {
 async function addRecord(e) {
   e.preventDefault();
   if (!user) return localizedFinanceAlert("Please sign in first.");
-
- let amount;
-  try { amount = parseEditedAmount(form.amount); }
-  catch(error) { localizedFinanceAlert(error.message); return; }
-
-  const payload = toRecordPayload(
-    { ...form, amount, note: form.note.trim() },
-    user.id
-  );
-
-  const { data, error } = await supabase
-    .from("records")
-    .insert(payload)
-    .select("id,type,amount,category,method,note,date,created_at,updated_at,version,deleted_at")
-    .single();
-
-  if (error) return localizedFinanceAlert(error.message);
-
-  const insertedRecord = normalizeRecord(data);
-
-  setRecords((p) => [insertedRecord, ...p]);
-  setForm((p) => ({ ...p, amount: "0.00", note: "", date: today() }));
-  setSyncStatus("Record added to cloud");
-
-if (insertedRecord.type === "expense") {
-  playCoinRainSound();
-  setCoinRainTrigger(Date.now());
-} else if (insertedRecord.type === "income") {
-  playIncomeCoinSound();
-  setIncomeCoinTrigger(Date.now());
-}
+  if (recordCreationPendingRef.current) return;
+  recordCreationPendingRef.current = true;
+  try {
+    let amount;
+    try { amount = parseEditedAmount(form.amount); }
+    catch(error) { localizedFinanceAlert(error.message); return; }
+    const payload = toRecordPayload(
+      { ...form, amount, note: form.note.trim() },
+      user.id
+    );
+    const { data, error } = await supabase
+      .from("records")
+      .insert(payload)
+      .select("id,type,amount,category,method,note,date,created_at,updated_at,version,deleted_at")
+      .single();
+    if (error) { localizedFinanceAlert(error.message); return; }
+    if (!data) { localizedFinanceAlert("Record save not acknowledged. Refresh before retrying."); return; }
+    if (liveUserIdRef.current !== user.id) return;
+    const insertedRecord = normalizeRecord(data);
+    setRecords((p) => p.some(row => row.id === insertedRecord.id) ? p : [insertedRecord, ...p]);
+    setForm((p) => ({ ...p, amount: "0.00", note: "", date: today() }));
+    setSyncStatus("Record added to cloud");
+    if (insertedRecord.type === "expense") {
+      playCoinRainSound();
+      setCoinRainTrigger(Date.now());
+    } else if (insertedRecord.type === "income") {
+      playIncomeCoinSound();
+      setIncomeCoinTrigger(Date.now());
+    }
+  } finally {
+    recordCreationPendingRef.current = false;
+  }
 }
   async function addTransfer(event) {
     event.preventDefault();
@@ -1879,7 +1869,7 @@ return (
   value={calculationText}
   onChange={(event) => setCalculationText(formatCalculatorTyping(event.target.value))}
   rows={3}
-  placeholder="350 + 1290 + 2450"
+  placeholder="3.50 + 12.90 + 2*5.40"
   className="mt-3 w-full rounded-2xl border border-slate-200 px-4 py-3 text-sm outline-none"
 /><div className="mt-3 flex items-center justify-between gap-2"><span className="text-sm text-slate-600">{calculationResult !== null ? `Total: ${money(calculationResult)}` : "支持 + - * / 和括号"}</span><button type="button" onClick={fillCalculation} className="rounded-xl bg-slate-900 px-3 py-2 text-xs font-bold text-white">Calculate & Fill</button></div></div>
            
