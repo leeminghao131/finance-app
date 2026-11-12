@@ -316,7 +316,7 @@ function HeatmapCard({ days, label }) {
     <Card>
       <h2 className="text-xl font-bold">Spending Heatmap / 消费热力图</h2>
       <p className="mt-1 text-sm text-slate-500">颜色越深 = 那天花费越高 · {label}</p>
-      <div className="mt-4 grid gap-2" style={{ gridTemplateColumns: "repeat(auto-fit, minmax(110px, 1fr))" }}>
+      <div className="mt-4 grid gap-2" style={{ gridTemplateColumns: "repeat(auto-fit, minmax(80px, 1fr))" }}>
         {days.map((d) => {
           const intensity = d.amount > 0 ? 0.18 + (d.amount / max) * 0.72 : 0.06;
           return <div key={d.date} title={`${d.date}: ${money(d.amount)}`} className="rounded-xl p-2 text-center text-xs font-bold ring-1 ring-slate-100" style={{ backgroundColor: `rgba(239, 68, 68, ${intensity})`, color: d.amount > 0 ? "#7f1d1d" : "#64748b" }}><p>{d.date.slice(8)}</p><p className="mt-1 break-words text-[11px] font-bold leading-tight tabular-nums" style={{ overflowWrap: "anywhere" }}>{d.amount > 0 ? money(d.amount).replace("MYR", "RM") : "-"}</p></div>;
@@ -349,19 +349,19 @@ function TopExpensesCard({ records, label, category, setCategory, expenseCategor
         </select>
       </div>
 
-      <div className="mt-4 space-y-2">
+      <div className="mt-3 grid gap-2 sm:grid-cols-2 xl:grid-cols-5">
         {records.length ? records.map((record, index) => (
-          <div key={record.id} className="flex items-start justify-between gap-3 rounded-2xl bg-slate-50 p-3 text-sm ring-1 ring-slate-100">
-            <div className="flex gap-3">
-              <span className="flex h-7 w-7 items-center justify-center rounded-full bg-slate-900 text-xs font-bold text-white">
+          <div key={record.id} className="flex min-w-0 flex-col justify-between gap-2 rounded-xl bg-slate-50 p-3 text-sm ring-1 ring-slate-100">
+            <div className="flex min-w-0 items-start gap-2">
+              <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-slate-900 text-xs font-bold text-white">
                 {index + 1}
               </span>
               <div>
-                <p className="font-bold text-slate-900">{formatCategoryLabel(record.category)} · {recordMethod(record)}</p>
-                <p className="text-slate-500">{record.date} · {record.note ? <span data-i18n-ignore>{record.note}</span> : "No note"}</p>
+                <p className="break-words font-bold text-slate-900">{formatCategoryLabel(record.category)} · {recordMethod(record)}</p>
+                <p className="break-words text-xs text-slate-500">{record.date} · {record.note ? <span data-i18n-ignore>{record.note}</span> : "No note"}</p>
               </div>
             </div>
-            <p className="whitespace-nowrap font-bold text-red-600">{money(record.amount)}</p>
+            <p className="break-words text-right font-bold tabular-nums text-red-600">{money(record.amount)}</p>
           </div>
         )) : (
           <div className="rounded-2xl bg-slate-50 p-6 text-center text-sm text-slate-500">
