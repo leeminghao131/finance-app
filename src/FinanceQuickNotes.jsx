@@ -26,9 +26,9 @@ export default function FinanceQuickNotes({ records = [], type, category, onChoo
           onClick={() => onChoose(note)}
           title={note}
           aria-label={note}
-          className="min-h-9 max-w-[140px] shrink-0 truncate rounded-lg border border-slate-200 bg-slate-50 px-2.5 py-1.5 text-xs font-semibold text-slate-700 transition hover:border-slate-400 hover:bg-slate-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-blue-600"
+          className="flex min-h-10 max-w-[140px] shrink-0 items-center justify-center overflow-hidden rounded-lg border border-slate-200 bg-slate-50 px-2.5 py-1.5 text-left text-xs font-semibold leading-tight text-slate-700 transition hover:border-slate-400 hover:bg-slate-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-blue-600"
         >
-          <span data-i18n-ignore>{note}</span>
+          <span className="line-clamp-2 break-words" data-i18n-ignore>{note}</span>
         </button>
       ))}
     </div>
