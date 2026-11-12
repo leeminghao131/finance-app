@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import {readFileSync} from "node:fs";
-import {compareFinanceMonths,mostUsedNotes,validateSavingsGoals,savingsGoalProgress} from "../src/financePlanning.js";
+import {compareFinanceMonths,mostUsedNotes,validateSavingsGoals,savingsGoalProgress,calculateSavingsAvailable} from "../src/financePlanning.js";
 
 const records=[
   {id:1,date:"2026-10-05",type:"income",amount:1000,category:"Salary",note:"Monthly salary"},
@@ -52,14 +52,55 @@ test("savings goal validates RM precision, target, date and unique IDs",()=>{
  assert.throws(()=>validateSavingsGoals([{...a,deadline:"2026-02-29"}]));
  assert.throws(()=>validateSavingsGoals([{...a,title:"   "}]));
 });
-test("feature wiring remains outside filtered controls and leaves CRUD untouched",()=>{
+
+test("Savings Goals reserve the current monthly budget exactly once with RM cent precision",()=>{
+ const estimate=calculateSavingsAvailable(4461.98,{饮食:"600",交通:"300",娱乐:"200",美容:"150",住房:""});
+ assert.deepEqual(estimate,{
+  totalBalance:4461.98,monthlyBudget:1250,available:3211.98,
+  shortfall:0,netAfterBudget:3211.98,
+ });
+ const short=calculateSavingsAvailable(100,{food:"200"});
+ assert.equal(short.available,0);
+ assert.equal(short.shortfall,100);
+ assert.equal(short.netAfterBudget,-100);
+ assert.equal(calculateSavingsAvailable(-50,{food:""}).shortfall,50);
+ assert.equal(calculateSavingsAvailable(100.01,{a:"0.01",b:"0.02"}).available,99.98);
+ assert.throws(()=>calculateSavingsAvailable(100,{food:"2.333"}),/Invalid monthly budget/);
+ assert.throws(()=>calculateSavingsAvailable(100,{food:"-1"}));
+ assert.throws(()=>calculateSavingsAvailable(Infinity,{food:"10"}));
+ const firstGoal={id:"goal-abcd1234",title:"Travel",target:5000,saved:3000,deadline:""};
+ const progress=savingsGoalProgress({...firstGoal,saved:estimate.available});
+ assert.equal(progress.remaining,1788.02);
+ assert.equal(progress.percent,64.24);
+ assert.equal(firstGoal.saved,3000,"legacy stored data remains untouched");
+});
+test("four requested UI changes are placed correctly and never overwrite ledger flows",()=>{
  const app=readFileSync(new URL("../src/App.jsx",import.meta.url),"utf8");
  const cloud=readFileSync(new URL("../src/financeCloudService.js",import.meta.url),"utf8");
- const before=app.indexOf("<FinanceMonthComparison records={records}");
+ const quick=readFileSync(new URL("../src/FinanceQuickNotes.jsx",import.meta.url),"utf8");
+ const goalUI=readFileSync(new URL("../src/FinanceSavingsGoals.jsx",import.meta.url),"utf8");
+ const opening=readFileSync(new URL("../src/FinanceOpeningBalancePanel.jsx",import.meta.url),"utf8");
+ const comparison=app.indexOf("<FinanceMonthComparison records={records}");
+ const savings=app.indexOf("<FinanceSavingsGoals goals={savingsGoals}");
  const filtered=app.indexOf('title="Filtered Balance"');
- assert.ok(before>0&&filtered>before);
- assert.match(app,/<FinanceSavingsGoals goals=\{savingsGoals\}/);
+ const recordOverlay=app.indexOf('<FinanceOverlay open={recordsOpen}');
+ const footer=app.indexOf("<footer");
+ assert.ok(comparison>recordOverlay&&comparison<footer,"comparison moved to the end");
+ assert.ok(savings>filtered&&savings<footer,"goals moved to the end");
+ assert.match(app,/openingBalanceControl=\{<FinanceOpeningBalancePanel/);
+ assert.match(app,/\{openingBalanceControl\}/);
+ assert.ok(!app.includes('<FinanceOpeningBalancePanel methods='),"no standalone opening control");
+ assert.match(opening,/🏦 Opening Balance/);
+ assert.match(quick,/mostUsedNotes\(records,type,category,7\)/);
+ assert.match(quick,/overflow-x-auto/);
+ assert.ok(!quick.includes("FinanceOverlay"),"Quick Add remains inline");
+ assert.ok(!app.includes("quickNotesOpen"),"no popup state");
  assert.match(app,/<FinanceQuickNotes records=\{records\} type=\{form.type\} category=\{form.category\}/);
+ assert.match(app,/calculateSavingsAvailable\(totalBalance, savingsBudgetCategories\)/);
+ assert.match(app,/monthRows.find\(row => row.month === savingsBudgetMonth\)/);
+ assert.match(goalUI,/savingsGoalProgress\(\{\.\.\.g,saved:available\}\)/);
+ assert.match(goalUI,/Saved amount \(auto\)/);
+ assert.ok(!goalUI.includes('value={draft.saved}'),"Saved Amount is not manually edited");
  assert.match(cloud,/opening_balances,savings_goals/);
  assert.match(app,/queueSettingsField\("savings_goals", verified\)/);
 });
