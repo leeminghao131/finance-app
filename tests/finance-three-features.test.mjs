@@ -91,7 +91,7 @@ test("four requested UI changes are placed correctly and never overwrite ledger 
  assert.match(app,/\{openingBalanceControl\}/);
  assert.ok(!app.includes('<FinanceOpeningBalancePanel methods='),"no standalone opening control");
  assert.match(opening,/🏦 Opening Balance/);
- assert.match(quick,/mostUsedNotes\\(\\s*records,\\s*type,\\s*category,\\s*7\\s*\\)/);
+ assert.ok(quick.includes("mostUsedNotes(records, type, category, 7)"));
  assert.match(quick,/overflow-x-auto/);
  assert.ok(!quick.includes("FinanceOverlay"),"Quick Add remains inline");
  assert.ok(!app.includes("quickNotesOpen"),"no popup state");
