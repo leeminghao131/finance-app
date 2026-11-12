@@ -1,6 +1,9 @@
 import React, { useEffect, useRef } from "react";
 import { createPortal } from "react-dom";
 
+ // Track portal stacking so Escape and Tab affect only the topmost dialog.
+const openDialogStack = [];
+
 // A fixed viewport dialog rendered outside dashboard grids/cards.
 // It never changes the document layout or clips under an overflow-hidden card.
 export default function FinanceOverlay({ open, title, onClose, children, widthClass = "max-w-3xl" }) {
@@ -16,9 +19,12 @@ export default function FinanceOverlay({ open, title, onClose, children, widthCl
     const scrollBarWidth = Math.max(0, window.innerWidth - document.documentElement.clientWidth);
     document.body.style.overflow = "hidden";
     if (scrollBarWidth) document.body.style.paddingRight = scrollBarWidth + "px";
+    const currentDialog = dialogRef.current;
+    openDialogStack.push(currentDialog);
     dialogRef.current?.focus();
 
     const onKeyDown = (event) => {
+      if (openDialogStack[openDialogStack.length - 1] !== currentDialog) return;
       if (event.key === "Escape") {
         event.preventDefault();
         onCloseRef.current?.();
@@ -40,6 +46,8 @@ export default function FinanceOverlay({ open, title, onClose, children, widthCl
     document.addEventListener("keydown", onKeyDown);
     return () => {
       document.removeEventListener("keydown", onKeyDown);
+      const index = openDialogStack.lastIndexOf(currentDialog);
+      if (index !== -1) openDialogStack.splice(index, 1);
       document.body.style.overflow = previousOverflow;
       document.body.style.paddingRight = previousPaddingRight;
       if (activeBeforeOpen && typeof activeBeforeOpen.focus === "function") activeBeforeOpen.focus();
