@@ -6,7 +6,7 @@ import { buildFinanceWorkbook,verifyFinanceWorkbook } from "./financeExcel.js";
 const button="rounded-xl border border-slate-300 bg-white px-4 py-2 text-sm font-bold text-slate-800 disabled:opacity-50";
 export default function FinanceExcelExportPanel({
   records,deletedRecords,transfers,deletedTransfers,
-  monthRows,budgetTemplate,forecastPlans,
+  monthRows,budgetTemplate,forecastPlans,openingBalances={},
   dataReady,dataLoading,onClose,
 }) {
   const [scope,setScope]=useState("all");
@@ -21,7 +21,7 @@ export default function FinanceExcelExportPanel({
     try{
       const {workbook,stats}=buildFinanceWorkbook({
         records,deletedRecords,transfers,deletedTransfers,
-        monthRows,budgetTemplate,forecastPlans,
+        monthRows,budgetTemplate,forecastPlans,openingBalances,
         scope,month,includeRecycleBin,
       });
       // Roundtrip-check the file and financial totals before starting a download.
@@ -64,7 +64,7 @@ export default function FinanceExcelExportPanel({
         </label>
       </div>
       <p className="mt-3 text-sm text-slate-600">
-        Sheets: Finance Records, Transfers, Monthly Budgets, Budget Template,
+        Sheets: Finance Records, Transfers, Opening Balances, Monthly Budgets, Budget Template,
         Expected Income, Export Summary
         {includeRecycleBin?", Recycle Bin and Transfer Trash":""}.
       </p>

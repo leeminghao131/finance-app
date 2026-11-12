@@ -6,6 +6,8 @@ import { normalizeBudgetsInput } from "./financeInsights.js";
 import FinanceTransferPanel from "./FinanceTransferPanel.jsx";
 import FinanceBudgetPanel from "./FinanceBudgetPanel.jsx";
 import FinanceForecastPanel from "./FinanceForecastPanel.jsx";
+import FinanceOpeningBalancePanel from "./FinanceOpeningBalancePanel.jsx";
+import { openingTotal, calculateMethodBalances } from "./financeOpeningBalance.js";
 import FinanceOverlay from "./FinanceOverlay.jsx";
 import FinanceCsvImportPanel from "./FinanceCsvImportPanel.jsx";
 import FinanceExcelExportPanel from "./FinanceExcelExportPanel.jsx";
@@ -261,6 +263,7 @@ function BalanceCard({ title, value, desc, limit, methodBalances = [] }) {
                   <div>
                     <p className="font-bold text-slate-900">{item.method}</p>
 
+                    <p className="mt-1 text-xs text-slate-500">Opening {money(item.openingBalance)}</p>
                     <p className="mt-1 text-xs text-slate-500">
                       Income {money(item.income)} · Expense {money(item.expense)}
                     </p>
@@ -581,6 +584,7 @@ function FinanceVisualizerAppContent() {
   const [budgetOpen, setBudgetOpen] = useState(false);
   const [budgetDraftDirty, setBudgetDraftDirty] = useState(false);
   const [forecastPlans, setForecastPlans] = useState([]);
+  const [openingBalances, setOpeningBalances] = useState({});
   const [undoDeleted, setUndoDeleted] = useState(null);
   const [trashOpen, setTrashOpen] = useState(false);
   const [syncProgress, setSyncProgress] = useState("");
@@ -706,6 +710,7 @@ const [customCardImage, setCustomCardImage] = useState(() => {
       setDeletedTransfers([]);
       setMonthRows([]);
       setForecastPlans([]);
+      setOpeningBalances({});
       setUndoTransfer(null);
       setBudgets(DEFAULT_BUDGETS);
       confirmedCustomOptionsRef.current = DEFAULT_CUSTOM_OPTIONS;
@@ -829,6 +834,7 @@ useEffect(() => {
       confirmedCustomOptionsRef.current = loadedOptions;
       setCustomOptions(loadedOptions);
       setForecastPlans(Array.isArray(settingsRow?.forecast_plans)?settingsRow.forecast_plans:[]);
+      setOpeningBalances(settingsRow?.opening_balances || {});
       const version=settingsRow?Number(settingsRow.version||1):null;
       settingsVersionRef.current=version;setSettingsVersion(version);
       setSyncStatus("Cloud synced — all records loaded");
@@ -878,6 +884,12 @@ useEffect(() => {
       }
     });
     return settingsQueueRef.current;
+  }
+
+  async function saveOpeningBalances(next) {
+    const ok = await queueSettingsField("opening_balances", next);
+    if (ok && liveUserIdRef.current === user?.id) setOpeningBalances(next);
+    return ok;
   }
 
   function saveBudgets(nextBudgets) {
@@ -1194,75 +1206,11 @@ const accountMethodOptions = useMemo(() => {
   return uniqueOptions(defaultMethods, normalizedCustomMethods);
 }, [customMethodOptions]);
 
-const methodBalances = useMemo(() => {
-  const map = {};
-
-  const ensureMethod = (method) => {
-    const normalizedMethod = normalizeMethodForBalance(method);
-    if (!normalizedMethod) return null;
-
-    if (!map[normalizedMethod]) {
-      map[normalizedMethod] = {
-        method: normalizedMethod,
-        income: 0,
-        expense: 0,
-        transferIn: 0,
-        transferOut: 0,
-        balance: 0,
-      };
-    }
-
-    return map[normalizedMethod];
-  };
-
-  accountMethodOptions.forEach(ensureMethod);
-
-  records.forEach((record) => {
-    const row = ensureMethod(recordMethod(record));
-    if (!row) return;
-
-    const amount = Number(record.amount || 0);
-
-    if (record.type === "income") {
-      row.income += amount;
-    } else {
-      row.expense += amount;
-    }
-  });
-
-  transfers.forEach((transfer) => {
-    const amount = Number(transfer.amount || 0);
-
-    const fromRow = ensureMethod(transfer.fromMethod);
-    const toRow = ensureMethod(transfer.toMethod);
-
-    if (fromRow) fromRow.transferOut += amount;
-    if (toRow) toRow.transferIn += amount;
-  });
-
-  return Object.values(map)
-    .map((row) => ({
-      ...row,
-      balance: row.income - row.expense + row.transferIn - row.transferOut,
-    }))
-    .filter(
-      (row) =>
-        row.income !== 0 ||
-        row.expense !== 0 ||
-        row.transferIn !== 0 ||
-        row.transferOut !== 0 ||
-        accountMethodOptions.includes(row.method)
-    )
-    .sort((a, b) => {
-      const aIndex = accountMethodOptions.indexOf(a.method);
-      const bIndex = accountMethodOptions.indexOf(b.method);
-
-      if (aIndex === -1 && bIndex === -1) return a.method.localeCompare(b.method);
-      if (aIndex === -1) return 1;
-      if (bIndex === -1) return -1;
-      return aIndex - bIndex;
-    });
-}, [accountMethodOptions, records, transfers]);
+const methodBalances = useMemo(() => calculateMethodBalances(
+  records.map(row => ({...row, method: recordMethod(row)})),
+  transfers, accountMethodOptions, openingBalances, normalizeMethodForBalance
+), [accountMethodOptions, openingBalances, records, transfers]);
+  const openingBalanceTotal = useMemo(() => openingTotal(openingBalances), [openingBalances]);
   const spentMap = useMemo(() => {
   const map = Object.fromEntries(expenseCategoryOptions.map((c) => [c, 0]));
   expenseRecords.forEach((r) => {
@@ -1752,7 +1700,7 @@ return (
           records={records} deletedRecords={deletedRecords}
           transfers={transfers} deletedTransfers={deletedTransfers}
           monthRows={monthRows} budgetTemplate={budgets}
-          forecastPlans={forecastPlans} dataReady={initialDataReady}
+          forecastPlans={forecastPlans} openingBalances={openingBalances} dataReady={initialDataReady}
           dataLoading={dataLoading} onClose={() => setExportOpen(false)}
         />}
         <div className="rounded-2xl bg-white px-4 py-3 text-sm text-slate-600 ring-1 ring-slate-200">
@@ -1791,11 +1739,13 @@ return (
 
         <section className="grid gap-4 md:grid-cols-3"><StatCard title="Total Income" value={money(income)} icon="📈" desc="Overall records" /><StatCard title="Total Expense" value={money(expense)} icon="📉" desc="Overall records" /><BalanceCard
   title="Balance"
-  value={income - expense}
-  desc="Overall cash flow"
+  value={openingBalanceTotal + income - expense}
+  desc="Including Opening Balance"
   limit={balanceLimit}
   methodBalances={methodBalances}
 /></section>
+        <FinanceOpeningBalancePanel methods={methodBalances.map(row=>row.method)} balances={openingBalances}
+          disabled={!initialDataReady || dataLoading} onSave={saveOpeningBalances} />
 
 <section className="grid gap-6 lg:grid-cols-[380px_1fr]">
   <div className="space-y-6">
@@ -1980,7 +1930,7 @@ return (
                     📊
                 </button>}
               />
-              <BalanceCard title="Filtered Balance" value={filteredIncome - filteredExpense} desc={"Current filter: " + filterLabel} limit={balanceLimit} />
+              <BalanceCard title="Filtered Balance" value={filteredIncome - filteredExpense} desc={"Period net change (Opening Balance excluded): " + filterLabel} limit={balanceLimit} />
             </section>
             <FinanceOverlay open={budgetOpen} title="Monthly Budget / 分类预算"
               onClose={() => {
@@ -2008,6 +1958,7 @@ return (
                 selectedMonth={forecastMonth}
                 asOfDate={localToday}
                 plannedIncomes={forecastPlans}
+                openingBalanceTotal={openingBalanceTotal}
                 onSavePlans={saveExpectedIncomePlans}
               />
               <div className="space-y-6">

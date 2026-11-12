@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import vm from "node:vm";
 import { normalizeRecord, normalizeTransfer, toRecordPayload } from "../src/financeRecords.js";
+import { calculateMethodBalances } from "../src/financeOpeningBalance.js";
 
 // Evaluate the actual small pure functions from the current app source.
 // No database connection, browser session, credentials, or real finance data.
@@ -57,8 +58,13 @@ test("record payload retains owner, amount, and original payment method", () => 
 });
 
 test("method transfers cancel overall while adjusting method balances", () => {
-  assert.match(source, /if \(fromRow\) fromRow\.transferOut \+= amount;/);
-  assert.match(source, /if \(toRow\) toRow\.transferIn \+= amount;/);
-  assert.match(source, /balance: row\.income - row\.expense \+ row\.transferIn - row\.transferOut/);
-  assert.equal((100 + 25) - (20 + 25), 80);
+  const rows=calculateMethodBalances(
+    [{type:"income",amount:100,method:"BANK"},{type:"expense",amount:20,method:"TNG"}],
+    [{fromMethod:"BANK",toMethod:"TNG",amount:25}],
+    ["BANK","TNG"],{BANK:30,TNG:0}
+  );
+  assert.equal(rows.find(row=>row.method==="BANK").balance,105);
+  assert.equal(rows.find(row=>row.method==="TNG").balance,5);
+  assert.equal(rows.reduce((sum,row)=>sum+row.balance,0),110);
+  assert.equal(rows.reduce((sum,row)=>sum+row.income,0),100);
 });
