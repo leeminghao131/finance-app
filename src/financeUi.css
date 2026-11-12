@@ -26,10 +26,6 @@
 }
 .mh-ui h2 { letter-spacing: -.015em; }
 .mh-ui select, .mh-ui input, .mh-ui textarea { max-width: 100%; }
-.mh-ui .recharts-responsive-container { min-width: 0; }
-.mh-ui .recharts-cartesian-axis-tick { font-size: 11px; }
-.mh-ui .recharts-legend-wrapper { font-size: 12px; }
-.mh-ui .recharts-wrapper { max-width: 100%; }
 .mh-ui .mh-touch { min-height: 44px; touch-action: manipulation; }
 .mh-ui .mh-record-card { box-shadow: 0 3px 12px #1118270b; }
 .mh-ui .mh-record-amount { overflow-wrap: anywhere; font-variant-numeric: tabular-nums; }
@@ -42,7 +38,6 @@
   .mh-ui > div > header > div:last-child button { padding: .7rem .8rem; font-size: .8rem; }
   .mh-ui .mh-record-card { width: 100%; min-width: 0; }
   .mh-ui .mh-record-card button { touch-action: manipulation; }
-  .mh-ui .recharts-cartesian-axis-tick { font-size: 10px; }
 }
 @media (prefers-reduced-motion: reduce) {
   .mh-ui *, .mh-ui *::before, .mh-ui *::after { scroll-behavior: auto !important; transition-duration: .01ms !important; }
