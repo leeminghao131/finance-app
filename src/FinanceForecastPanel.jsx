@@ -8,7 +8,7 @@ import FinanceOverlay from "./FinanceOverlay.jsx";
 
 const money = n => new Intl.NumberFormat("en-MY",{style:"currency",currency:"MYR"}).format(Number(n||0));
 
-export default function FinanceForecastPanel({records,selectedMonth,asOfDate,plannedIncomes,onSavePlans}) {
+export default function FinanceForecastPanel({records,selectedMonth,asOfDate,plannedIncomes,openingBalanceTotal=0,onSavePlans}) {
   const [horizon,setHorizon] = useState("monthEnd");
   const [trailingDays,setTrailingDays] = useState(30);
   const [editForm,setEditForm] = useState({date:shiftCalendarDay(localDateMY(),1),amount:"",note:""});
@@ -16,9 +16,9 @@ export default function FinanceForecastPanel({records,selectedMonth,asOfDate,pla
   const [incomePlannerOpen,setIncomePlannerOpen] = useState(false);
 
   const outcome = useMemo(()=>{
-    try {return {data:calculateCashForecast(records,{asOfDate,selectedMonth,horizon,trailingDays,plannedIncomes})};}
+    try {return {data:calculateCashForecast(records,{asOfDate,selectedMonth,horizon,trailingDays,plannedIncomes,openingBalanceTotal})};}
     catch(e){return {error:e.message};}
-  },[records,asOfDate,selectedMonth,horizon,trailingDays,plannedIncomes]);
+  },[records,asOfDate,selectedMonth,horizon,trailingDays,plannedIncomes,openingBalanceTotal]);
   const data = outcome.data;
   const visiblePlans = plannedIncomes.slice().sort((a,b)=>a.date.localeCompare(b.date));
 
