@@ -150,7 +150,12 @@ export function verifyFinanceWorkbook(workbook,stats) {
     if (!roundtrip.Sheets[name]) throw new Error("Excel verification failed: missing sheet " + name);
     const actual=XLSX.utils.sheet_to_json(roundtrip.Sheets[name],{header:1,defval:""});
     if (JSON.stringify(actual)!==JSON.stringify(expected)) {
-      throw new Error("Excel verification failed: cell data changed in " + name);
+      const index=expected.findIndex((row,i)=>JSON.stringify(row)!==JSON.stringify(actual[i]));
+      const row=expected[index]||[], other=actual[index]||[];
+      const col=row.findIndex((value,i)=>JSON.stringify(value)!==JSON.stringify(other[i]));
+      throw new Error("Excel verification failed: cell data changed in " + name
+        + " at row " + (index+1) + " column " + (col+1)
+        + " (expected type " + typeof row[col] + ", actual type " + typeof other[col] + ")");
     }
   }
   const count=(sheet)=>XLSX.utils.sheet_to_json(roundtrip.Sheets[sheet],{defval:""}).length;
