@@ -623,6 +623,7 @@ function FinanceVisualizerAppContent() {
   const [budgets, setBudgets] = useState(DEFAULT_BUDGETS);
   const [customOptions, setCustomOptions] = useState(DEFAULT_CUSTOM_OPTIONS);
   const [form, setForm] = useState({ type: "expense", amount: "", category: "饮食", method: "TNG", note: "", date: today() });
+  const [quickNotesOpen,setQuickNotesOpen] = useState(false);
   const [transferForm, setTransferForm] = useState({
   fromMethod: "BANK",
   toMethod: "TNG",
@@ -736,6 +737,7 @@ function FinanceVisualizerAppContent() {
       setForecastPlans([]);
       setOpeningBalances({});
       setSavingsGoals([]);
+      setQuickNotesOpen(false);
       setUndoTransfer(null);
       setBudgets(DEFAULT_BUDGETS);
       confirmedCustomOptionsRef.current = DEFAULT_CUSTOM_OPTIONS;
@@ -1856,7 +1858,7 @@ return (
             <form onSubmit={addRecord} className="mt-5 space-y-4">
               <div className="grid grid-cols-2 gap-3 rounded-2xl bg-slate-100 p-1"><button
   type="button"
-  onClick={() => setForm((p) => ({ ...p, type: "expense" }))}
+  onClick={() => {setForm((p) => ({ ...p, type: "expense" }));setQuickNotesOpen(false);}}
   className={`rounded-xl px-3 py-2 text-sm font-semibold transition ${form.type === "expense" ? "bg-red-600 text-white shadow-sm" : "text-slate-500 hover:bg-red-50 hover:text-red-700"}`}
 >
   💸 Expense
@@ -1864,7 +1866,7 @@ return (
 
 <button
   type="button"
-  onClick={() => setForm((p) => ({ ...p, type: "income" }))}
+  onClick={() => {setForm((p) => ({ ...p, type: "income" }));setQuickNotesOpen(false);}}
   className={`rounded-xl px-3 py-2 text-sm font-semibold transition ${form.type === "income" ? "bg-green-600 text-white shadow-sm" : "text-slate-500 hover:bg-green-50 hover:text-green-700"}`}
 >
   💰 Income
@@ -1940,6 +1942,7 @@ return (
       }
 
       setForm((previous) => ({ ...previous, category: value }));
+      setQuickNotesOpen(true);
       setDeleteOptionPanel({ kind: "", type: "" });
     }}
     className="mt-1 w-full rounded-2xl border border-slate-200 px-4 py-3 outline-none"
@@ -1956,6 +1959,7 @@ return (
   {renderDeleteCustomOptionPanel("category", form.type)}
 </label>
 <FinanceQuickNotes records={records} type={form.type} category={form.category}
+  open={quickNotesOpen} onOpen={()=>setQuickNotesOpen(true)} onClose={()=>setQuickNotesOpen(false)}
   onChoose={note=>setForm(previous=>({...previous,note}))} />
               <label className="block">
   <span className="text-sm font-medium text-slate-600">Method</span>
