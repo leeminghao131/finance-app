@@ -316,10 +316,10 @@ function HeatmapCard({ days, label }) {
     <Card>
       <h2 className="text-xl font-bold">Spending Heatmap / 消费热力图</h2>
       <p className="mt-1 text-sm text-slate-500">颜色越深 = 那天花费越高 · {label}</p>
-      <div className="mt-4 grid grid-cols-7 gap-2">
+      <div className="mt-4 grid gap-2" style={{ gridTemplateColumns: "repeat(auto-fit, minmax(110px, 1fr))" }}>
         {days.map((d) => {
           const intensity = d.amount > 0 ? 0.18 + (d.amount / max) * 0.72 : 0.06;
-          return <div key={d.date} title={`${d.date}: ${money(d.amount)}`} className="rounded-xl p-2 text-center text-xs font-bold ring-1 ring-slate-100" style={{ backgroundColor: `rgba(239, 68, 68, ${intensity})`, color: d.amount > 0 ? "#7f1d1d" : "#64748b" }}><p>{d.date.slice(8)}</p><p className="mt-1 truncate">{d.amount > 0 ? money(d.amount).replace("MYR", "RM") : "-"}</p></div>;
+          return <div key={d.date} title={`${d.date}: ${money(d.amount)}`} className="rounded-xl p-2 text-center text-xs font-bold ring-1 ring-slate-100" style={{ backgroundColor: `rgba(239, 68, 68, ${intensity})`, color: d.amount > 0 ? "#7f1d1d" : "#64748b" }}><p>{d.date.slice(8)}</p><p className="mt-1 break-words text-[11px] font-bold leading-tight tabular-nums" style={{ overflowWrap: "anywhere" }}>{d.amount > 0 ? money(d.amount).replace("MYR", "RM") : "-"}</p></div>;
         })}
       </div>
     </Card>
