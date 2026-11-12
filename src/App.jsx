@@ -240,13 +240,13 @@ function BalanceCard({ title, value, desc, limit, methodBalances = [], openingBa
         </div>
 
         {(showMethodBreakdown || openingBalanceControl) && (
-          <div className="flex shrink-0 flex-col items-end gap-2">
+          <div className="flex w-[112px] shrink-0 flex-col items-stretch gap-2">
             {showMethodBreakdown && (
                       <button
                         type="button"
                         onClick={() => setOpen(true)}
                          aria-label="Open Method Balance" aria-haspopup="dialog" aria-expanded={open}
-                        className="rounded-xl bg-slate-100 px-3 py-2 text-xs font-bold text-slate-700 transition hover:bg-slate-200"
+                        className="min-h-9 w-full rounded-xl bg-slate-100 px-2 py-2 text-xs font-bold text-slate-700 transition hover:bg-slate-200"
                       >
                         Methods
                       </button>
