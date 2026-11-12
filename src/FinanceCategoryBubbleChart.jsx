@@ -95,7 +95,7 @@ export default function FinanceCategoryBubbleChart({ data, emptyText = "No expen
     });
     observer.observe(el);
     return () => observer.disconnect();
-  }, []);
+  }, [data?.length]);
   useEffect(() => {
     const el = rootRef.current;
     if (!el || typeof IntersectionObserver === "undefined") return undefined;
