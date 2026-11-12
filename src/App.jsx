@@ -2016,7 +2016,7 @@ return (
                 onDirtyChange={setBudgetDraftDirty}
               />
             </FinanceOverlay>
-            <section className="grid items-start gap-4 xl:grid-cols-[minmax(0,1fr)_minmax(0,1.1fr)]">
+            <section className="grid items-start gap-4">
               <FinanceForecastPanel
                 records={records}
                 selectedMonth={forecastMonth}
