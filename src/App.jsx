@@ -7,6 +7,10 @@ import FinanceTransferPanel from "./FinanceTransferPanel.jsx";
 import FinanceBudgetPanel from "./FinanceBudgetPanel.jsx";
 import FinanceForecastPanel from "./FinanceForecastPanel.jsx";
 import FinanceOpeningBalancePanel from "./FinanceOpeningBalancePanel.jsx";
+import FinanceMonthComparison from "./FinanceMonthComparison.jsx";
+import FinanceQuickNotes from "./FinanceQuickNotes.jsx";
+import FinanceSavingsGoals from "./FinanceSavingsGoals.jsx";
+import {validateSavingsGoals} from "./financePlanning.js";
 import { openingTotal, calculateMethodBalances } from "./financeOpeningBalance.js";
 import FinanceOverlay from "./FinanceOverlay.jsx";
 import FinanceMobileRecords from "./FinanceMobileRecords.jsx";
@@ -594,6 +598,7 @@ function FinanceVisualizerAppContent() {
   const [budgetDraftDirty, setBudgetDraftDirty] = useState(false);
   const [forecastPlans, setForecastPlans] = useState([]);
   const [openingBalances, setOpeningBalances] = useState({});
+  const [savingsGoals, setSavingsGoals] = useState([]);
   const [undoDeleted, setUndoDeleted] = useState(null);
   const [trashOpen, setTrashOpen] = useState(false);
   const [syncProgress, setSyncProgress] = useState("");
@@ -730,6 +735,7 @@ function FinanceVisualizerAppContent() {
       setMonthRows([]);
       setForecastPlans([]);
       setOpeningBalances({});
+      setSavingsGoals([]);
       setUndoTransfer(null);
       setBudgets(DEFAULT_BUDGETS);
       confirmedCustomOptionsRef.current = DEFAULT_CUSTOM_OPTIONS;
@@ -867,6 +873,7 @@ useEffect(() => {
       setCustomOptions(loadedOptions);
       setForecastPlans(Array.isArray(settingsRow?.forecast_plans)?settingsRow.forecast_plans:[]);
       setOpeningBalances(settingsRow?.opening_balances || {});
+      setSavingsGoals(validateSavingsGoals(settingsRow?.savings_goals || []));
       const version=settingsRow?Number(settingsRow.version||1):null;
       settingsVersionRef.current=version;setSettingsVersion(version);
       setSyncStatus("Cloud synced — all records loaded");
@@ -924,6 +931,15 @@ useEffect(() => {
   async function saveOpeningBalances(next) {
     const ok = await queueSettingsField("opening_balances", next);
     if (ok && liveUserIdRef.current === user?.id) setOpeningBalances(next);
+    return ok;
+  }
+
+  async function saveSavingsGoals(next, expectedSnapshot) {
+    if (JSON.stringify(savingsGoals) !== expectedSnapshot) return false;
+    const verified = validateSavingsGoals(next);
+    const accountId = user?.id;
+    const ok = await queueSettingsField("savings_goals", verified);
+    if (ok && liveUserIdRef.current === accountId) setSavingsGoals(verified);
     return ok;
   }
 
@@ -1814,6 +1830,11 @@ return (
 /></section>
         <FinanceOpeningBalancePanel methods={methodBalances.map(row=>row.method)} balances={openingBalances}
           disabled={!initialDataReady || dataLoading} onSave={saveOpeningBalances} />
+        <div className="grid gap-4 xl:grid-cols-2">
+          <FinanceMonthComparison records={records} />
+          <FinanceSavingsGoals goals={savingsGoals} onSave={saveSavingsGoals}
+            disabled={!initialDataReady || dataLoading} />
+        </div>
 
 <section className="grid gap-6 lg:grid-cols-[380px_1fr]">
   <div className="space-y-6">
@@ -1933,6 +1954,8 @@ return (
   </select>
 
   {renderDeleteCustomOptionPanel("category", form.type)}
+  <FinanceQuickNotes records={records} type={form.type} category={form.category}
+    onChoose={note=>setForm(previous=>({...previous,note}))} />
 </label>
               <label className="block">
   <span className="text-sm font-medium text-slate-600">Method</span>
