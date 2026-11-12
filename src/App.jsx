@@ -615,7 +615,7 @@ function FinanceVisualizerAppContent() {
   date: today(),
 });
   const [deleteOptionPanel, setDeleteOptionPanel] = useState({ kind: "", type: "" });
-  const [calculationText, setCalculationText] = useState("0.00");
+  const [calculationText, setCalculationText] = useState("");
   const [amountEntryMode, setAmountEntryMode] = useState("rm");
   const [calculationResult, setCalculationResult] = useState(null);
   const [filterMode, setFilterMode] = useState("month");
