@@ -4,7 +4,7 @@ import {requireCalendarDate} from "./financeCalendar.js";
 
 const money=n=>new Intl.NumberFormat("en-MY",{currency:"MYR",style:"currency"}).format(Number(n||0));
 const blank=()=>({title:"",target:"",saved:"0.00",deadline:""});
-export default function FinanceSavingsGoals({goals=[],onSave,disabled=false,savingsAvailability,budgetMonth}) {
+export default function FinanceSavingsGoals({goals=[],onSave,disabled=false,savingsAvailability,budgetMonth,calculationError}) {
   // Shared, read-only available savings. Existing persisted goal.saved values are retained.
   const available=savingsAvailability?.available ?? 0;
   const reservedBudget=savingsAvailability?.monthlyBudget ?? 0;
@@ -56,6 +56,14 @@ export default function FinanceSavingsGoals({goals=[],onSave,disabled=false,savi
     if(!window.confirm("Delete Savings Goal '"+goal.title+"'? Only this goal plan is removed. No financial transactions or transfers will be deleted."))return;
     const baseline=JSON.stringify(goals);
     if(await commit(goals.filter(g=>g.id!==goal.id),baseline))setEditor(null);
+  }
+  if(calculationError || !savingsAvailability){
+    return <section className="rounded-2xl bg-white p-5 shadow-sm ring-1 ring-red-200" aria-label="Savings Goals">
+      <h2 className="text-lg font-bold">Savings Goals</h2>
+      <p role="alert" className="mt-2 text-sm text-red-700">
+        Savings calculation unavailable: {calculationError || "The current verified balance or budget is unavailable."}
+      </p>
+    </section>;
   }
   const all=goals.slice().sort((a,b)=>a.title.localeCompare(b.title));
   return <section aria-label="Savings Goals" className="rounded-2xl bg-white p-4 shadow-sm ring-1 ring-slate-200 sm:p-5">
