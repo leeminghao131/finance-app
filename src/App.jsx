@@ -6,11 +6,18 @@ import { normalizeBudgetsInput } from "./financeInsights.js";
 import FinanceTransferPanel from "./FinanceTransferPanel.jsx";
 import FinanceBudgetPanel from "./FinanceBudgetPanel.jsx";
 import FinanceForecastPanel from "./FinanceForecastPanel.jsx";
+import FinanceOpeningBalancePanel from "./FinanceOpeningBalancePanel.jsx";
+import { openingTotal, calculateMethodBalances } from "./financeOpeningBalance.js";
 import FinanceOverlay from "./FinanceOverlay.jsx";
+import FinanceMobileRecords from "./FinanceMobileRecords.jsx";
+import FinanceTrendSummaryTooltip from "./FinanceTrendSummaryTooltip.jsx";
+import FinanceExpandedTrendOverlay from "./FinanceExpandedTrendOverlay.jsx";
+import "./financeUi.css";
 import FinanceCsvImportPanel from "./FinanceCsvImportPanel.jsx";
 import FinanceExcelExportPanel from "./FinanceExcelExportPanel.jsx";
 import { normalizeRecord, normalizeTransfer, toRecordPayload } from "./financeRecords.js";
 import { fetchFinanceSnapshot } from "./financeCloudService.js";
+import { getRecordRequestId, confirmRecordRequest, getTransferRequestId, confirmTransferRequest } from "./financeSaveIdempotency.js";
 import { CoinRainEffect, IncomeCoinSpinEffect } from "./FinanceVisualEffects.jsx";
 import { FinanceLanguageProvider, FinanceLanguageButton, localizedFinanceAlert, localizedFinanceConfirm } from "./FinanceLanguageLayer.jsx";
 import {
@@ -231,16 +238,18 @@ function BalanceCard({ title, value, desc, limit, methodBalances = [] }) {
         {showMethodBreakdown && (
           <button
             type="button"
-            onClick={() => setOpen((previous) => !previous)}
+            onClick={() => setOpen(true)}
+             aria-label="Open Method Balance" aria-haspopup="dialog" aria-expanded={open}
             className="rounded-xl bg-slate-100 px-3 py-2 text-xs font-bold text-slate-700 transition hover:bg-slate-200"
           >
-            {open ? "Hide" : "Methods"}
+            Methods
           </button>
         )}
       </div>
 
-      {showMethodBreakdown && open && (
-        <div className="mt-4 rounded-2xl bg-slate-50 p-3 ring-1 ring-slate-200">
+      {showMethodBreakdown && (
+        <FinanceOverlay open={open} title="Method Balance" onClose={() => setOpen(false)} widthClass="max-w-xl">
+        <div className="rounded-2xl bg-slate-50 p-3 ring-1 ring-slate-200">
           <div className="mb-3 flex items-center justify-between gap-3">
             <div>
               <p className="text-sm font-bold text-slate-900">Method Balance</p>
@@ -261,6 +270,7 @@ function BalanceCard({ title, value, desc, limit, methodBalances = [] }) {
                   <div>
                     <p className="font-bold text-slate-900">{item.method}</p>
 
+                    <p className="mt-1 text-xs text-slate-500">Opening {money(item.openingBalance)}</p>
                     <p className="mt-1 text-xs text-slate-500">
                       Income {money(item.income)} · Expense {money(item.expense)}
                     </p>
@@ -282,6 +292,7 @@ function BalanceCard({ title, value, desc, limit, methodBalances = [] }) {
             ))}
           </div>
         </div>
+        </FinanceOverlay>
       )}
     </Card>
   );
@@ -296,7 +307,7 @@ function MiniPie({ data, emptyText, onClick, selectedName }) {
   return (
     <ResponsiveContainer width="100%" height="100%">
       <PieChart margin={{ top: 24, right: 42, bottom: 24, left: 42 }}>
-        <Pie data={data} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={60} labelLine={false} label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`} onClick={onClick}>
+        <Pie isAnimationActive={false} data={data} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={60} labelLine={false} label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`} onClick={onClick}>
           {data.map((entry, index) => <Cell key={entry.name} fill={COLORS[index % COLORS.length]} opacity={!selectedName || selectedName === entry.name ? 1 : 0.35} />)}
         </Pie>
         <Tooltip formatter={(value) => money(value)} />
@@ -311,10 +322,10 @@ function HeatmapCard({ days, label }) {
     <Card>
       <h2 className="text-xl font-bold">Spending Heatmap / 消费热力图</h2>
       <p className="mt-1 text-sm text-slate-500">颜色越深 = 那天花费越高 · {label}</p>
-      <div className="mt-4 grid grid-cols-7 gap-2">
+      <div className="mt-4 grid gap-2" style={{ gridTemplateColumns: "repeat(auto-fit, minmax(80px, 1fr))" }}>
         {days.map((d) => {
           const intensity = d.amount > 0 ? 0.18 + (d.amount / max) * 0.72 : 0.06;
-          return <div key={d.date} title={`${d.date}: ${money(d.amount)}`} className="rounded-xl p-2 text-center text-xs font-bold ring-1 ring-slate-100" style={{ backgroundColor: `rgba(239, 68, 68, ${intensity})`, color: d.amount > 0 ? "#7f1d1d" : "#64748b" }}><p>{d.date.slice(8)}</p><p className="mt-1 truncate">{d.amount > 0 ? money(d.amount).replace("MYR", "RM") : "-"}</p></div>;
+          return <div key={d.date} title={`${d.date}: ${money(d.amount)}`} className="rounded-xl p-2 text-center text-xs font-bold ring-1 ring-slate-100" style={{ backgroundColor: `rgba(239, 68, 68, ${intensity})`, color: d.amount > 0 ? "#7f1d1d" : "#64748b" }}><p>{d.date.slice(8)}</p><p className="mt-1 break-words text-[11px] font-bold leading-tight tabular-nums" style={{ overflowWrap: "anywhere" }}>{d.amount > 0 ? money(d.amount).replace("MYR", "RM") : "-"}</p></div>;
         })}
       </div>
     </Card>
@@ -344,19 +355,19 @@ function TopExpensesCard({ records, label, category, setCategory, expenseCategor
         </select>
       </div>
 
-      <div className="mt-4 space-y-2">
+      <div className="mt-3 grid gap-2 sm:grid-cols-2 xl:grid-cols-5">
         {records.length ? records.map((record, index) => (
-          <div key={record.id} className="flex items-start justify-between gap-3 rounded-2xl bg-slate-50 p-3 text-sm ring-1 ring-slate-100">
-            <div className="flex gap-3">
-              <span className="flex h-7 w-7 items-center justify-center rounded-full bg-slate-900 text-xs font-bold text-white">
+          <div key={record.id} className="flex min-w-0 flex-col justify-between gap-2 rounded-xl bg-slate-50 p-3 text-sm ring-1 ring-slate-100">
+            <div className="flex min-w-0 items-start gap-2">
+              <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-slate-900 text-xs font-bold text-white">
                 {index + 1}
               </span>
               <div>
-                <p className="font-bold text-slate-900">{formatCategoryLabel(record.category)} · {recordMethod(record)}</p>
-                <p className="text-slate-500">{record.date} · {record.note ? <span data-i18n-ignore>{record.note}</span> : "No note"}</p>
+                <p className="break-words font-bold text-slate-900">{formatCategoryLabel(record.category)} · {recordMethod(record)}</p>
+                <p className="break-words text-xs text-slate-500">{record.date} · {record.note ? <span data-i18n-ignore>{record.note}</span> : "No note"}</p>
               </div>
             </div>
-            <p className="whitespace-nowrap font-bold text-red-600">{money(record.amount)}</p>
+            <p className="break-words text-right font-bold tabular-nums text-red-600">{money(record.amount)}</p>
           </div>
         )) : (
           <div className="rounded-2xl bg-slate-50 p-6 text-center text-sm text-slate-500">
@@ -579,8 +590,10 @@ function FinanceVisualizerAppContent() {
   const [monthRows, setMonthRows] = useState([]);
   const [budgetMonth, setBudgetMonth] = useState(monthNow());
   const [budgetOpen, setBudgetOpen] = useState(false);
+  const [recordsOpen, setRecordsOpen] = useState(false);
   const [budgetDraftDirty, setBudgetDraftDirty] = useState(false);
   const [forecastPlans, setForecastPlans] = useState([]);
+  const [openingBalances, setOpeningBalances] = useState({});
   const [undoDeleted, setUndoDeleted] = useState(null);
   const [trashOpen, setTrashOpen] = useState(false);
   const [syncProgress, setSyncProgress] = useState("");
@@ -604,7 +617,7 @@ function FinanceVisualizerAppContent() {
   const reloadDebounceRef = useRef(null);
   const [budgets, setBudgets] = useState(DEFAULT_BUDGETS);
   const [customOptions, setCustomOptions] = useState(DEFAULT_CUSTOM_OPTIONS);
-  const [form, setForm] = useState({ type: "expense", amount: "0.00", category: "饮食", method: "TNG", note: "", date: today() });
+  const [form, setForm] = useState({ type: "expense", amount: "", category: "饮食", method: "TNG", note: "", date: today() });
   const [transferForm, setTransferForm] = useState({
   fromMethod: "BANK",
   toMethod: "TNG",
@@ -613,7 +626,7 @@ function FinanceVisualizerAppContent() {
   date: today(),
 });
   const [deleteOptionPanel, setDeleteOptionPanel] = useState({ kind: "", type: "" });
-  const [calculationText, setCalculationText] = useState("0.00");
+  const [calculationText, setCalculationText] = useState("");
   const [amountEntryMode, setAmountEntryMode] = useState("rm");
   const [calculationResult, setCalculationResult] = useState(null);
   const [filterMode, setFilterMode] = useState("month");
@@ -622,19 +635,29 @@ function FinanceVisualizerAppContent() {
   const [keyword, setKeyword] = useState("");
   const [selectedPieCategory, setSelectedPieCategory] = useState(null);
   const [trendCategory, setTrendCategory] = useState("all");
+  const [expandedTrend, setExpandedTrend] = useState(null);
   const [topExpenseCategory, setTopExpenseCategory] = useState("all");
   const [soundEnabled, setSoundEnabled] = useState(() => localStorage.getItem(SOUND_KEY) !== "false");
   const [deleteConfirm, setDeleteConfirm] = useState(null);
   const [coinRainTrigger, setCoinRainTrigger] = useState(0);
   const [incomeCoinTrigger, setIncomeCoinTrigger] = useState(0);
   const [openDates, setOpenDates] = useState({});
-  const [customCardText, setCustomCardText] = useState(() => {
-  return localStorage.getItem(CUSTOM_CARD_TEXT_KEY) || "";
-});
-
-const [customCardImage, setCustomCardImage] = useState(() => {
-  return localStorage.getItem(CUSTOM_CARD_IMAGE_KEY) || "";
-});
+  // Custom card content is private to the signed-in account on this browser.
+  // Preserve legacy global keys without reading, deleting or assigning them
+  // to another account; never leak user A's card to user B.
+  const [personalCard, setPersonalCard] = useState({ owner: null, text: "", image: "" });
+  const customCardText = personalCard.owner === user?.id ? personalCard.text : "";
+  const customCardImage = personalCard.owner === user?.id ? personalCard.image : "";
+  const setCustomCardText = value => setPersonalCard(previous => ({
+    owner: user?.id || null,
+    text: typeof value === "function" ? value(previous.owner === user?.id ? previous.text : "") : value,
+    image: previous.owner === user?.id ? previous.image : "",
+  }));
+  const setCustomCardImage = value => setPersonalCard(previous => ({
+    owner: user?.id || null,
+    text: previous.owner === user?.id ? previous.text : "",
+    image: typeof value === "function" ? value(previous.owner === user?.id ? previous.image : "") : value,
+  }));
   const [balanceLimit, setBalanceLimit] = useState(() => {
   const saved = localStorage.getItem(BALANCE_LIMIT_KEY);
   return saved || "1500";
@@ -706,6 +729,7 @@ const [customCardImage, setCustomCardImage] = useState(() => {
       setDeletedTransfers([]);
       setMonthRows([]);
       setForecastPlans([]);
+      setOpeningBalances({});
       setUndoTransfer(null);
       setBudgets(DEFAULT_BUDGETS);
       confirmedCustomOptionsRef.current = DEFAULT_CUSTOM_OPTIONS;
@@ -770,22 +794,35 @@ const [customCardImage, setCustomCardImage] = useState(() => {
   localStorage.setItem(BALANCE_LIMIT_KEY, String(balanceLimit || "1500"));
 }, [balanceLimit]);
   useEffect(() => {
-  localStorage.setItem(CUSTOM_CARD_TEXT_KEY, customCardText);
-}, [customCardText]);
-
-useEffect(() => {
-  try {
-    if (customCardImage) {
-      localStorage.setItem(CUSTOM_CARD_IMAGE_KEY, customCardImage);
-    } else {
-      localStorage.removeItem(CUSTOM_CARD_IMAGE_KEY);
+    if (!user?.id) {
+      setPersonalCard({owner:null,text:"",image:""});
+      return;
     }
-  } catch {
-    localStorage.removeItem(CUSTOM_CARD_IMAGE_KEY);
-    setCustomCardImage("");
-    localizedFinanceAlert("Image is too large to save. Please upload a smaller image.");
-  }
-}, [customCardImage]);
+    const id = user.id;
+    try {
+      setPersonalCard({
+        owner:id,
+        text:localStorage.getItem(CUSTOM_CARD_TEXT_KEY + ":" + id) || "",
+        image:localStorage.getItem(CUSTOM_CARD_IMAGE_KEY + ":" + id) || "",
+      });
+    } catch {
+      setPersonalCard({owner:id,text:"",image:""});
+    }
+  }, [user?.id]);
+
+  useEffect(() => {
+    if (!user?.id || personalCard.owner !== user.id) return;
+    try {
+      localStorage.setItem(CUSTOM_CARD_TEXT_KEY + ":" + user.id, personalCard.text);
+      if (personalCard.image)
+        localStorage.setItem(CUSTOM_CARD_IMAGE_KEY + ":" + user.id, personalCard.image);
+      else
+        localStorage.removeItem(CUSTOM_CARD_IMAGE_KEY + ":" + user.id);
+    } catch {
+      // Never remove a previously persisted card on a quota failure.
+      localizedFinanceAlert("Card content could not be stored on this device. Please use a smaller image.");
+    }
+  }, [user?.id, personalCard]);
 
 useEffect(() => {
   setForm((previous) => {
@@ -829,13 +866,17 @@ useEffect(() => {
       confirmedCustomOptionsRef.current = loadedOptions;
       setCustomOptions(loadedOptions);
       setForecastPlans(Array.isArray(settingsRow?.forecast_plans)?settingsRow.forecast_plans:[]);
+      setOpeningBalances(settingsRow?.opening_balances || {});
       const version=settingsRow?Number(settingsRow.version||1):null;
       settingsVersionRef.current=version;setSettingsVersion(version);
       setSyncStatus("Cloud synced — all records loaded");
       setSyncProgress("");setInitialDataReady(true);setDataLoading(false);
     }catch(error){
       if(!isCurrent())return;
-      setSyncStatus("Cloud sync failed: "+(error.message||"unknown error")+". No partial totals were applied.");
+      // A failed background refresh means the cached figures may be stale.
+      // Hide the dashboard rather than presenting previous totals as verified.
+      setInitialDataReady(false);
+      setSyncStatus("Cloud sync failed: "+(error.message||"unknown error")+". Totals hidden until cloud data is verified.");
       setSyncProgress("");setDataLoading(false);
     }
   }
@@ -878,6 +919,12 @@ useEffect(() => {
       }
     });
     return settingsQueueRef.current;
+  }
+
+  async function saveOpeningBalances(next) {
+    const ok = await queueSettingsField("opening_balances", next);
+    if (ok && liveUserIdRef.current === user?.id) setOpeningBalances(next);
+    return ok;
   }
 
   function saveBudgets(nextBudgets) {
@@ -1194,75 +1241,11 @@ const accountMethodOptions = useMemo(() => {
   return uniqueOptions(defaultMethods, normalizedCustomMethods);
 }, [customMethodOptions]);
 
-const methodBalances = useMemo(() => {
-  const map = {};
-
-  const ensureMethod = (method) => {
-    const normalizedMethod = normalizeMethodForBalance(method);
-    if (!normalizedMethod) return null;
-
-    if (!map[normalizedMethod]) {
-      map[normalizedMethod] = {
-        method: normalizedMethod,
-        income: 0,
-        expense: 0,
-        transferIn: 0,
-        transferOut: 0,
-        balance: 0,
-      };
-    }
-
-    return map[normalizedMethod];
-  };
-
-  accountMethodOptions.forEach(ensureMethod);
-
-  records.forEach((record) => {
-    const row = ensureMethod(recordMethod(record));
-    if (!row) return;
-
-    const amount = Number(record.amount || 0);
-
-    if (record.type === "income") {
-      row.income += amount;
-    } else {
-      row.expense += amount;
-    }
-  });
-
-  transfers.forEach((transfer) => {
-    const amount = Number(transfer.amount || 0);
-
-    const fromRow = ensureMethod(transfer.fromMethod);
-    const toRow = ensureMethod(transfer.toMethod);
-
-    if (fromRow) fromRow.transferOut += amount;
-    if (toRow) toRow.transferIn += amount;
-  });
-
-  return Object.values(map)
-    .map((row) => ({
-      ...row,
-      balance: row.income - row.expense + row.transferIn - row.transferOut,
-    }))
-    .filter(
-      (row) =>
-        row.income !== 0 ||
-        row.expense !== 0 ||
-        row.transferIn !== 0 ||
-        row.transferOut !== 0 ||
-        accountMethodOptions.includes(row.method)
-    )
-    .sort((a, b) => {
-      const aIndex = accountMethodOptions.indexOf(a.method);
-      const bIndex = accountMethodOptions.indexOf(b.method);
-
-      if (aIndex === -1 && bIndex === -1) return a.method.localeCompare(b.method);
-      if (aIndex === -1) return 1;
-      if (bIndex === -1) return -1;
-      return aIndex - bIndex;
-    });
-}, [accountMethodOptions, records, transfers]);
+const methodBalances = useMemo(() => calculateMethodBalances(
+  records.map(row => ({...row, method: recordMethod(row)})),
+  transfers, accountMethodOptions, openingBalances, normalizeMethodForBalance
+), [accountMethodOptions, openingBalances, records, transfers]);
+  const openingBalanceTotal = useMemo(() => openingTotal(openingBalances), [openingBalances]);
   const spentMap = useMemo(() => {
   const map = Object.fromEntries(expenseCategoryOptions.map((c) => [c, 0]));
   expenseRecords.forEach((r) => {
@@ -1422,17 +1405,29 @@ async function addRecord(e) {
       { ...form, amount, note: form.note.trim() },
       user.id
     );
-    const { data, error } = await supabase
+    const requestId = await getRecordRequestId(user.id, payload, sessionStorage, crypto);
+    const columns = "id,type,amount,category,method,note,date,created_at,updated_at,version,deleted_at";
+    let { data, error } = await supabase
       .from("records")
-      .insert(payload)
-      .select("id,type,amount,category,method,note,date,created_at,updated_at,version,deleted_at")
+      .insert({ ...payload, client_request_id: requestId })
+      .select(columns)
       .single();
-    if (error) { localizedFinanceAlert(error.message); return; }
-    if (!data) { localizedFinanceAlert("Record save not acknowledged. Refresh before retrying."); return; }
+    if (error?.code === "23505") {
+      // The first attempt may have committed before the HTTP response was lost.
+      // Recover that SAME row by its stable request ID, never insert another.
+      const resolved = await supabase.from("records").select(columns)
+        .eq("user_id", user.id).eq("client_request_id", requestId).maybeSingle();
+      if (resolved.error) throw resolved.error;
+      if (resolved.data) { data = resolved.data; error = null; }
+    }
+    if (error) throw error;
+    if (!data) throw new Error("The database did not acknowledge this record.");
+    if (data.deleted_at) throw new Error("A prior matching transaction is in the Recycle Bin. Review before retrying.");
     if (liveUserIdRef.current !== user.id) return;
+    confirmRecordRequest(user.id, requestId, sessionStorage);
     const insertedRecord = normalizeRecord(data);
     setRecords((p) => p.some(row => row.id === insertedRecord.id) ? p : [insertedRecord, ...p]);
-    setForm((p) => ({ ...p, amount: "0.00", note: "", date: today() }));
+    setForm((p) => ({ ...p, amount: amountEntryMode === "rm" ? "" : "0.00", note: "", date: today() }));
     setSyncStatus("Record added to cloud");
     if (insertedRecord.type === "expense") {
       playCoinRainSound();
@@ -1440,6 +1435,13 @@ async function addRecord(e) {
     } else if (insertedRecord.type === "income") {
       playIncomeCoinSound();
       setIncomeCoinTrigger(Date.now());
+    }
+  } catch (error) {
+    // A network timeout may happen after a server-side insert. Do not claim
+    // either success or failure, and never clear the form on an unknown result.
+    if (liveUserIdRef.current === user.id) {
+      setSyncStatus("Record save not confirmed — refresh cloud records before retrying.");
+      localizedFinanceAlert("Record save was not confirmed. Check the refreshed transaction list before trying again. " + (error?.message || ""));
     }
   } finally {
     recordCreationPendingRef.current = false;
@@ -1464,19 +1466,32 @@ async function addRecord(e) {
         user_id:user.id,from_method:transferForm.fromMethod,to_method:transferForm.toMethod,
         amount,note:String(transferForm.note||"").trim(),date:transferForm.date,
       };
-      const {data,error}=await supabase.from("transfers")
-        .insert(payload)
-        .select("id,from_method,to_method,amount,note,date,created_at,updated_at,version,deleted_at")
+      const requestId=await getTransferRequestId(user.id,payload,sessionStorage,crypto);
+      const columns="id,from_method,to_method,amount,note,date,created_at,updated_at,version,deleted_at";
+      let {data,error}=await supabase.from("transfers")
+        .insert({...payload,client_request_id:requestId})
+        .select(columns)
         .single();
-      if (error) throw error;
-      setTransfers(rows => [normalizeTransfer(data),...rows]);
+      if(error?.code==="23505") {
+        const found=await supabase.from("transfers").select(columns)
+          .eq("user_id",user.id).eq("client_request_id",requestId).maybeSingle();
+        if(found.error) throw found.error;
+        if(found.data){data=found.data;error=null;}
+      }
+      if(error) throw error;
+      if(!data) throw new Error("Transfer save was not acknowledged by the cloud.");
+      if(data.deleted_at) throw new Error("Previous transfer is in the Recycle Bin; verify before retrying.");
+      if(liveUserIdRef.current !== user.id) return;
+      confirmTransferRequest(user.id,requestId,sessionStorage);
+      const added=normalizeTransfer(data);
+      setTransfers(rows => rows.some(row=>row.id===added.id)?rows:[added,...rows]);
       setTransferForm(previous => ({
         ...previous,amount:"0.00",note:"",date:today(),
       }));
       setSyncStatus("Transfer added to cloud");
     }catch(error){
-      setSyncStatus("Transfer could not be saved: "+error.message);
-      localizedFinanceAlert(error.message);
+      setSyncStatus("Transfer save not confirmed — verify Transfer History before retrying.");
+      localizedFinanceAlert("Transfer save not confirmed. Check Transfer History before retrying. "+(error?.message||""));
     }finally{
       transferCreationPendingRef.current = false;
     }
@@ -1711,6 +1726,7 @@ async function addRecord(e) {
       </div>
     );
   }
+const balanceAlertLimitLabel = "RM" + Number(balanceLimit || 1500).toLocaleString("en-MY", { maximumFractionDigits: 2 });
 const addRecordTheme =
   form.type === "income"
     ? {
@@ -1734,7 +1750,7 @@ const addRecordTheme =
         icon: "💸",
       };
 return (
-  <div onClickCapture={(e) => e.target.closest("button,select") && playSound()} className="min-h-screen bg-slate-50 p-4 text-slate-900 md:p-8">
+  <div onClickCapture={(e) => e.target.closest("button,select") && playSound()} className="mh-ui min-h-screen bg-slate-50 p-3 text-slate-900 sm:p-4 md:p-8">
 <CoinRainEffect trigger={coinRainTrigger} />
 <IncomeCoinSpinEffect trigger={incomeCoinTrigger} />
       <div className="mx-auto max-w-7xl space-y-6">
@@ -1752,7 +1768,7 @@ return (
           records={records} deletedRecords={deletedRecords}
           transfers={transfers} deletedTransfers={deletedTransfers}
           monthRows={monthRows} budgetTemplate={budgets}
-          forecastPlans={forecastPlans} dataReady={initialDataReady}
+          forecastPlans={forecastPlans} openingBalances={openingBalances} dataReady={initialDataReady}
           dataLoading={dataLoading} onClose={() => setExportOpen(false)}
         />}
         <div className="rounded-2xl bg-white px-4 py-3 text-sm text-slate-600 ring-1 ring-slate-200">
@@ -1791,22 +1807,29 @@ return (
 
         <section className="grid gap-4 md:grid-cols-3"><StatCard title="Total Income" value={money(income)} icon="📈" desc="Overall records" /><StatCard title="Total Expense" value={money(expense)} icon="📉" desc="Overall records" /><BalanceCard
   title="Balance"
-  value={income - expense}
-  desc="Overall cash flow"
+  value={openingBalanceTotal + income - expense}
+  desc="Including Opening Balance"
   limit={balanceLimit}
   methodBalances={methodBalances}
 /></section>
+        <FinanceOpeningBalancePanel methods={methodBalances.map(row=>row.method)} balances={openingBalances}
+          disabled={!initialDataReady || dataLoading} onSave={saveOpeningBalances} />
 
 <section className="grid gap-6 lg:grid-cols-[380px_1fr]">
   <div className="space-y-6">
 <Card className={`overflow-hidden ${addRecordTheme.card}`}>
   <div className={`-mx-5 -mt-5 mb-5 bg-gradient-to-r ${addRecordTheme.header} px-5 py-4 text-white`}>
     <div className="flex items-center justify-between gap-3">
-      <div>
+      <div className="min-w-0">
         <h2 className="text-xl font-bold">{addRecordTheme.title}</h2>
         <p className="mt-1 text-sm text-white/80">{addRecordTheme.subtitle}</p>
+        <button type="button" onClick={() => setRecordsOpen(true)}
+          aria-haspopup="dialog" aria-expanded={recordsOpen}
+          className="mt-3 inline-flex min-h-11 items-center gap-2 rounded-xl border border-white/35 bg-white/15 px-3 py-2 text-sm font-bold text-white transition hover:bg-white/25 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white">
+          <span aria-hidden="true">📋</span><span>Transaction Records</span>
+        </button>
       </div>
-      <div className="rounded-2xl bg-white/20 px-3 py-2 text-2xl">{addRecordTheme.icon}</div>
+      <div className="shrink-0 rounded-2xl bg-white/20 px-3 py-2 text-2xl">{addRecordTheme.icon}</div>
     </div>
   </div>
             <form onSubmit={addRecord} className="mt-5 space-y-4">
@@ -1830,7 +1853,10 @@ return (
     <span>Amount (RM)</span>
     <span className="inline-flex rounded-lg bg-slate-100 p-1 text-xs" role="group" aria-label="Amount input mode">
       <button type="button" aria-pressed={amountEntryMode === "rm"}
-        onClick={() => setAmountEntryMode("rm")}
+        onClick={() => {
+          if (amountEntryMode !== "rm") setForm(previous => ({ ...previous, amount: "" }));
+          setAmountEntryMode("rm");
+        }}
         className={`rounded-md px-2 py-1 font-semibold ${amountEntryMode === "rm" ? "bg-white text-slate-900 shadow-sm" : "text-slate-500"}`}>
         RM typing
       </button>
@@ -1857,7 +1883,7 @@ return (
     }
     type="text"
     inputMode={amountEntryMode === "cents" ? "numeric" : "decimal"}
-    onFocus={event => { if (amountEntryMode === "rm") event.target.select(); }}
+    onFocus={event => { if (amountEntryMode === "rm" && event.target.value) event.target.select(); }}
     title={amountEntryMode === "cents" ? "2455 means RM24.55" : "100 means RM100.00"}
     className="mt-1 w-full rounded-2xl border border-slate-200 px-4 py-3 outline-none"
   />
@@ -1980,7 +2006,7 @@ return (
                     📊
                 </button>}
               />
-              <BalanceCard title="Filtered Balance" value={filteredIncome - filteredExpense} desc={"Current filter: " + filterLabel} limit={balanceLimit} />
+              <BalanceCard title="Filtered Balance" value={filteredIncome - filteredExpense} desc={"Period net change (Opening Balance excluded): " + filterLabel} limit={balanceLimit} />
             </section>
             <FinanceOverlay open={budgetOpen} title="Monthly Budget / 分类预算"
               onClose={() => {
@@ -2002,16 +2028,17 @@ return (
                 onDirtyChange={setBudgetDraftDirty}
               />
             </FinanceOverlay>
-            <section className="grid gap-6 xl:grid-cols-2">
+            <section className="grid items-start gap-4">
               <FinanceForecastPanel
                 records={records}
                 selectedMonth={forecastMonth}
                 asOfDate={localToday}
                 plannedIncomes={forecastPlans}
+                openingBalanceTotal={openingBalanceTotal}
                 onSavePlans={saveExpectedIncomePlans}
               />
-              <div className="space-y-6">
-                <HeatmapCard days={heatmapDays} label={filterLabel} />
+              <HeatmapCard days={heatmapDays} label={filterLabel} />
+              <div className="min-w-0">
                 <TopExpensesCard
                   records={topExpenses} label={filterLabel}
                   category={topExpenseCategory} setCategory={setTopExpenseCategory}
@@ -2020,7 +2047,7 @@ return (
               </div>
             </section>
             <section className="grid gap-6 xl:grid-cols-2">
-              <Card><h2 className="text-xl font-bold">Daily Income vs Expense</h2><p className="mt-1 text-sm text-slate-500">Current range: {filterLabel}</p><div className="mt-4 h-64">{dailyData.length ? <ResponsiveContainer width="100%" height="100%"><BarChart data={dailyData}><CartesianGrid strokeDasharray="3 3" /><XAxis dataKey="day" /><YAxis /><Tooltip formatter={(v) => money(v)} /><Legend /><Bar dataKey="income" name="Income" fill="#22c55e" /><Bar dataKey="expense" name="Expense" fill="#ef4444" /></BarChart></ResponsiveContainer> : <div className="flex h-full items-center justify-center text-slate-500">No data.</div>}</div><div className="mt-5 rounded-2xl bg-slate-50 p-3 ring-1 ring-slate-200"><div className="mb-2 flex justify-between gap-2"><p className="text-sm font-bold text-slate-700">消费趋势图</p><select
+              <Card><h2 className="text-xl font-bold">Daily Income vs Expense</h2><p className="mt-1 text-sm text-slate-500">Current range: {filterLabel}</p><div className="mt-4 h-64">{dailyData.length ? <ResponsiveContainer width="100%" height="100%"><BarChart data={dailyData}><CartesianGrid strokeDasharray="3 3" /><XAxis dataKey="day" /><YAxis /><Tooltip formatter={(v) => money(v)} /><Legend /><Bar isAnimationActive={false} dataKey="income" name="Income" fill="#22c55e" /><Bar isAnimationActive={false} dataKey="expense" name="Expense" fill="#ef4444" /></BarChart></ResponsiveContainer> : <div className="flex h-full items-center justify-center text-slate-500">No data.</div>}</div><div className="mt-5 rounded-2xl bg-slate-50 p-3 ring-1 ring-slate-200"><div className="mb-2 flex justify-between gap-2"><p className="text-sm font-bold text-slate-700">消费趋势图</p><select
   value={trendCategory}
   onChange={(e) => setTrendCategory(e.target.value)}
   className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-semibold"
@@ -2031,12 +2058,48 @@ return (
       {formatCategoryLabel(category)}
     </option>
   ))}
-</select></div><div className="h-36">{trendData.length ? <ResponsiveContainer width="100%" height="100%"><LineChart data={trendData}><CartesianGrid strokeDasharray="3 3" /><XAxis dataKey="day" /><YAxis /><Tooltip content={<TrendTooltip records={filteredRecords} category={trendCategory} />} /><Legend /><Line type="monotone" dataKey="expense" name="Expense" stroke="#3b82f6" strokeWidth={3} dot={{ r: 4 }} /></LineChart></ResponsiveContainer> : <div className="flex h-full items-center justify-center text-slate-500">No expense trend data.</div>}</div><div className="mt-4 border-t border-slate-200 pt-3"><p className="mb-2 text-sm font-bold text-slate-700">Filtered Balance Trend</p><div className="h-36">{trendData.length ? <ResponsiveContainer width="100%" height="100%"><LineChart data={trendData}><CartesianGrid strokeDasharray="3 3" /><XAxis dataKey="day" /><YAxis /><Tooltip formatter={(v) => money(v)} /><Legend /><Line connectNulls type="monotone" dataKey="balanceGreen" name="Balance > RM1500" stroke="#22c55e" strokeWidth={3} dot={{ r: 4 }} /><Line connectNulls type="monotone" dataKey="balanceRed" name="Balance ≤ RM1500" stroke="#ef4444" strokeWidth={3} dot={{ r: 4 }} /></LineChart></ResponsiveContainer> : <div className="flex h-full items-center justify-center text-slate-500">No balance trend data.</div>}</div></div></div></Card>
-              <Card><h2 className="text-xl font-bold">Expense by Category</h2><p className="mt-1 text-sm text-slate-500">点击分类查看记录；Method Ratio 显示全部支出方式比例。</p><div className="mt-4 h-60"><MiniPie data={categoryData} emptyText="No expense data." onClick={(entry) => setSelectedPieCategory(entry.name)} selectedName={selectedPieCategory} /></div><div className="mt-4 rounded-2xl bg-slate-50 p-3 ring-1 ring-slate-200"><p className="text-sm font-bold text-slate-700">{selectedPieCategory ? `${selectedPieCategory} records` : "Category records"}</p><div className="mt-2 max-h-40 space-y-2 overflow-y-auto">{selectedCategoryRecords.length ? selectedCategoryRecords.map((r) => <div key={r.id} className="flex justify-between gap-3 rounded-xl bg-white p-3 text-sm ring-1 ring-slate-100"><div><p className="font-semibold">{r.date}</p><p className="text-slate-500">{recordMethod(r)} · {r.note ? <span data-i18n-ignore>{r.note}</span> : "No note"}</p></div><p className="font-bold text-red-600">{money(r.amount)}</p></div>) : <div className="rounded-xl bg-white p-4 text-center text-sm text-slate-500">点击 pie chart 的某个分类后，这里会显示对应记录。</div>}</div></div><div className="mt-4 rounded-2xl bg-slate-50 p-3 ring-1 ring-slate-200"><div className="mb-2 flex justify-between"><p className="text-sm font-bold text-slate-700">Method Ratio</p><p className="text-xs text-slate-500">所有支出方式比例</p></div><div className="h-60"><MiniPie data={methodData} emptyText="No method data." /></div></div></Card>
+</select></div><div className="h-36 cursor-zoom-in rounded-xl focus-visible:outline focus-visible:outline-2 focus-visible:outline-blue-500"
+  role="button" tabIndex={0} aria-label="Expand Spending Trend" title="Click to expand Spending Trend"
+  onClick={() => setExpandedTrend("expense")}
+  onKeyDown={(event) => { if (event.key === "Enter" || event.key === " ") { event.preventDefault(); setExpandedTrend("expense"); } }}>
+  {trendData.length ? <ResponsiveContainer width="100%" height="100%"><LineChart data={trendData}><CartesianGrid strokeDasharray="3 3" /><XAxis dataKey="day" /><YAxis /><Tooltip content={<FinanceTrendSummaryTooltip kind="expense" />} /><Legend /><Line isAnimationActive={false} type="monotone" dataKey="expense" name="Expense" stroke="#3b82f6" strokeWidth={3} dot={{ r: 4 }} /></LineChart></ResponsiveContainer> : <div className="flex h-full items-center justify-center text-slate-500">No expense trend data.</div>}</div><div className="mt-4 border-t border-slate-200 pt-3"><p className="mb-2 text-sm font-bold text-slate-700">Filtered Balance Trend</p><div className="h-36 cursor-zoom-in rounded-xl focus-visible:outline focus-visible:outline-2 focus-visible:outline-blue-500"
+  role="button" tabIndex={0} aria-label="Expand Filtered Balance Trend" title="Click to expand Balance Trend"
+  onClick={() => setExpandedTrend("balance")}
+  onKeyDown={(event) => { if (event.key === "Enter" || event.key === " ") { event.preventDefault(); setExpandedTrend("balance"); } }}>
+  {trendData.length ? <ResponsiveContainer width="100%" height="100%"><LineChart data={trendData}><CartesianGrid strokeDasharray="3 3" /><XAxis dataKey="day" /><YAxis /><Tooltip content={<FinanceTrendSummaryTooltip kind="balance" />} /><Legend /><Line isAnimationActive={false} connectNulls type="monotone" dataKey="balanceGreen" name={`Balance > ${balanceAlertLimitLabel}`} stroke="#22c55e" strokeWidth={3} dot={{ r: 4 }} /><Line isAnimationActive={false} connectNulls type="monotone" dataKey="balanceRed" name={`Balance ≤ ${balanceAlertLimitLabel}`} stroke="#ef4444" strokeWidth={3} dot={{ r: 4 }} /></LineChart></ResponsiveContainer> : <div className="flex h-full items-center justify-center text-slate-500">No balance trend data.</div>}</div></div></div></Card>
+              <Card>
+                <h2 className="text-xl font-bold">Expense by Category</h2>
+                <div className="mt-4 h-60">
+                  <MiniPie data={categoryData} emptyText="No expense data." />
+                </div>
+                <div className="mt-4 rounded-2xl bg-slate-50 p-3 ring-1 ring-slate-200">
+                  <div className="mb-2 flex flex-wrap justify-between gap-2">
+                    <p className="text-sm font-bold text-slate-700">Method Ratio</p>
+                    <p className="text-xs text-slate-500">所有支出方式比例</p>
+                  </div>
+                  <div className="h-60">
+                    <MiniPie data={methodData} emptyText="No method data." />
+                  </div>
+                </div>
+              </Card>
             </section>
+            <FinanceExpandedTrendOverlay
+              open={expandedTrend !== null}
+              kind={expandedTrend || "expense"}
+              onKindChange={setExpandedTrend}
+              onClose={() => setExpandedTrend(null)}
+              data={trendData}
+              dailyData={dailyData}
+              records={filteredRecords}
+              category={trendCategory}
+              alertLimit={balanceLimit}
+              filterLabel={filterLabel}
+            />
           </div>
         </section>
 
+       <FinanceOverlay open={recordsOpen} title="Transaction Records"
+         onClose={() => { setRecordsOpen(false); setDeleteConfirm(null); }} widthClass="max-w-6xl" showTitle={false}>
        <Card>
   <div className="flex flex-col gap-2 md:flex-row md:items-end md:justify-between">
     <div>
@@ -2078,7 +2141,7 @@ return (
               </div>
             </div>
 
-            <div className="grid grid-cols-3 gap-2 text-xs md:min-w-[360px]">
+            <div className="mh-day-totals grid grid-cols-1 gap-2 text-xs sm:grid-cols-3 md:min-w-[360px]">
               <div className="rounded-xl bg-green-50 px-3 py-2 text-right font-bold text-green-700">
                 +{money(group.income)}
               </div>
@@ -2092,7 +2155,7 @@ return (
           </button>
 
           {isOpen && (
-            <div className="overflow-x-auto px-4 pb-4">
+            <div className="hidden overflow-x-auto px-4 pb-4 md:block">
               <table className="mt-3 w-full min-w-[920px] border-collapse text-left text-sm">
                 <thead>
                   <tr className="border-b border-slate-200">
@@ -2171,6 +2234,17 @@ categoryOptionsFor={categoryOptionsFor}
               </table>
             </div>
           )}
+          {isOpen && (
+            <div className="px-3 pb-4 md:hidden">
+              <FinanceMobileRecords
+                records={group.records}
+                categoryOptionsFor={categoryOptionsFor}
+                methodOptionsFor={methodOptionsFor}
+                onUpdate={updateRecord}
+                onDelete={deleteRecord}
+              />
+            </div>
+          )}
         </div>
       );
     })}
@@ -2227,6 +2301,7 @@ categoryOptionsFor={categoryOptionsFor}
           )}
           <p className="mt-3 text-xs text-slate-500">Records remain recoverable after 10 seconds, after closing this tab, and across devices. There is no permanent delete button.</p>
         </Card>
+       </FinanceOverlay>
 
         <footer className="pb-6 text-center text-xs text-slate-400">记账可视化软件 · Data synced with Supabase cloud · {records.length} total records</footer>
       </div>

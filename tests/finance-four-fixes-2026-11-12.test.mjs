@@ -38,6 +38,10 @@ test("double click submits one income/expense while first insert is pending", as
   const context={
     user:{id:"fake-test-user"},
     recordCreationPendingRef:ref,
+    getRecordRequestId:async()=> "10000000-0000-4000-8000-000000000001",
+    confirmRecordRequest:()=>{},
+    sessionStorage:{},crypto:{},
+    amountEntryMode:"rm",
     form:{type:"expense",amount:"100",category:"Food",method:"CASH",note:"Test",date:"2026-11-12"},
     parseEditedAmount,
     toRecordPayload:(v,user_id)=>({...v,user_id}),
