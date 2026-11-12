@@ -112,8 +112,8 @@ export default function FinanceForecastPanel({records,selectedMonth,asOfDate,pla
                 <YAxis fontSize={10} width={52} tickFormatter={(n)=>String(Math.round(n))}/>
                 <Tooltip formatter={v=>money(v)}/>
                 <Legend/>
-                <Line name="Actual ledger" type="monotone" dataKey="actual" stroke="#334155" strokeWidth={2} dot={false} connectNulls={false}/>
-                <Line name="Forecast" type="monotone" dataKey="forecast" stroke="#2563eb" strokeWidth={2} strokeDasharray="6 4" dot={false} connectNulls={false}/>
+                <Line isAnimationActive={false} name="Actual ledger" type="monotone" dataKey="actual" stroke="#334155" strokeWidth={2} dot={false} connectNulls={false}/>
+                <Line isAnimationActive={false} name="Forecast" type="monotone" dataKey="forecast" stroke="#2563eb" strokeWidth={2} strokeDasharray="6 4" dot={false} connectNulls={false}/>
               </LineChart>
             </ResponsiveContainer>
           </div>
