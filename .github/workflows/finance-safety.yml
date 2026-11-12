@@ -9,6 +9,7 @@ on:
       - "feature/**"
       - "fix/**"
       - "qa/**"
+      - "integration/**"
   workflow_dispatch:
 
 permissions:
