@@ -8,6 +8,7 @@ on:
       - "safety/**"
       - "feature/**"
       - "fix/**"
+      - "qa/**"
   workflow_dispatch:
 
 permissions:
