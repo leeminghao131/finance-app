@@ -49,7 +49,7 @@ export default function FinanceMonthComparison({records=[]}) {
           <p className="text-sm font-semibold text-slate-700">{name}</p>
           <p className="mt-2 text-xs text-slate-500">{firstMonth}: <b className="text-slate-800">{money(a)}</b></p>
           <p className="mt-1 text-xs text-slate-500">{secondMonth}: <b className="text-slate-800">{money(b)}</b></p>
-          <p className={"mt-2 text-sm font-bold "+(change>0?"text-amber-700":change<0?"text-emerald-700":"text-slate-600")}>
+          <p className={"mt-2 text-sm font-bold "+(change===0?"text-slate-600":(name==="Expense"?change<0:change>0)?"text-emerald-700":"text-amber-700")}>
             {change>0?"+":""}{money(change)} change
             {a!==0?" ("+((change/Math.abs(a))*100).toFixed(1)+"%)":""}
           </p>
