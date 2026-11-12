@@ -1436,8 +1436,8 @@ async function addRecord(e) {
       .insert(payload)
       .select("id,type,amount,category,method,note,date,created_at,updated_at,version,deleted_at")
       .single();
-    if (error) { localizedFinanceAlert(error.message); return; }
-    if (!data) { localizedFinanceAlert("Record save not acknowledged. Refresh before retrying."); return; }
+    if (error) throw error;
+    if (!data) throw new Error("The database did not acknowledge this record.");
     if (liveUserIdRef.current !== user.id) return;
     const insertedRecord = normalizeRecord(data);
     setRecords((p) => p.some(row => row.id === insertedRecord.id) ? p : [insertedRecord, ...p]);
@@ -1449,6 +1449,13 @@ async function addRecord(e) {
     } else if (insertedRecord.type === "income") {
       playIncomeCoinSound();
       setIncomeCoinTrigger(Date.now());
+    }
+  } catch (error) {
+    // A network timeout may happen after a server-side insert. Do not claim
+    // either success or failure, and never clear the form on an unknown result.
+    if (liveUserIdRef.current === user.id) {
+      setSyncStatus("Record save not confirmed — refresh cloud records before retrying.");
+      localizedFinanceAlert("Record save was not confirmed. Check the refreshed transaction list before trying again. " + (error?.message || ""));
     }
   } finally {
     recordCreationPendingRef.current = false;
