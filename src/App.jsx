@@ -606,7 +606,7 @@ function FinanceVisualizerAppContent() {
   const reloadDebounceRef = useRef(null);
   const [budgets, setBudgets] = useState(DEFAULT_BUDGETS);
   const [customOptions, setCustomOptions] = useState(DEFAULT_CUSTOM_OPTIONS);
-  const [form, setForm] = useState({ type: "expense", amount: "0.00", category: "饮食", method: "TNG", note: "", date: today() });
+  const [form, setForm] = useState({ type: "expense", amount: "", category: "饮食", method: "TNG", note: "", date: today() });
   const [transferForm, setTransferForm] = useState({
   fromMethod: "BANK",
   toMethod: "TNG",
@@ -1434,7 +1434,7 @@ async function addRecord(e) {
     if (liveUserIdRef.current !== user.id) return;
     const insertedRecord = normalizeRecord(data);
     setRecords((p) => p.some(row => row.id === insertedRecord.id) ? p : [insertedRecord, ...p]);
-    setForm((p) => ({ ...p, amount: "0.00", note: "", date: today() }));
+    setForm((p) => ({ ...p, amount: amountEntryMode === "rm" ? "" : "0.00", note: "", date: today() }));
     setSyncStatus("Record added to cloud");
     if (insertedRecord.type === "expense") {
       playCoinRainSound();
@@ -1832,7 +1832,10 @@ return (
     <span>Amount (RM)</span>
     <span className="inline-flex rounded-lg bg-slate-100 p-1 text-xs" role="group" aria-label="Amount input mode">
       <button type="button" aria-pressed={amountEntryMode === "rm"}
-        onClick={() => setAmountEntryMode("rm")}
+        onClick={() => {
+          if (amountEntryMode !== "rm") setForm(previous => ({ ...previous, amount: "" }));
+          setAmountEntryMode("rm");
+        }}
         className={`rounded-md px-2 py-1 font-semibold ${amountEntryMode === "rm" ? "bg-white text-slate-900 shadow-sm" : "text-slate-500"}`}>
         RM typing
       </button>
@@ -1859,7 +1862,7 @@ return (
     }
     type="text"
     inputMode={amountEntryMode === "cents" ? "numeric" : "decimal"}
-    onFocus={event => { if (amountEntryMode === "rm") event.target.select(); }}
+    onFocus={event => { if (amountEntryMode === "rm" && event.target.value) event.target.select(); }}
     title={amountEntryMode === "cents" ? "2455 means RM24.55" : "100 means RM100.00"}
     className="mt-1 w-full rounded-2xl border border-slate-200 px-4 py-3 outline-none"
   />
