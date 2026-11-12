@@ -62,9 +62,9 @@ test("UI: category pie remains, but the duplicate category records list is remov
   const end = app.indexOf("</Card>", start);
   assert.ok(start > 0 && end > start);
   const section = app.slice(start, end);
-  assert.match(section, /MiniPie data=\{categoryData\}/);
+  assert.match(section, /FinanceCategoryBubbleChart data=\{categoryData\}/);
   assert.match(section, /Method Ratio/);
-  assert.match(section, /MiniPie data=\{methodData\}/);
+  assert.match(section, /FinanceMethodDonutChart data=\{methodData\}/);
   assert.doesNotMatch(section, /selectedCategoryRecords\.map/);
   assert.doesNotMatch(section, /selectedCategoryRecords\.length/);
 });
