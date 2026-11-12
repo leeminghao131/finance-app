@@ -1,5 +1,6 @@
 import { loadEveryOwnedRow,splitRecordStatus } from "./financeData.js";
 import { normalizeRecord,normalizeTransfer } from "./financeRecords.js";
+import { validateFinanceSnapshotRows } from "./financeIntegrity.js";
 
 // Fetch one coherent, count-checked cloud snapshot without mutating the source DB.
 // All visible totals are replaced only after the caller receives this full result.
@@ -25,6 +26,7 @@ export async function fetchFinanceSnapshot(client,userId,onProgress) {
   if(monthError)throw monthError;
   if((savedMonths||[]).length===1000)
     throw new Error("Monthly budget history reached the read cap; refusing incomplete data.");
+  validateFinanceSnapshotRows(recordRows,transferRows,settingsRow);
   const byNewest=(a,b)=>String(b.date||"").localeCompare(String(a.date||""))
     || new Date(b.created_at||0)-new Date(a.created_at||0);
   const {active:records,deleted:deletedRecords}=splitRecordStatus(
