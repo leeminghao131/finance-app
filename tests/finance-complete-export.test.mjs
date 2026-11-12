@@ -17,20 +17,23 @@ const fixture={
    {month:"2026-11",category_budgets:{Food:"600.00",Transport:"300.00"},version:2},
   ],
   budgetTemplate:{Food:"600",Transport:"300",Medical:""},
+  openingBalances:{BANK:1000,TNG:75.25,CASH:-10},
   forecastPlans:[{id:"p1",date:"2026-11-25",amount:2500,note:"Expected salary"}],
 };
 
 function rows(book,sheet){return XLSX.utils.sheet_to_json(book.Sheets[sheet],{defval:""});}
 
-test("Complete finance export includes 6 sheets, records/transfers/budgets/template/plans",()=>{
+test("Complete finance export includes separate initial balances and records/transfers/budgets/template/plans",()=>{
  const {workbook,stats}=buildFinanceWorkbook(fixture);
  assert.deepEqual(workbook.SheetNames,[
-  "Finance Records","Transfers","Monthly Budgets","Budget Template","Expected Income","Export Summary"
+  "Finance Records","Transfers","Opening Balances","Monthly Budgets","Budget Template","Expected Income","Export Summary"
  ]);
  assert.equal(stats.records,3);assert.equal(stats.transfers,1);
  assert.equal(stats.monthlyBudgets,2);assert.equal(stats.plans,1);
  assert.equal(stats.income,2800.05);
  assert.equal(stats.expense,25.5);
+ assert.equal(stats.openingTotalCents,106525);
+ assert.equal(rows(workbook,"Opening Balances").length,3);
  const actual=rows(workbook,"Finance Records");
  assert.equal(actual[0]["Record ID"],"1");
  assert.equal(actual[1]["Amount (RM)"],25.5);
@@ -52,6 +55,7 @@ test("Month export is scoped, excludes soft-deleted data and never changes sourc
  assert.equal(stats.monthlyBudgets,1);
  assert.equal(stats.income,300);
  assert.equal(stats.expense,25.5);
+ assert.equal(rows(workbook,"Opening Balances").length,3);
  assert.equal(rows(workbook,"Monthly Budgets").length,2);
  assert.equal(rows(workbook,"Expected Income").length,1);
  assert.equal(rows(workbook,"Finance Records").some(row=>row["Record ID"]==="4"),false);
