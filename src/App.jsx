@@ -2218,7 +2218,6 @@ categoryOptionsFor={categoryOptionsFor}
     </div>
   )}
 </Card>
-       </FinanceOverlay>
 
         <Card>
           <div className="flex flex-wrap items-center justify-between gap-3">
@@ -2255,6 +2254,7 @@ categoryOptionsFor={categoryOptionsFor}
           )}
           <p className="mt-3 text-xs text-slate-500">Records remain recoverable after 10 seconds, after closing this tab, and across devices. There is no permanent delete button.</p>
         </Card>
+       </FinanceOverlay>
 
         <footer className="pb-6 text-center text-xs text-slate-400">记账可视化软件 · Data synced with Supabase cloud · {records.length} total records</footer>
       </div>
