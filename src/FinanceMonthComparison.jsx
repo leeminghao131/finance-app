@@ -23,7 +23,7 @@ export default function FinanceMonthComparison({records=[]}) {
   return <section className="rounded-2xl bg-white p-4 shadow-sm ring-1 ring-slate-200 sm:p-5" aria-label="Monthly Financial Comparison">
     <div className="flex flex-wrap items-start justify-between gap-3">
       <div>
-        <h2 className="text-lg font-bold text-slate-900">Monthly Financial Comparison / 月度财务对比</h2>
+        <h2 className="text-lg font-bold text-slate-900">Monthly Financial Comparison</h2>
         <p className="mt-1 text-xs text-slate-500">Compare any two calendar months. Independent of Dashboard Filters. Transfers and Opening Balance are not Income or Expense.</p>
       </div>
       <div className="flex flex-wrap items-center gap-2">
