@@ -124,10 +124,20 @@ export function buildFinanceWorkbook({
       ["Transfer ID","Date","From Method","To Method","Amount (RM)","Note","Deleted At"],
       oldTransfers,[1],[4]);
   }
+  // Capture every cell from every generated sheet as an independent
+  // round-trip expectation, not just Income/Expense totals.
+  const expectedSheets = Object.fromEntries(wb.SheetNames.map(name => [
+    name, XLSX.utils.sheet_to_json(wb.Sheets[name], {header:1,defval:""}),
+  ]));
   return {workbook:wb,stats:{
     records:validRecords.length,transfers:validTransfers.length,
     monthlyBudgets:validBudgets.length,plans:validPlans.length,
     income:rm(incomeCents),expense:rm(expenseCents),
+    transferTotalCents:validTransfers.reduce((n,r)=>n+cents(r.amount),0),
+    plannedTotalCents:validPlans.reduce((n,p)=>n+cents(p.amount),0),
+    budgetTotalCents:validBudgets.reduce((n,r)=>n+Object.values(r.category_budgets||{})
+      .reduce((s,value)=>s+(value===""?0:cents(value)),0),0),
+    expectedSheets,
   }};
 }
 
@@ -136,6 +146,13 @@ export function verifyFinanceWorkbook(workbook,stats) {
   const data=XLSX.write(workbook,{bookType:"xlsx",type:"array"});
   if(!data || data.byteLength<100)throw new Error("Excel generation failed");
   const roundtrip=XLSX.read(data,{type:"array",cellDates:false});
+  for (const [name, expected] of Object.entries(stats.expectedSheets || {})) {
+    if (!roundtrip.Sheets[name]) throw new Error("Excel verification failed: missing sheet " + name);
+    const actual=XLSX.utils.sheet_to_json(roundtrip.Sheets[name],{header:1,defval:""});
+    if (JSON.stringify(actual)!==JSON.stringify(expected)) {
+      throw new Error("Excel verification failed: cell data changed in " + name);
+    }
+  }
   const count=(sheet)=>XLSX.utils.sheet_to_json(roundtrip.Sheets[sheet],{defval:""}).length;
   if(count("Finance Records")!==stats.records || count("Transfers")!==stats.transfers)
     throw new Error("Excel verification failed: an entry was missing");
@@ -144,5 +161,12 @@ export function verifyFinanceWorkbook(workbook,stats) {
   const inc=moneyRows.filter(r=>r.Type==="income").reduce((n,r)=>n+cents(r["Amount (RM)"]),0);
   const exp=moneyRows.filter(r=>r.Type==="expense").reduce((n,r)=>n+cents(r["Amount (RM)"]),0);
   if(rm(inc)!==stats.income||rm(exp)!==stats.expense)throw new Error("Export amount total mismatch");
+  const sumSheet=(name,field)=>XLSX.utils.sheet_to_json(roundtrip.Sheets[name],{defval:""})
+    .reduce((sum,row)=>sum+cents(row[field]),0);
+  if(sumSheet("Transfers","Amount (RM)")!==stats.transferTotalCents ||
+     sumSheet("Monthly Budgets","Budget (RM)")!==stats.budgetTotalCents ||
+     sumSheet("Expected Income","Expected Amount (RM)")!==stats.plannedTotalCents) {
+    throw new Error("Excel verification failed: transfer, budget or expected income amounts differ");
+  }
   return data;
 }
