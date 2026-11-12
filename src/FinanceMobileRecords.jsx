@@ -1,5 +1,7 @@
 import React, { useEffect, useState } from "react";
 import FinanceOverlay from "./FinanceOverlay.jsx";
+import { useFinanceLanguage } from "./FinanceLanguageLayer.jsx";
+import { builtInFinanceCategory } from "./financeLanguage.js";
 
 const FIELDS = [
   ["date", "Date"],
@@ -9,9 +11,12 @@ const FIELDS = [
   ["note", "Note"],
 ];
 const currency = (amount) => new Intl.NumberFormat("en-MY", { style: "currency", currency: "MYR" }).format(Number(amount || 0));
-const methodOf = (record) => record.method || "—";
+const methodOf = (record) => record.method || "TNG";
+const builtInCategories = new Set(["饮食", "教育", "住房", "日用", "交通", "娱乐", "运动", "医疗", "美容", "Salary", "Allowance", "Part-time", "Gift", "Others"]);
+const builtInMethods = new Set(["BANK", "CASH", "TNG", "GRAB PAY", "BANK IN", "DEBIT CARD", "ONLINE BANK IN"]);
 
 export default function FinanceMobileRecords({ records, onUpdate, onDelete, categoryOptionsFor, methodOptionsFor }) {
+  const { language } = useFinanceLanguage();
   const [editingId, setEditingId] = useState(null);
   const [field, setField] = useState("date");
   const [draft, setDraft] = useState("");
@@ -66,8 +71,8 @@ export default function FinanceMobileRecords({ records, onUpdate, onDelete, cate
             </strong>
           </div>
           <div className="mt-3 grid min-w-0 grid-cols-2 gap-x-4 gap-y-2 text-sm">
-            <div className="min-w-0"><p className="text-xs text-slate-500">Category</p><p className="break-words font-semibold text-slate-800" data-i18n-ignore>{item.category}</p></div>
-            <div className="min-w-0"><p className="text-xs text-slate-500">Method</p><p className="break-words font-semibold text-slate-800" data-i18n-ignore>{methodOf(item)}</p></div>
+            <div className="min-w-0"><p className="text-xs text-slate-500">Category</p><p className="break-words font-semibold text-slate-800" data-i18n-ignore>{builtInCategories.has(item.category) ? builtInFinanceCategory(item.category, language) : item.category}</p></div>
+            <div className="min-w-0"><p className="text-xs text-slate-500">Method</p><p className="break-words font-semibold text-slate-800" data-i18n-ignore>{builtInMethods.has(methodOf(item)) ? builtInFinanceCategory(methodOf(item), language) : methodOf(item)}</p></div>
           </div>
           <div className="mt-3 min-w-0 border-t border-slate-100 pt-3">
             <p className="text-xs text-slate-500">Note</p>
@@ -110,7 +115,7 @@ export default function FinanceMobileRecords({ records, onUpdate, onDelete, cate
               {field === "category" || field === "method" ? (
                 <select className="mh-record-input mt-2 w-full rounded-xl border border-slate-300 bg-white p-3 text-base"
                   value={draft} onChange={(e) => setDraft(e.target.value)} disabled={saving}>
-                  {Array.from(new Set([String(fieldValue(record, field)), ...(field === "category" ? categoryOptionsFor(record.type) : methodOptionsFor(record.type))])).map((option) => <option key={option} value={option}>{option}</option>)}
+                  {Array.from(new Set([String(fieldValue(record, field)), ...(field === "category" ? categoryOptionsFor(record.type) : methodOptionsFor(record.type))])).map((option) => <option key={option} value={option}>{(field === "category" ? builtInCategories.has(option) : builtInMethods.has(option)) ? builtInFinanceCategory(option, language) : option}</option>)}
                 </select>
               ) : field === "note" ? (
                 <textarea rows={4} className="mh-record-input mt-2 w-full rounded-xl border border-slate-300 p-3 text-base"
