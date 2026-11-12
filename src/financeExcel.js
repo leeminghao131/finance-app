@@ -127,7 +127,9 @@ export function buildFinanceWorkbook({
   // Capture every cell from every generated sheet as an independent
   // round-trip expectation, not just Income/Expense totals.
   const expectedSheets = Object.fromEntries(wb.SheetNames.map(name => [
-    name, XLSX.utils.sheet_to_json(wb.Sheets[name], {header:1,defval:""}),
+    name, XLSX.utils.sheet_to_json(wb.Sheets[name], {header:1,defval:""})
+      .map(row => row.map(value => value instanceof Date
+        ? excelDateNumber(value.toISOString().slice(0,10)) : value)),
   ]));
   return {workbook:wb,stats:{
     records:validRecords.length,transfers:validTransfers.length,
