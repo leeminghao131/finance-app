@@ -10,7 +10,7 @@ import FinanceOpeningBalancePanel from "./FinanceOpeningBalancePanel.jsx";
 import FinanceMonthComparison from "./FinanceMonthComparison.jsx";
 import FinanceQuickNotes from "./FinanceQuickNotes.jsx";
 import FinanceSavingsGoals from "./FinanceSavingsGoals.jsx";
-import {validateSavingsGoals} from "./financePlanning.js";
+import {validateSavingsGoals,mostUsedNotes} from "./financePlanning.js";
 import { openingTotal, calculateMethodBalances } from "./financeOpeningBalance.js";
 import FinanceOverlay from "./FinanceOverlay.jsx";
 import FinanceMobileRecords from "./FinanceMobileRecords.jsx";
@@ -1942,7 +1942,7 @@ return (
       }
 
       setForm((previous) => ({ ...previous, category: value }));
-      setQuickNotesOpen(true);
+      setQuickNotesOpen(mostUsedNotes(records,form.type,value,7).length>0);
       setDeleteOptionPanel({ kind: "", type: "" });
     }}
     className="mt-1 w-full rounded-2xl border border-slate-200 px-4 py-3 outline-none"
