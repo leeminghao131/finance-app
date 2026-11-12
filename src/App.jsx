@@ -9,6 +9,7 @@ import FinanceForecastPanel from "./FinanceForecastPanel.jsx";
 import FinanceOverlay from "./FinanceOverlay.jsx";
 import FinanceMobileRecords from "./FinanceMobileRecords.jsx";
 import FinanceTrendSummaryTooltip from "./FinanceTrendSummaryTooltip.jsx";
+import FinanceExpandedTrendOverlay from "./FinanceExpandedTrendOverlay.jsx";
 import "./financeUi.css";
 import FinanceCsvImportPanel from "./FinanceCsvImportPanel.jsx";
 import FinanceExcelExportPanel from "./FinanceExcelExportPanel.jsx";
@@ -629,6 +630,7 @@ function FinanceVisualizerAppContent() {
   const [keyword, setKeyword] = useState("");
   const [selectedPieCategory, setSelectedPieCategory] = useState(null);
   const [trendCategory, setTrendCategory] = useState("all");
+  const [expandedTrend, setExpandedTrend] = useState(null);
   const [topExpenseCategory, setTopExpenseCategory] = useState("all");
   const [soundEnabled, setSoundEnabled] = useState(() => localStorage.getItem(SOUND_KEY) !== "false");
   const [deleteConfirm, setDeleteConfirm] = useState(null);
@@ -2047,7 +2049,15 @@ return (
       {formatCategoryLabel(category)}
     </option>
   ))}
-</select></div><div className="h-36">{trendData.length ? <ResponsiveContainer width="100%" height="100%"><LineChart data={trendData}><CartesianGrid strokeDasharray="3 3" /><XAxis dataKey="day" /><YAxis /><Tooltip content={<FinanceTrendSummaryTooltip kind="expense" />} /><Legend /><Line isAnimationActive={false} type="monotone" dataKey="expense" name="Expense" stroke="#3b82f6" strokeWidth={3} dot={{ r: 4 }} /></LineChart></ResponsiveContainer> : <div className="flex h-full items-center justify-center text-slate-500">No expense trend data.</div>}</div><div className="mt-4 border-t border-slate-200 pt-3"><p className="mb-2 text-sm font-bold text-slate-700">Filtered Balance Trend</p><div className="h-36">{trendData.length ? <ResponsiveContainer width="100%" height="100%"><LineChart data={trendData}><CartesianGrid strokeDasharray="3 3" /><XAxis dataKey="day" /><YAxis /><Tooltip content={<FinanceTrendSummaryTooltip kind="balance" />} /><Legend /><Line isAnimationActive={false} connectNulls type="monotone" dataKey="balanceGreen" name={`Balance > ${balanceAlertLimitLabel}`} stroke="#22c55e" strokeWidth={3} dot={{ r: 4 }} /><Line isAnimationActive={false} connectNulls type="monotone" dataKey="balanceRed" name={`Balance ≤ ${balanceAlertLimitLabel}`} stroke="#ef4444" strokeWidth={3} dot={{ r: 4 }} /></LineChart></ResponsiveContainer> : <div className="flex h-full items-center justify-center text-slate-500">No balance trend data.</div>}</div></div></div></Card>
+</select></div><div className="h-36 cursor-zoom-in rounded-xl focus-visible:outline focus-visible:outline-2 focus-visible:outline-blue-500"
+  role="button" tabIndex={0} aria-label="Expand Spending Trend" title="Click to expand Spending Trend"
+  onClick={() => setExpandedTrend("expense")}
+  onKeyDown={(event) => { if (event.key === "Enter" || event.key === " ") { event.preventDefault(); setExpandedTrend("expense"); } }}>
+  {trendData.length ? <ResponsiveContainer width="100%" height="100%"><LineChart data={trendData}><CartesianGrid strokeDasharray="3 3" /><XAxis dataKey="day" /><YAxis /><Tooltip content={<FinanceTrendSummaryTooltip kind="expense" />} /><Legend /><Line isAnimationActive={false} type="monotone" dataKey="expense" name="Expense" stroke="#3b82f6" strokeWidth={3} dot={{ r: 4 }} /></LineChart></ResponsiveContainer> : <div className="flex h-full items-center justify-center text-slate-500">No expense trend data.</div>}</div><div className="mt-4 border-t border-slate-200 pt-3"><p className="mb-2 text-sm font-bold text-slate-700">Filtered Balance Trend</p><div className="h-36 cursor-zoom-in rounded-xl focus-visible:outline focus-visible:outline-2 focus-visible:outline-blue-500"
+  role="button" tabIndex={0} aria-label="Expand Filtered Balance Trend" title="Click to expand Balance Trend"
+  onClick={() => setExpandedTrend("balance")}
+  onKeyDown={(event) => { if (event.key === "Enter" || event.key === " ") { event.preventDefault(); setExpandedTrend("balance"); } }}>
+  {trendData.length ? <ResponsiveContainer width="100%" height="100%"><LineChart data={trendData}><CartesianGrid strokeDasharray="3 3" /><XAxis dataKey="day" /><YAxis /><Tooltip content={<FinanceTrendSummaryTooltip kind="balance" />} /><Legend /><Line isAnimationActive={false} connectNulls type="monotone" dataKey="balanceGreen" name={`Balance > ${balanceAlertLimitLabel}`} stroke="#22c55e" strokeWidth={3} dot={{ r: 4 }} /><Line isAnimationActive={false} connectNulls type="monotone" dataKey="balanceRed" name={`Balance ≤ ${balanceAlertLimitLabel}`} stroke="#ef4444" strokeWidth={3} dot={{ r: 4 }} /></LineChart></ResponsiveContainer> : <div className="flex h-full items-center justify-center text-slate-500">No balance trend data.</div>}</div></div></div></Card>
               <Card>
                 <h2 className="text-xl font-bold">Expense by Category</h2>
                 <div className="mt-4 h-60">
@@ -2064,6 +2074,18 @@ return (
                 </div>
               </Card>
             </section>
+            <FinanceExpandedTrendOverlay
+              open={expandedTrend !== null}
+              kind={expandedTrend || "expense"}
+              onKindChange={setExpandedTrend}
+              onClose={() => setExpandedTrend(null)}
+              data={trendData}
+              dailyData={dailyData}
+              records={filteredRecords}
+              category={trendCategory}
+              alertLimit={balanceLimit}
+              filterLabel={filterLabel}
+            />
           </div>
         </section>
 
