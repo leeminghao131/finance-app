@@ -5,7 +5,7 @@ import {mostUsedNotes} from "./financePlanning.js";
 export default function FinanceQuickNotes({records=[],type,category,onChoose}) {
   const suggestions=React.useMemo(()=>mostUsedNotes(records,type,category,7),[records,type,category]);
   return <div className="mt-2 rounded-xl bg-slate-50 p-3 ring-1 ring-slate-200" aria-label="Most used notes for category">
-    <p className="mb-2 text-xs font-semibold text-slate-700">Quick Add / 常用备注 · Top 7</p>
+    <p className="mb-2 text-xs font-semibold text-slate-700">Quick Add / Most used notes</p>
     {!suggestions.length?<p className="text-xs text-slate-500">No past notes for this category. Enter your own Note below.</p>:
       <div className="flex flex-wrap gap-2">
         {suggestions.map(({note,count})=><button key={note} type="button"
