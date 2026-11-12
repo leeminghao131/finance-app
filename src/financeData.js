@@ -29,7 +29,10 @@ export async function loadEveryOwnedRow(client, table, columns, userId, onProgre
     throw new Error("Invalid pagination size.");
   }
 
-  for (let attempt = 0; attempt < 3; attempt += 1) {
+  // A matching count is insufficient: another device can edit amounts without
+  // changing row count. Compare two complete, ordered reads and retry if
+  // any record changed while the snapshot was being assembled.
+  async function readPass() {
     const { count: before, error: countError } = await client
       .from(table)
       .select("id", { count: "exact", head: true })
@@ -58,8 +61,18 @@ export async function loadEveryOwnedRow(client, table, columns, userId, onProgre
       .select("id", { count: "exact", head: true })
       .eq("user_id", userId);
     if (afterError) throw afterError;
-    if (before === after && rows.length === after && new Set(rows.map((row) => String(row.id))).size === rows.length) {
-      return rows;
+    if (before !== after || rows.length !== after ||
+        new Set(rows.map(row => String(row.id))).size !== rows.length) return null;
+    return rows;
+  }
+
+  for (let attempt = 0; attempt < 3; attempt += 1) {
+    const first = await readPass();
+    if (!first) continue;
+    const second = await readPass();
+    if (second && first.length === second.length &&
+        first.every((row, index) => JSON.stringify(row) === JSON.stringify(second[index]))) {
+      return second;
     }
   }
   throw new Error("Finance data changed during synchronization. Please retry; no partial totals were applied.");
