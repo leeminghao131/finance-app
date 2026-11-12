@@ -2025,7 +2025,7 @@ return (
                 onSavePlans={saveExpectedIncomePlans}
               />
               <HeatmapCard days={heatmapDays} label={filterLabel} />
-              <div className="min-w-0 xl:col-span-2">
+              <div className="min-w-0">
                 <TopExpensesCard
                   records={topExpenses} label={filterLabel}
                   category={topExpenseCategory} setCategory={setTopExpenseCategory}
