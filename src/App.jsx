@@ -850,7 +850,10 @@ useEffect(() => {
       setSyncProgress("");setInitialDataReady(true);setDataLoading(false);
     }catch(error){
       if(!isCurrent())return;
-      setSyncStatus("Cloud sync failed: "+(error.message||"unknown error")+". No partial totals were applied.");
+      // A failed background refresh means the cached figures may be stale.
+      // Hide the dashboard rather than presenting previous totals as verified.
+      setInitialDataReady(false);
+      setSyncStatus("Cloud sync failed: "+(error.message||"unknown error")+". Totals hidden until cloud data is verified.");
       setSyncProgress("");setDataLoading(false);
     }
   }
