@@ -52,7 +52,9 @@ export default function FinanceForecastPanel({records,selectedMonth,asOfDate,pla
         <h2 className="text-xl font-bold">Cash Flow Forecast / 现金流预测</h2>
         <p className="mt-1 text-xs text-slate-500">Forecast uses cumulative ledger balance across months. Real income is never mixed with planned income.</p>
       </div>
-      <div className="mt-4 grid grid-cols-2 gap-3">
+      <div className="mt-4 grid items-start gap-5 xl:grid-cols-2">
+        <div className="min-w-0">
+          <div className="grid grid-cols-2 gap-3">
         <label className="text-xs font-semibold text-slate-600">Range
           <select value={horizon} onChange={e=>setHorizon(e.target.value)}
             className="mt-1 w-full rounded-xl border border-slate-300 px-3 py-2 text-sm">
@@ -69,9 +71,9 @@ export default function FinanceForecastPanel({records,selectedMonth,asOfDate,pla
             <option value={60}>Last 60 days</option>
           </select>
         </label>
-      </div>
+          </div>
 
-      {outcome.error ? <p className="mt-4 rounded-xl bg-red-50 p-3 text-sm text-red-700">{outcome.error}</p> :
+          {outcome.error ? <p className="mt-4 rounded-xl bg-red-50 p-3 text-sm text-red-700">{outcome.error}</p> :
         <>
           <p className="mt-3 text-sm font-semibold text-slate-700">{data.title} · {data.targetDate}</p>
           <div className="mt-3 grid grid-cols-2 gap-2">
@@ -104,7 +106,12 @@ export default function FinanceForecastPanel({records,selectedMonth,asOfDate,pla
               <p className="mt-1 text-2xl font-bold">{money(data.predictedBalance)}</p>
             </div>
           </div>
-          <div className="mt-4 h-56 min-w-0">
+            </>
+          }
+        </div>
+        {!outcome.error && (
+          <div className="min-w-0">
+            <div className="h-64 min-w-0">
             <ResponsiveContainer width="100%" height="100%">
               <LineChart data={data.timeline} margin={{top:8,right:12,left:0,bottom:0}}>
                 <CartesianGrid strokeDasharray="3 3"/>
@@ -117,9 +124,10 @@ export default function FinanceForecastPanel({records,selectedMonth,asOfDate,pla
               </LineChart>
             </ResponsiveContainer>
           </div>
-          <p className="mt-2 text-xs text-slate-500">{data.note} · Forecasts are estimates, not guarantees.</p>
-        </>
-      }
+            <p className="mt-2 text-xs text-slate-500">{data.note} · Forecasts are estimates, not guarantees.</p>
+          </div>
+        )}
+      </div>
 
       <FinanceOverlay open={incomePlannerOpen} title="Expected Income / 预计收入"
         onClose={() => setIncomePlannerOpen(false)} widthClass="max-w-xl">
