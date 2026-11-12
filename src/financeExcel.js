@@ -1,5 +1,6 @@
 import * as XLSX from "xlsx";
 import { requireCalendarDate, localDateMY } from "./financeCalendar.js";
+import { openingTotal, parseOpeningAmount } from "./financeOpeningBalance.js";
 
 const HEADERS = {
   records: ["Record ID","Date","Type","Category","Method","Amount (RM)","Note","Version","Updated At"],
@@ -7,6 +8,7 @@ const HEADERS = {
   budgets: ["Month","Category","Budget (RM)","Snapshot Version"],
   template: ["Category","Default Budget (RM)"],
   planned: ["Plan ID","Expected Date","Description","Expected Amount (RM)","Status"],
+  opening: ["Method","Opening Balance (RM)"],
 };
 const cents = n=>Math.round(Number(n||0)*100);
 const rm = c=>Math.round(c)/100;
@@ -48,7 +50,7 @@ function asBudgetAmount(value) {
 
 export function buildFinanceWorkbook({
   records=[],deletedRecords=[],transfers=[],deletedTransfers=[],
-  monthRows=[],budgetTemplate={},forecastPlans=[],
+  monthRows=[],budgetTemplate={},forecastPlans=[],openingBalances={},
   scope="all",month=localDateMY().slice(0,7),includeRecycleBin=false,
   exportedOn=localDateMY(),
 } = {}) {
@@ -82,6 +84,10 @@ export function buildFinanceWorkbook({
     safeExcelText(p.id),excelDateNumber(p.date),safeExcelText(p.note),
     rm(cents(p.amount)),"NOT ACTUAL INCOME",
   ]);
+  const initialCents = Math.round(openingTotal(openingBalances) * 100);
+  const openingRows = Object.entries(openingBalances).map(([method,amount])=>[
+    safeExcelText(method),parseOpeningAmount(amount),
+  ]);
   const incomeCents=validRecords.filter(r=>r.type==="income").reduce((n,r)=>n+cents(r.amount),0);
   const expenseCents=validRecords.filter(r=>r.type==="expense").reduce((n,r)=>n+cents(r.amount),0);
   const summaryRows=[
@@ -90,7 +96,9 @@ export function buildFinanceWorkbook({
     ["Active finance records",validRecords.length],
     ["Total income (RM)",rm(incomeCents)],
     ["Total expense (RM)",rm(expenseCents)],
-    ["Estimated ledger balance (RM)",rm(incomeCents-expenseCents)],
+    ["Opening balance total (RM)", rm(initialCents)],
+    ["Estimated ledger balance (RM)",rm(incomeCents-expenseCents+(scope==="all"?initialCents:0))],
+    ["Opening balances in selected-month subtotal","Excluded: opening amounts are not period income"],
     ["Active transfers",validTransfers.length],
     ["Saved monthly budget snapshots",validBudgets.length],
     ["Expected income plans",validPlans.length],
@@ -103,6 +111,7 @@ export function buildFinanceWorkbook({
   const wb=XLSX.utils.book_new();
   makeSheet(wb,"Finance Records",HEADERS.records,recordRows,[1],[5]);
   makeSheet(wb,"Transfers",HEADERS.transfers,transferRows,[1],[4]);
+  makeSheet(wb,"Opening Balances",HEADERS.opening,openingRows,[],[1]);
   makeSheet(wb,"Monthly Budgets",HEADERS.budgets,monthlyRows,[],[2]);
   makeSheet(wb,"Budget Template",HEADERS.template,templateRows,[],[1]);
   makeSheet(wb,"Expected Income",HEADERS.planned,plannedRows,[1],[3]);
@@ -134,7 +143,7 @@ export function buildFinanceWorkbook({
   return {workbook:wb,stats:{
     records:validRecords.length,transfers:validTransfers.length,
     monthlyBudgets:validBudgets.length,plans:validPlans.length,
-    income:rm(incomeCents),expense:rm(expenseCents),
+    income:rm(incomeCents),expense:rm(expenseCents),openingTotalCents:initialCents,
     transferTotalCents:validTransfers.reduce((n,r)=>n+cents(r.amount),0),
     plannedTotalCents:validPlans.reduce((n,p)=>n+cents(p.amount),0),
     budgetTotalCents:validBudgets.reduce((n,r)=>n+Object.values(r.category_budgets||{})
@@ -170,7 +179,8 @@ export function verifyFinanceWorkbook(workbook,stats) {
   if(rm(inc)!==stats.income||rm(exp)!==stats.expense)throw new Error("Export amount total mismatch");
   const sumSheet=(name,field)=>XLSX.utils.sheet_to_json(roundtrip.Sheets[name],{defval:""})
     .reduce((sum,row)=>sum+cents(row[field]),0);
-  if(sumSheet("Transfers","Amount (RM)")!==stats.transferTotalCents ||
+  if(sumSheet("Opening Balances","Opening Balance (RM)")!==stats.openingTotalCents ||
+     sumSheet("Transfers","Amount (RM)")!==stats.transferTotalCents ||
      sumSheet("Monthly Budgets","Budget (RM)")!==stats.budgetTotalCents ||
      sumSheet("Expected Income","Expected Amount (RM)")!==stats.plannedTotalCents) {
     throw new Error("Excel verification failed: transfer, budget or expected income amounts differ");
