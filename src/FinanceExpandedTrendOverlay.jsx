@@ -167,7 +167,7 @@ export default function FinanceExpandedTrendOverlay({
                             <p className="min-w-0 break-words font-bold text-slate-800">
                               {builtInFinanceCategory(record.category, language)}
                             </p>
-                            <p className="shrink-0 font-bold tabular-nums text-blue-700">{rm(record.amount)}</p>
+                            <p className="max-w-[55%] break-words text-right font-bold tabular-nums text-blue-700">{rm(record.amount)}</p>
                           </div>
                           <p className="mt-1 text-xs text-slate-500">
                             <span data-i18n-ignore>{record.method || "TNG"}</span>
