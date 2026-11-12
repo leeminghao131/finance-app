@@ -70,13 +70,13 @@ test("UI: category pie remains, but the duplicate category records list is remov
 });
 
 test("UI: forecast is not stretched by right-hand cards and top five stays accessible", () => {
-  assert.match(app, /grid items-start gap-4 xl:grid-cols-\[minmax\(0,1fr\)_minmax\(0,1\.1fr\)\]/);
+  assert.match(app, /<section className="grid items-start gap-4">/);
   const start = app.indexOf('<section className="grid items-start gap-4');
   const end = app.indexOf("</section>", start);
   const section = app.slice(start, end);
   assert.match(section, /<FinanceForecastPanel/);
   assert.match(section, /<HeatmapCard/);
-  assert.match(section, /xl:col-span-2/);
+  assert.doesNotMatch(section, /xl:col-span-2/);
   assert.match(section, /<TopExpensesCard/);
   const topStart = app.indexOf("function TopExpensesCard(");
   const topEnd = app.indexOf("function TodaySummaryCard(", topStart);
