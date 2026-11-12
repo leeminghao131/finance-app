@@ -233,16 +233,18 @@ function BalanceCard({ title, value, desc, limit, methodBalances = [] }) {
         {showMethodBreakdown && (
           <button
             type="button"
-            onClick={() => setOpen((previous) => !previous)}
+            onClick={() => setOpen(true)}
+             aria-label="Open Method Balance" aria-haspopup="dialog" aria-expanded={open}
             className="rounded-xl bg-slate-100 px-3 py-2 text-xs font-bold text-slate-700 transition hover:bg-slate-200"
           >
-            {open ? "Hide" : "Methods"}
+            Methods
           </button>
         )}
       </div>
 
-      {showMethodBreakdown && open && (
-        <div className="mt-4 rounded-2xl bg-slate-50 p-3 ring-1 ring-slate-200">
+      {showMethodBreakdown && (
+        <FinanceOverlay open={open} title="Method Balance" onClose={() => setOpen(false)} widthClass="max-w-xl">
+        <div className="rounded-2xl bg-slate-50 p-3 ring-1 ring-slate-200">
           <div className="mb-3 flex items-center justify-between gap-3">
             <div>
               <p className="text-sm font-bold text-slate-900">Method Balance</p>
@@ -284,6 +286,7 @@ function BalanceCard({ title, value, desc, limit, methodBalances = [] }) {
             ))}
           </div>
         </div>
+        </FinanceOverlay>
       )}
     </Card>
   );
@@ -313,10 +316,10 @@ function HeatmapCard({ days, label }) {
     <Card>
       <h2 className="text-xl font-bold">Spending Heatmap / 消费热力图</h2>
       <p className="mt-1 text-sm text-slate-500">颜色越深 = 那天花费越高 · {label}</p>
-      <div className="mt-4 grid grid-cols-7 gap-2">
+      <div className="mt-4 grid gap-2" style={{ gridTemplateColumns: "repeat(auto-fit, minmax(110px, 1fr))" }}>
         {days.map((d) => {
           const intensity = d.amount > 0 ? 0.18 + (d.amount / max) * 0.72 : 0.06;
-          return <div key={d.date} title={`${d.date}: ${money(d.amount)}`} className="rounded-xl p-2 text-center text-xs font-bold ring-1 ring-slate-100" style={{ backgroundColor: `rgba(239, 68, 68, ${intensity})`, color: d.amount > 0 ? "#7f1d1d" : "#64748b" }}><p>{d.date.slice(8)}</p><p className="mt-1 truncate">{d.amount > 0 ? money(d.amount).replace("MYR", "RM") : "-"}</p></div>;
+          return <div key={d.date} title={`${d.date}: ${money(d.amount)}`} className="rounded-xl p-2 text-center text-xs font-bold ring-1 ring-slate-100" style={{ backgroundColor: `rgba(239, 68, 68, ${intensity})`, color: d.amount > 0 ? "#7f1d1d" : "#64748b" }}><p>{d.date.slice(8)}</p><p className="mt-1 break-words text-[11px] font-bold leading-tight tabular-nums" style={{ overflowWrap: "anywhere" }}>{d.amount > 0 ? money(d.amount).replace("MYR", "RM") : "-"}</p></div>;
         })}
       </div>
     </Card>
@@ -581,6 +584,7 @@ function FinanceVisualizerAppContent() {
   const [monthRows, setMonthRows] = useState([]);
   const [budgetMonth, setBudgetMonth] = useState(monthNow());
   const [budgetOpen, setBudgetOpen] = useState(false);
+  const [recordsOpen, setRecordsOpen] = useState(false);
   const [budgetDraftDirty, setBudgetDraftDirty] = useState(false);
   const [forecastPlans, setForecastPlans] = useState([]);
   const [undoDeleted, setUndoDeleted] = useState(null);
@@ -1804,11 +1808,16 @@ return (
 <Card className={`overflow-hidden ${addRecordTheme.card}`}>
   <div className={`-mx-5 -mt-5 mb-5 bg-gradient-to-r ${addRecordTheme.header} px-5 py-4 text-white`}>
     <div className="flex items-center justify-between gap-3">
-      <div>
+      <div className="min-w-0">
         <h2 className="text-xl font-bold">{addRecordTheme.title}</h2>
         <p className="mt-1 text-sm text-white/80">{addRecordTheme.subtitle}</p>
+        <button type="button" onClick={() => setRecordsOpen(true)}
+          aria-haspopup="dialog" aria-expanded={recordsOpen}
+          className="mt-3 inline-flex min-h-11 items-center gap-2 rounded-xl border border-white/35 bg-white/15 px-3 py-2 text-sm font-bold text-white transition hover:bg-white/25 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white">
+          <span aria-hidden="true">📋</span><span>Transaction Records</span>
+        </button>
       </div>
-      <div className="rounded-2xl bg-white/20 px-3 py-2 text-2xl">{addRecordTheme.icon}</div>
+      <div className="shrink-0 rounded-2xl bg-white/20 px-3 py-2 text-2xl">{addRecordTheme.icon}</div>
     </div>
   </div>
             <form onSubmit={addRecord} className="mt-5 space-y-4">
@@ -2042,6 +2051,8 @@ return (
           </div>
         </section>
 
+       <FinanceOverlay open={recordsOpen} title="Transaction Records"
+         onClose={() => { setRecordsOpen(false); setDeleteConfirm(null); }} widthClass="max-w-6xl" showTitle={false}>
        <Card>
   <div className="flex flex-col gap-2 md:flex-row md:items-end md:justify-between">
     <div>
@@ -2207,6 +2218,7 @@ categoryOptionsFor={categoryOptionsFor}
     </div>
   )}
 </Card>
+       </FinanceOverlay>
 
         <Card>
           <div className="flex flex-wrap items-center justify-between gap-3">
