@@ -50,9 +50,9 @@ export default function FinanceScenarioSimulator({records=[],totalBalance=0,user
   return <>
     <button ref={triggerRef} type="button" disabled={disabled} onClick={()=>setOpen(true)}
       className="mh-modal-trigger rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm font-bold text-slate-800 disabled:opacity-50">
-      🪐 What-if Simulator / 时间机器
+      🪐 What-if Simulator
     </button>
-    <FinanceOverlay open={open} onClose={()=>setOpen(false)} title="Financial Time Machine / 财务时间机器" triggerRef={triggerRef} widthClass="max-w-5xl">
+    <FinanceOverlay open={open} onClose={()=>setOpen(false)} title="Financial Time Machine" triggerRef={triggerRef} widthClass="max-w-5xl">
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
         <label className="text-sm">Months
           <select className={field} value={form.months} onChange={e=>update("months",Number(e.target.value))}>
