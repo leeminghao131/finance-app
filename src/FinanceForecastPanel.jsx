@@ -1,5 +1,5 @@
 import { localizedFinanceAlert, localizedFinanceConfirm } from "./FinanceLanguageLayer.jsx";
-import React, { useMemo, useState } from "react";
+import React, { useMemo, useRef, useState } from "react";
 import { CartesianGrid, Legend, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { localDateMY, shiftCalendarDay, requireCalendarDate } from "./financeCalendar.js";
 import { calculateCashForecast } from "./financeInsights.js";
@@ -8,17 +8,18 @@ import FinanceOverlay from "./FinanceOverlay.jsx";
 
 const money = n => new Intl.NumberFormat("en-MY",{style:"currency",currency:"MYR"}).format(Number(n||0));
 
-export default function FinanceForecastPanel({records,selectedMonth,asOfDate,plannedIncomes,onSavePlans}) {
+export default function FinanceForecastPanel({records,selectedMonth,asOfDate,plannedIncomes,openingBalanceTotal=0,onSavePlans}) {
   const [horizon,setHorizon] = useState("monthEnd");
   const [trailingDays,setTrailingDays] = useState(30);
   const [editForm,setEditForm] = useState({date:shiftCalendarDay(localDateMY(),1),amount:"",note:""});
   const [busy,setBusy] = useState(false);
   const [incomePlannerOpen,setIncomePlannerOpen] = useState(false);
+  const incomePlannerTriggerRef = useRef(null);
 
   const outcome = useMemo(()=>{
-    try {return {data:calculateCashForecast(records,{asOfDate,selectedMonth,horizon,trailingDays,plannedIncomes})};}
+    try {return {data:calculateCashForecast(records,{asOfDate,selectedMonth,horizon,trailingDays,plannedIncomes,openingBalanceTotal})};}
     catch(e){return {error:e.message};}
-  },[records,asOfDate,selectedMonth,horizon,trailingDays,plannedIncomes]);
+  },[records,asOfDate,selectedMonth,horizon,trailingDays,plannedIncomes,openingBalanceTotal]);
   const data = outcome.data;
   const visiblePlans = plannedIncomes.slice().sort((a,b)=>a.date.localeCompare(b.date));
 
@@ -52,7 +53,9 @@ export default function FinanceForecastPanel({records,selectedMonth,asOfDate,pla
         <h2 className="text-xl font-bold">Cash Flow Forecast / 现金流预测</h2>
         <p className="mt-1 text-xs text-slate-500">Forecast uses cumulative ledger balance across months. Real income is never mixed with planned income.</p>
       </div>
-      <div className="mt-4 grid grid-cols-2 gap-3">
+      <div className="mt-4 grid items-start gap-5 xl:grid-cols-2">
+        <div className="min-w-0">
+          <div className="grid grid-cols-2 gap-3">
         <label className="text-xs font-semibold text-slate-600">Range
           <select value={horizon} onChange={e=>setHorizon(e.target.value)}
             className="mt-1 w-full rounded-xl border border-slate-300 px-3 py-2 text-sm">
@@ -69,9 +72,9 @@ export default function FinanceForecastPanel({records,selectedMonth,asOfDate,pla
             <option value={60}>Last 60 days</option>
           </select>
         </label>
-      </div>
+          </div>
 
-      {outcome.error ? <p className="mt-4 rounded-xl bg-red-50 p-3 text-sm text-red-700">{outcome.error}</p> :
+          {outcome.error ? <p className="mt-4 rounded-xl bg-red-50 p-3 text-sm text-red-700">{outcome.error}</p> :
         <>
           <p className="mt-3 text-sm font-semibold text-slate-700">{data.title} · {data.targetDate}</p>
           <div className="mt-3 grid grid-cols-2 gap-2">
@@ -88,8 +91,10 @@ export default function FinanceForecastPanel({records,selectedMonth,asOfDate,pla
                 <p className="text-xs text-green-700">Expected future income (not real)</p>
                 <button type="button" aria-label="Manage Expected Income" title="Expected Income / 预计收入"
                   aria-haspopup="dialog" aria-expanded={incomePlannerOpen}
+                  data-modal-trigger="expected-income"
+                  ref={incomePlannerTriggerRef}
                   onClick={() => setIncomePlannerOpen(true)}
-                  className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-green-200 bg-white text-xl font-bold text-green-800 shadow-sm hover:bg-green-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-green-700">
+                  className="mh-modal-trigger flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-green-200 bg-white text-xl font-bold text-green-800 shadow-sm hover:bg-green-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-green-700">
                   ＋
                 </button>
               </div>
@@ -104,7 +109,12 @@ export default function FinanceForecastPanel({records,selectedMonth,asOfDate,pla
               <p className="mt-1 text-2xl font-bold">{money(data.predictedBalance)}</p>
             </div>
           </div>
-          <div className="mt-4 h-56 min-w-0">
+            </>
+          }
+        </div>
+        {!outcome.error && (
+          <div className="min-w-0">
+            <div className="h-64 min-w-0">
             <ResponsiveContainer width="100%" height="100%">
               <LineChart data={data.timeline} margin={{top:8,right:12,left:0,bottom:0}}>
                 <CartesianGrid strokeDasharray="3 3"/>
@@ -112,16 +122,18 @@ export default function FinanceForecastPanel({records,selectedMonth,asOfDate,pla
                 <YAxis fontSize={10} width={52} tickFormatter={(n)=>String(Math.round(n))}/>
                 <Tooltip formatter={v=>money(v)}/>
                 <Legend/>
-                <Line name="Actual ledger" type="monotone" dataKey="actual" stroke="#334155" strokeWidth={2} dot={false} connectNulls={false}/>
-                <Line name="Forecast" type="monotone" dataKey="forecast" stroke="#2563eb" strokeWidth={2} strokeDasharray="6 4" dot={false} connectNulls={false}/>
+                <Line isAnimationActive={false} name="Actual ledger" type="monotone" dataKey="actual" stroke="#334155" strokeWidth={2} dot={false} connectNulls={false}/>
+                <Line isAnimationActive={false} name="Forecast" type="monotone" dataKey="forecast" stroke="#2563eb" strokeWidth={2} strokeDasharray="6 4" dot={false} connectNulls={false}/>
               </LineChart>
             </ResponsiveContainer>
           </div>
-          <p className="mt-2 text-xs text-slate-500">{data.note} · Forecasts are estimates, not guarantees.</p>
-        </>
-      }
+            <p className="mt-2 text-xs text-slate-500">{data.note} · Forecasts are estimates, not guarantees.</p>
+          </div>
+        )}
+      </div>
 
       <FinanceOverlay open={incomePlannerOpen} title="Expected Income / 预计收入"
+         triggerRef={incomePlannerTriggerRef}
         onClose={() => setIncomePlannerOpen(false)} widthClass="max-w-xl">
       <div className="space-y-3">
         <p className="mt-1 text-xs text-slate-500">Manual planning only. This does not create an actual Income record.</p>

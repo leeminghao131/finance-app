@@ -47,6 +47,7 @@ export function calculateCashForecast(records, {
   horizon = "monthEnd",
   trailingDays = 30,
   plannedIncomes = [],
+  openingBalanceTotal = 0,
 } = {}) {
   requireCalendarDate(asOfDate);
   if (![7, 30, 60].includes(trailingDays)) throw new Error("Unsupported trailing expense period");
@@ -58,8 +59,9 @@ export function calculateCashForecast(records, {
     : calendarMonthEnd(selectedMonth);
   const signedCents = (r) => (r.type === "income" ? 1 : -1) * cents(r.amount);
   const usedRecords = records.filter((r) => !r.deleted_at && r.date && ["income","expense"].includes(r.type));
-  const currentCents = usedRecords.filter(r => r.date <= asOfDate).reduce((sum,r) => sum + signedCents(r),0);
-  const pastEndCents = historical ? usedRecords.filter(r => r.date <= target).reduce((sum,r) => sum + signedCents(r),0) : currentCents;
+  const openingCents = cents(openingBalanceTotal);
+  const currentCents = openingCents + usedRecords.filter(r => r.date <= asOfDate).reduce((sum,r) => sum + signedCents(r),0);
+  const pastEndCents = historical ? openingCents + usedRecords.filter(r => r.date <= target).reduce((sum,r) => sum + signedCents(r),0) : currentCents;
   const expenseStart = previousCalendarDays(trailingDays,asOfDate);
   const expenseSum = usedRecords.filter(r => r.type==="expense" && r.date>=expenseStart && r.date<=asOfDate)
     .reduce((sum,r)=>sum+cents(r.amount),0);
@@ -78,7 +80,7 @@ export function calculateCashForecast(records, {
   if (actualDays > 0 && actualDays <= 400) {
     const actualDates = calendarDaysRange(actualStart,actualDays);
     for (const date of actualDates) {
-      const balance = usedRecords.filter(r=>r.date<=date).reduce((sum,r)=>sum+signedCents(r),0);
+      const balance = openingCents + usedRecords.filter(r=>r.date<=date).reduce((sum,r)=>sum+signedCents(r),0);
       timeline.push({date,day:date.slice(5),actual:money(balance),forecast:null});
     }
   }
