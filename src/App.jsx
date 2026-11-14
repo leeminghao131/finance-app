@@ -12,8 +12,7 @@ import FinanceQuickNotes from "./FinanceQuickNotes.jsx";
 import FinanceSavingsGoals from "./FinanceSavingsGoals.jsx";
 import FinanceAdvancedFilters from "./FinanceAdvancedFilters.jsx";
 import FinanceAdvancedResults from "./FinanceAdvancedResults.jsx";
-import FinanceScenarioSimulator from "./FinanceScenarioSimulator.jsx";
-import FinanceWrapped from "./FinanceWrapped.jsx";
+import FinanceInsightsDock from "./FinanceInsightsDock.jsx";
 import {validateSavedFilters,filterFinanceRecordsAdvanced} from "./financeStage1Analytics.js";
 import {validateSavingsGoals,calculateSavingsAvailable} from "./financePlanning.js";
 import { openingTotal, calculateMethodBalances } from "./financeOpeningBalance.js";
@@ -2371,11 +2370,11 @@ categoryOptionsFor={categoryOptionsFor}
         </Card>
        </FinanceOverlay>
 
-        <section className="flex flex-wrap items-center gap-3 rounded-2xl bg-white p-4 ring-1 ring-slate-200" aria-label="Finance Intelligence Tools">
-          <h2 className="mr-2 text-sm font-bold text-slate-800">Finance Intelligence</h2>
-          <FinanceWrapped records={records} monthRows={monthRows} budgetTemplate={budgets} disabled={!initialDataReady||dataLoading}/>
-          <FinanceScenarioSimulator records={records} totalBalance={totalBalance} userId={user?.id} disabled={!initialDataReady||dataLoading}/>
-        </section>
+        <FinanceInsightsDock
+          records={records} monthRows={monthRows} budgetTemplate={budgets}
+          totalBalance={totalBalance} userId={user?.id}
+          disabled={!initialDataReady||dataLoading}
+        />
         <div className="grid gap-4 xl:grid-cols-2">
           <FinanceMonthComparison records={records} />
           <FinanceSavingsGoals goals={savingsGoals} onSave={saveSavingsGoals}

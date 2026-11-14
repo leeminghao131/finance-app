@@ -108,8 +108,10 @@ test("Time Machine compares a 90-day baseline and hypothetical adjustments witho
 });
 test("Stage1 UI is separate from transaction handlers and uses a test-only settings field",()=>{
   const app=file("App.jsx"),cloud=file("financeCloudService.js"),budget=file("FinanceBudgetPanel.jsx");
-  for(const name of ["FinanceAdvancedFilters","FinanceAdvancedResults","FinanceWrapped","FinanceScenarioSimulator"])
+  for(const name of ["FinanceAdvancedFilters","FinanceAdvancedResults","FinanceInsightsDock"])
     assert.ok(app.includes(name),name);
+  const dock=file("FinanceInsightsDock.jsx");
+  for(const name of ["FinanceWrapped","FinanceScenarioSimulator"])assert.ok(dock.includes(name),name);
   assert.match(budget,/FinanceBudgetBurnRate/);
   assert.match(app,/queueSettingsField\("saved_filters", verified\)/);
   assert.match(cloud,/savings_goals,saved_filters/);
