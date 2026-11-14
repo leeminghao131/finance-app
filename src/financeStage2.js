@@ -18,7 +18,11 @@ const cleanAmount=(v,positive=true)=>{
   if(positive&&amount<=0||!Number.isSafeInteger(amount))throw Error("A positive, safe RM amount is required.");
   return amount/100;
 };
-const cleanText=(value,max)=>String(value??"").trim().slice(0,max);
+const cleanText=(value,max)=>{
+  const text=String(value??"").trim();
+  if(text.length>max)throw Error("Text exceeds allowed length; no content was truncated.");
+  return text;
+};
 const uniqueIds=list=>{
   const s=new Set();
   for(const item of list){if(s.has(item.id))throw Error("Duplicate planning ID.");s.add(item.id);}
@@ -96,6 +100,10 @@ export function withBillOccurrence(bills,billId,due,change){
   }));
 }
 
+const normalizeMethod=value=>{
+  const raw=String(value||"").trim(),upper=raw.toUpperCase();
+  return ["BANK IN","ONLINE BANK IN","DEBIT CARD"].includes(upper)?"BANK":raw;
+};
 export const recordFingerprint=r=>
   [r.id,r.version??"",r.updated_at??"",r.date,r.type,r.amount,r.category,r.method,r.note??""].join("|");
 export function validateReviewState(input){
@@ -125,7 +133,7 @@ export function findReviewCandidates(records,rawState={},asOfDate,limitDays=180)
   const reviewed=new Map(state.decisions.map(d=>[d.recordId,d.fingerprint]));
   const duplicates=new Map();
   for(const r of rows){
-    const key=[r.date,r.type,r.category,r.method,Math.round(Number(r.amount)*100)].join("|");
+    const key=[r.date,r.type,r.category,normalizeMethod(r.method),Math.round(Number(r.amount)*100)].join("|");
     const group=duplicates.get(key)||[];group.push(r);duplicates.set(key,group);
   }
   const results=[];
@@ -135,7 +143,7 @@ export function findReviewCandidates(records,rawState={},asOfDate,limitDays=180)
     if(r.type==="expense"&&cents(r.amount)>=cents(state.threshold))reasons.push("large");
     if(!String(r.note||"").trim())reasons.push("missingNote");
     if(r.date>today)reasons.push("futureDate");
-    const key=[r.date,r.type,r.category,r.method,Math.round(Number(r.amount)*100)].join("|");
+    const key=[r.date,r.type,r.category,normalizeMethod(r.method),Math.round(Number(r.amount)*100)].join("|");
     if((duplicates.get(key)||[]).length>1)reasons.push("duplicate");
     if(!reasons.length)continue;
     const fingerprint=recordFingerprint(r);
