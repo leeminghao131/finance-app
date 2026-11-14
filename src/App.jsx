@@ -10,6 +10,11 @@ import FinanceOpeningBalancePanel from "./FinanceOpeningBalancePanel.jsx";
 import FinanceMonthComparison from "./FinanceMonthComparison.jsx";
 import FinanceQuickNotes from "./FinanceQuickNotes.jsx";
 import FinanceSavingsGoals from "./FinanceSavingsGoals.jsx";
+import FinanceAdvancedFilters from "./FinanceAdvancedFilters.jsx";
+import FinanceAdvancedResults from "./FinanceAdvancedResults.jsx";
+import FinanceScenarioSimulator from "./FinanceScenarioSimulator.jsx";
+import FinanceWrapped from "./FinanceWrapped.jsx";
+import {validateSavedFilters,filterFinanceRecordsAdvanced} from "./financeStage1Analytics.js";
 import {validateSavingsGoals,calculateSavingsAvailable} from "./financePlanning.js";
 import { openingTotal, calculateMethodBalances } from "./financeOpeningBalance.js";
 import FinanceOverlay from "./FinanceOverlay.jsx";
@@ -598,6 +603,8 @@ function FinanceVisualizerAppContent() {
   const [forecastPlans, setForecastPlans] = useState([]);
   const [openingBalances, setOpeningBalances] = useState({});
   const [savingsGoals, setSavingsGoals] = useState([]);
+  const [savedFilters, setSavedFilters] = useState([]);
+  const [advancedFilter, setAdvancedFilter] = useState(null);
   const [undoDeleted, setUndoDeleted] = useState(null);
   const [trashOpen, setTrashOpen] = useState(false);
   const [syncProgress, setSyncProgress] = useState("");
@@ -735,6 +742,8 @@ function FinanceVisualizerAppContent() {
       setForecastPlans([]);
       setOpeningBalances({});
       setSavingsGoals([]);
+      setSavedFilters([]);
+      setAdvancedFilter(null);
       setUndoTransfer(null);
       setBudgets(DEFAULT_BUDGETS);
       confirmedCustomOptionsRef.current = DEFAULT_CUSTOM_OPTIONS;
@@ -873,6 +882,7 @@ useEffect(() => {
       setForecastPlans(Array.isArray(settingsRow?.forecast_plans)?settingsRow.forecast_plans:[]);
       setOpeningBalances(settingsRow?.opening_balances || {});
       setSavingsGoals(validateSavingsGoals(settingsRow?.savings_goals || []));
+      setSavedFilters(validateSavedFilters(settingsRow?.saved_filters || []));
       const version=settingsRow?Number(settingsRow.version||1):null;
       settingsVersionRef.current=version;setSettingsVersion(version);
       setSyncStatus("Cloud synced — all records loaded");
@@ -939,6 +949,15 @@ useEffect(() => {
     const accountId = user?.id;
     const ok = await queueSettingsField("savings_goals", verified);
     if (ok && liveUserIdRef.current === accountId) setSavingsGoals(verified);
+    return ok;
+  }
+
+  async function saveSavedFilters(next, expectedSnapshot) {
+    if (JSON.stringify(savedFilters) !== expectedSnapshot) return false;
+    const verified = validateSavedFilters(next);
+    const accountId = user?.id;
+    const ok = await queueSettingsField("saved_filters", verified);
+    if (ok && liveUserIdRef.current === accountId) setSavedFilters(verified);
     return ok;
   }
 
@@ -1238,6 +1257,11 @@ const incomeMethodOptions = useMemo(
 const categoryOptionsFor = (type) => (type === "expense" ? expenseCategoryOptions : incomeCategoryOptions);
 const methodOptionsFor = () => expenseMethodOptions;
   const filteredRecords = useMemo(() => filterRecords(records, filterMode, selectedMonth, selectedYear, keyword), [records, filterMode, selectedMonth, selectedYear, keyword]);
+  const advancedResults = useMemo(() => {
+    if (!advancedFilter) return {rows:null,error:""};
+    try { return {rows:filterFinanceRecordsAdvanced(records,advancedFilter),error:""}; }
+    catch (error) { return {rows:[],error:error.message}; }
+  },[records,advancedFilter]);
   const expenseRecords = filteredRecords.filter((r) => r.type === "expense");
   const income = sumType(records, "income");
   const expense = sumType(records, "expense");
@@ -2135,13 +2159,27 @@ return (
     <div>
       <h2 className="text-xl font-bold">Transaction Records</h2>
       <p className="mt-1 text-sm text-slate-500">
-        Showing {filteredRecords.length} records for {filterLabel} · Click a date to expand records
+        {advancedFilter
+          ? "Showing "+(advancedResults.rows?.length||0)+" advanced-search records · global sort"
+          : "Showing "+filteredRecords.length+" records for "+filterLabel+" · Click a date to expand records"}
       </p>
     </div>
 
   </div>
 
-  <div className="mt-5 space-y-3">
+  <FinanceAdvancedFilters
+    active={advancedFilter} onApply={setAdvancedFilter}
+    savedFilters={savedFilters} onSave={saveSavedFilters}
+    categoryOptions={[...new Set([...expenseCategoryOptions,...incomeCategoryOptions])]}
+    methodOptions={accountMethodOptions}
+    disabled={!initialDataReady||dataLoading}
+  />
+  {advancedFilter && (advancedResults.error
+    ? <p role="alert" className="mt-3 rounded-xl bg-red-50 p-3 text-sm text-red-700">{advancedResults.error}</p>
+    : <FinanceAdvancedResults rows={advancedResults.rows} EditableCell={EditableCell}
+        onUpdate={updateRecord} onDelete={deleteRecord}
+        categoryOptionsFor={categoryOptionsFor} methodOptionsFor={methodOptionsFor}/>)}
+  {!advancedFilter && <div className="mt-5 space-y-3">
     {groupedTransactionRecords.length === 0 && (
       <div className="rounded-2xl bg-slate-50 p-8 text-center text-sm text-slate-400 ring-1 ring-slate-100">
         No records found.
@@ -2278,9 +2316,9 @@ categoryOptionsFor={categoryOptionsFor}
         </div>
       );
     })}
-  </div>
+  </div>}
 
-  {filteredRecords.length > 0 && (
+  {!advancedFilter && filteredRecords.length > 0 && (
     <div className="mt-5 rounded-2xl bg-slate-50 p-4 text-sm ring-1 ring-slate-100">
       <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
         <p className="font-semibold text-slate-500">Total ({filteredRecords.length} records)</p>
@@ -2333,6 +2371,11 @@ categoryOptionsFor={categoryOptionsFor}
         </Card>
        </FinanceOverlay>
 
+        <section className="flex flex-wrap items-center gap-3 rounded-2xl bg-white p-4 ring-1 ring-slate-200" aria-label="Finance Intelligence Tools">
+          <h2 className="mr-2 text-sm font-bold text-slate-800">Finance Intelligence / 财务分析工具</h2>
+          <FinanceWrapped records={records} disabled={!initialDataReady||dataLoading}/>
+          <FinanceScenarioSimulator records={records} totalBalance={totalBalance} userId={user?.id} disabled={!initialDataReady||dataLoading}/>
+        </section>
         <div className="grid gap-4 xl:grid-cols-2">
           <FinanceMonthComparison records={records} />
           <FinanceSavingsGoals goals={savingsGoals} onSave={saveSavingsGoals}
