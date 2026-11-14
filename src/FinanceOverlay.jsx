@@ -48,6 +48,10 @@ export default function FinanceOverlay({
   const originRectRef = useRef(null);
   const motionRef = useRef([]);
   const phaseRef = useRef("idle");
+  const lastChildrenRef = useRef(children);
+  const lastTitleRef = useRef(title);
+  if (open) { lastChildrenRef.current = children; lastTitleRef.current = title; }
+  const shownTitle = open ? title : lastTitleRef.current;
   onCloseRef.current = onClose;
   openRef.current = open;
   triggerRefRef.current = triggerRef;
@@ -159,18 +163,18 @@ export default function FinanceOverlay({
       onMouseDown={event => {
         if (open && event.target === event.currentTarget) onCloseRef.current?.();
       }}>
-      <section ref={dialogRef} role="dialog" aria-modal="true" aria-label={title} tabIndex={-1}
+      <section ref={dialogRef} role="dialog" aria-modal="true" aria-label={shownTitle} tabIndex={-1}
         className={`w-full ${widthClass} min-w-0 overflow-y-auto rounded-2xl bg-white shadow-2xl outline-none`}
-        style={{ maxHeight: "calc(100dvh - 1.5rem)", transformOrigin: "top left" }}>
+        style={{ maxHeight: "calc(100dvh - 1.5rem)", transformOrigin: "top left", pointerEvents: open ? "auto" : "none" }}>
         <div className={`sticky top-0 z-10 flex items-center gap-3 border-b border-slate-200 bg-white/95 px-4 py-3 backdrop-blur sm:px-5 ${showTitle ? "justify-between" : "justify-end"}`}>
-          <h2 className={showTitle ? "min-w-0 text-lg font-bold text-slate-900" : "sr-only"}>{title}</h2>
+          <h2 className={showTitle ? "min-w-0 text-lg font-bold text-slate-900" : "sr-only"}>{shownTitle}</h2>
           <button type="button" onClick={() => { if (open) onCloseRef.current?.(); }}
-            aria-label={"Close " + title}
+            aria-label={"Close " + shownTitle}
             className="min-h-11 rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-bold text-slate-700 hover:bg-slate-100">
             ✕ Close
           </button>
         </div>
-        <div className="min-w-0 p-3 sm:p-4">{children}</div>
+        <div className="min-w-0 p-3 sm:p-4">{open ? children : lastChildrenRef.current}</div>
       </section>
     </div>,
     document.body
