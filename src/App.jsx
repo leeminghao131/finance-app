@@ -11,6 +11,8 @@ import FinanceQuickNotes from "./FinanceQuickNotes.jsx";
 import FinanceAdvancedFilters from "./FinanceAdvancedFilters.jsx";
 import FinanceAdvancedResults from "./FinanceAdvancedResults.jsx";
 import FinanceInsightsDock from "./FinanceInsightsDock.jsx";
+import FinanceStage2Hub from "./FinanceStage2Hub.jsx";
+import {validateBills,validateReviewState,validateAccountChecks} from "./financeStage2.js";
 import {validateSavedFilters,filterFinanceRecordsAdvanced} from "./financeStage1Analytics.js";
 import {validateSavingsGoals,calculateSavingsAvailable} from "./financePlanning.js";
 import { openingTotal, calculateMethodBalances } from "./financeOpeningBalance.js";
@@ -601,6 +603,10 @@ function FinanceVisualizerAppContent() {
   const [openingBalances, setOpeningBalances] = useState({});
   const [savingsGoals, setSavingsGoals] = useState([]);
   const [savedFilters, setSavedFilters] = useState([]);
+  // Stage 2 separate, per-account planning/review/check data; no transaction table writes.
+  const [recurringBills, setRecurringBills] = useState([]);
+  const [reviewState, setReviewState] = useState({threshold:500,decisions:[]});
+  const [accountChecks, setAccountChecks] = useState([]);
   const [advancedFilter, setAdvancedFilter] = useState(null);
   const [undoDeleted, setUndoDeleted] = useState(null);
   const [trashOpen, setTrashOpen] = useState(false);
@@ -740,6 +746,9 @@ function FinanceVisualizerAppContent() {
       setOpeningBalances({});
       setSavingsGoals([]);
       setSavedFilters([]);
+      setRecurringBills([]);
+      setReviewState({threshold:500,decisions:[]});
+      setAccountChecks([]);
       setAdvancedFilter(null);
       setUndoTransfer(null);
       setBudgets(DEFAULT_BUDGETS);
@@ -880,6 +889,9 @@ useEffect(() => {
       setOpeningBalances(settingsRow?.opening_balances || {});
       setSavingsGoals(validateSavingsGoals(settingsRow?.savings_goals || []));
       setSavedFilters(validateSavedFilters(settingsRow?.saved_filters || []));
+      setRecurringBills(validateBills(settingsRow?.recurring_bills || []));
+      setReviewState(validateReviewState(settingsRow?.review_state || {threshold:500,decisions:[]}));
+      setAccountChecks(validateAccountChecks(settingsRow?.account_checks || []));
       const version=settingsRow?Number(settingsRow.version||1):null;
       settingsVersionRef.current=version;setSettingsVersion(version);
       setSyncStatus("Cloud synced — all records loaded");
@@ -956,6 +968,51 @@ useEffect(() => {
     const ok = await queueSettingsField("saved_filters", verified);
     if (ok && liveUserIdRef.current === accountId) setSavedFilters(verified);
     return ok;
+  }
+
+  async function saveStage2Field(column, next, baseline) {
+    const accountId = user?.id;
+    const verify = column === "recurring_bills" ? validateBills
+      : column === "review_state" ? validateReviewState
+      : column === "account_checks" ? validateAccountChecks : null;
+    if (!verify || !accountId) return false;
+    const current = column === "recurring_bills" ? recurringBills
+      : column === "review_state" ? reviewState : accountChecks;
+    if (JSON.stringify(current) !== baseline) return false;
+    const normalized = verify(next);
+    const ok = await queueSettingsField(column, normalized);
+    if (!ok || liveUserIdRef.current !== accountId) return false;
+    if (column === "recurring_bills") setRecurringBills(normalized);
+    else if (column === "review_state") setReviewState(normalized);
+    else setAccountChecks(normalized);
+    return true;
+  }
+
+  function prefillStage2Record(next) {
+    const type = next?.type;
+    if (!["income","expense"].includes(type)) return false;
+    const categories = categoryOptionsFor(type), methods = methodOptionsFor(type);
+    const category = next.category || categories[0];
+    if (!categories.includes(category) || !methods.includes(next.method)) {
+      localizedFinanceAlert("The selected Category or Method no longer exists. Reopen the plan or select a valid value.");
+      return false;
+    }
+    const amount = Number(next.amount);
+    if (!Number.isFinite(amount) || amount <= 0 || !Number.isSafeInteger(Math.round(amount*100))) {
+      localizedFinanceAlert("Enter a valid positive RM amount before prefilling a record.");
+      return false;
+    }
+    // This touches only an UNSAVED form. User must manually press Add Expense/Income.
+    setAmountEntryMode("rm");
+    setForm(previous => ({
+      ...previous,type,category,method:next.method,amount:amount.toFixed(2),
+      note:String(next.note || ""),date:next.date || today(),
+    }));
+    window.setTimeout(()=>{
+      document.getElementById("mh-stage2-add-record-form")?.scrollIntoView({behavior:"smooth",block:"center"});
+    },80);
+    setSyncStatus("Unsaved record form filled — review and press Add to save.");
+    return true;
   }
 
   function saveBudgets(nextBudgets) {
@@ -1797,6 +1854,18 @@ const addRecordTheme =
 return (
   <div onClickCapture={(e) => e.target.closest("button,select") && playSound()} className="mh-ui min-h-screen bg-slate-50 p-3 text-slate-900 sm:p-4 md:p-8">
 <CoinRainEffect trigger={coinRainTrigger} />
+<FinanceStage2Hub
+  bills={recurringBills} reviewState={reviewState} checks={accountChecks}
+  records={records} transfers={transfers} balances={methodBalances}
+  categories={expenseCategoryOptions} methods={expenseMethodOptions}
+  onSaveBills={(next,baseline)=>saveStage2Field("recurring_bills",next,baseline)}
+  onSaveReview={(next,baseline)=>saveStage2Field("review_state",next,baseline)}
+  onSaveChecks={(next,baseline)=>saveStage2Field("account_checks",next,baseline)}
+  onPrefillExpense={prefillStage2Record} onPrefillRecord={prefillStage2Record}
+  onUpdateRecord={updateRecord}
+  optionsFor={type=>({categories:categoryOptionsFor(type),methods:methodOptionsFor(type)})}
+  disabled={!initialDataReady||dataLoading}
+/>
 <IncomeCoinSpinEffect trigger={incomeCoinTrigger} />
       <div className="mx-auto max-w-7xl space-y-6">
         <header className="flex flex-col gap-4 rounded-3xl bg-slate-900 p-6 text-white md:flex-row md:items-center md:justify-between">
@@ -1880,7 +1949,7 @@ return (
       <div className="shrink-0 rounded-2xl bg-white/20 px-3 py-2 text-2xl">{addRecordTheme.icon}</div>
     </div>
   </div>
-            <form onSubmit={addRecord} className="mt-5 space-y-4">
+            <form id="mh-stage2-add-record-form" onSubmit={addRecord} className="mt-5 space-y-4">
               <div className="grid grid-cols-2 gap-3 rounded-2xl bg-slate-100 p-1"><button
   type="button"
   onClick={() => setForm((p) => ({ ...p, type: "expense" }))}
