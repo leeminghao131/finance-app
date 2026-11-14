@@ -21,6 +21,7 @@ test("Phase 4 baseline refuses any non-test Supabase URL in preview source", () 
 
 test("Phase 4 baseline retains all requested existing complete-test modules", () => {
   const app=file("App.jsx");
+  const dock=file("FinanceInsightsDock.jsx");
   for (const component of [
     "FinanceTransferPanel", "FinanceBudgetPanel", "FinanceForecastPanel",
     "FinanceOpeningBalancePanel", "FinanceMonthComparison", "FinanceQuickNotes",
@@ -28,7 +29,7 @@ test("Phase 4 baseline retains all requested existing complete-test modules", ()
     "FinanceMethodDonutChart", "FinanceExpandedTrendOverlay",
     "FinanceCsvImportPanel", "FinanceExcelExportPanel",
   ]) {
-    assert.match(app, new RegExp(component));
+    assert.match(app+"\n"+dock, new RegExp(component));
   }
   for(const handler of [
     "async function loadCloudData", "async function addRecord",
