@@ -18,6 +18,7 @@ const builtInMethods = new Set(["BANK", "CASH", "TNG", "GRAB PAY", "BANK IN", "D
 export default function FinanceMobileRecords({ records, onUpdate, onDelete, categoryOptionsFor, methodOptionsFor }) {
   const { language } = useFinanceLanguage();
   const [editingId, setEditingId] = useState(null);
+  const editTriggerRef = React.useRef(null);
   const [field, setField] = useState("date");
   const [draft, setDraft] = useState("");
   const [saving, setSaving] = useState(false);
@@ -79,7 +80,7 @@ export default function FinanceMobileRecords({ records, onUpdate, onDelete, cate
             <p className="whitespace-pre-wrap break-words text-sm text-slate-700" data-i18n-ignore>{item.note || "—"}</p>
           </div>
           <div className="mt-4 flex gap-3 border-t border-slate-100 pt-3">
-            <button type="button" onClick={() => startEdit(item)} className="mh-touch flex-1 rounded-xl bg-slate-900 px-4 py-2.5 text-sm font-bold text-white">Edit</button>
+            <button type="button" onClick={event => { editTriggerRef.current = event.currentTarget; startEdit(item); }} className="mh-modal-trigger mh-touch flex-1 rounded-xl bg-slate-900 px-4 py-2.5 text-sm font-bold text-white">Edit</button>
             <button type="button" onClick={() => setConfirmDelete(confirmDelete === item.id ? null : item.id)}
               className="mh-touch flex-1 rounded-xl border border-red-200 bg-white px-4 py-2.5 text-sm font-bold text-red-700">
               Delete
@@ -98,7 +99,7 @@ export default function FinanceMobileRecords({ records, onUpdate, onDelete, cate
           )}
         </article>
       ))}
-      <FinanceOverlay open={!!record} onClose={() => { if (!saving) setEditingId(null); }} title="Edit Transaction" widthClass="max-w-lg">
+      <FinanceOverlay open={!!record} onClose={() => { if (!saving) setEditingId(null); }} title="Edit Transaction" widthClass="max-w-lg" triggerRef={editTriggerRef}>
         {record && (
           <div className="space-y-4">
             <p className="text-xs text-slate-500">Edit one field at a time. Each save uses the existing cloud conflict protection.</p>
