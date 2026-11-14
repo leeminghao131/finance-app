@@ -28,7 +28,7 @@ import { getRecordRequestId, confirmRecordRequest, getTransferRequestId, confirm
 import { CoinRainEffect, IncomeCoinSpinEffect } from "./FinanceVisualEffects.jsx";
 import { FinanceLanguageProvider, FinanceLanguageButton, localizedFinanceAlert, localizedFinanceConfirm } from "./FinanceLanguageLayer.jsx";
 import {
-  BarChart, Bar, PieChart, Pie, Cell, XAxis, YAxis, Tooltip,
+  BarChart, Bar, XAxis, YAxis, Tooltip,
   ResponsiveContainer, CartesianGrid, Legend, LineChart, Line,
 } from "recharts";
 
@@ -56,7 +56,6 @@ const ADD_CATEGORY_VALUE = "__add_category__";
 const ADD_METHOD_VALUE = "__add_method__";
 const DELETE_CATEGORY_VALUE = "__delete_category__";
 const DELETE_METHOD_VALUE = "__delete_method__";
-const COLORS = ["#6366f1", "#22c55e", "#f97316", "#ef4444", "#06b6d4", "#a855f7", "#eab308", "#64748b", "#ec4899"];
 
 const today = localDateMY;
 const monthNow = localMonthMY;
@@ -314,20 +313,6 @@ function BalanceCard({ title, value, desc, limit, methodBalances = [], openingBa
 
 function DateInput({ value, onChange }) {
   return <input type="date" value={value} onChange={(e) => onChange(e.target.value)} className="w-full cursor-pointer rounded-2xl border border-slate-200 bg-white px-4 py-3 outline-none" />;
-}
-
-function MiniPie({ data, emptyText, onClick, selectedName }) {
-  if (!data.length) return <div className="flex h-full items-center justify-center rounded-2xl bg-slate-50 text-slate-500">{emptyText}</div>;
-  return (
-    <ResponsiveContainer width="100%" height="100%">
-      <PieChart margin={{ top: 24, right: 42, bottom: 24, left: 42 }}>
-        <Pie isAnimationActive={false} data={data} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={60} labelLine={false} label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`} onClick={onClick}>
-          {data.map((entry, index) => <Cell key={entry.name} fill={COLORS[index % COLORS.length]} opacity={!selectedName || selectedName === entry.name ? 1 : 0.35} />)}
-        </Pie>
-        <Tooltip formatter={(value) => money(value)} />
-      </PieChart>
-    </ResponsiveContainer>
-  );
 }
 
 function HeatmapCard({ days, label }) {
