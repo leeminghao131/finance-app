@@ -36,7 +36,7 @@ export default function FinanceAdvancedFilters({active,onApply,savedFilters=[],o
     <div className="flex flex-wrap items-center gap-2">
       <button ref={triggerRef} type="button" disabled={disabled} onClick={()=>{setDraft(active||emptyAdvancedFilter());setError("");setOpen(true);}}
         className="mh-modal-trigger rounded-xl bg-slate-900 px-3 py-2.5 text-sm font-bold text-white disabled:opacity-50">
-        ⚙ Advanced Search / 高级筛选
+        ⚙ Advanced Search
       </button>
       {active&&<button type="button" onClick={()=>onApply(null)}
         className="rounded-xl border border-slate-300 bg-white px-3 py-2.5 text-sm font-bold">Clear advanced search</button>}
