@@ -47,6 +47,20 @@ export default function FinanceScenarioSimulator({records=[],totalBalance=0,user
   try{const target=cents(goal);if(target<0)throw Error("Target must be positive.");needed=money(Math.ceil(target/Number(form.months))/100);}
   catch{}
   const v=result.value;
+  const comparisons=useMemo(()=>saved.map((preset,index)=>{
+    try{
+      const value=simulateFinanceScenarios(records,{
+        currentBalance:totalBalance,asOfDate:localDateMY(),months:Number(preset.months),
+        incomeAdjustment:preset.incomeAdjustment,expenseReduction:preset.expenseReduction,extraExpense:preset.extraExpense,
+      });
+      return {index,name:preset.name,months:Number(preset.months),value};
+    }catch{return null;}
+  }).filter(Boolean),[saved,records,totalBalance]);
+  const comparisonData=v?.baseline.map((row,i)=>{
+    const entry={month:row.month,baseline:row.balance,scenario:v.scenario[i].balance};
+    for(const p of comparisons)if(p.months===Number(form.months))entry["saved"+p.index]=p.value.scenario[i].balance;
+    return entry;
+  });
   return <>
     <button ref={triggerRef} type="button" disabled={disabled} onClick={()=>setOpen(true)}
       className="mh-modal-trigger rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm font-bold text-slate-800 disabled:opacity-50">
@@ -61,9 +75,13 @@ export default function FinanceScenarioSimulator({records=[],totalBalance=0,user
         </label>
         <label className="text-sm">Extra income / month (RM)
           <input inputMode="decimal" className={field} value={form.incomeAdjustment} onChange={e=>update("incomeAdjustment",e.target.value)}/>
+          <input type="range" aria-label="Extra income slider" min="0" max="2000" step="50" value={Math.min(2000,Math.max(0,Number(form.incomeAdjustment)||0))}
+            onChange={e=>update("incomeAdjustment",e.target.value)} className="mt-2 w-full accent-teal-600"/>
         </label>
         <label className="text-sm">Less expense / month (RM)
           <input inputMode="decimal" className={field} value={form.expenseReduction} onChange={e=>update("expenseReduction",e.target.value)}/>
+          <input type="range" aria-label="Expense reduction slider" min="0" max="2000" step="50" value={Math.min(2000,Math.max(0,Number(form.expenseReduction)||0))}
+            onChange={e=>update("expenseReduction",e.target.value)} className="mt-2 w-full accent-teal-600"/>
         </label>
         <label className="text-sm">Extra spending / month (RM)
           <input inputMode="decimal" className={field} value={form.extraExpense} onChange={e=>update("extraExpense",e.target.value)}/>
@@ -78,11 +96,14 @@ export default function FinanceScenarioSimulator({records=[],totalBalance=0,user
           </div>
           <div className="mt-4 h-64 min-w-0" aria-label="Simulation line chart">
             <ResponsiveContainer width="100%" height="100%">
-              <LineChart data={v.baseline.map((r,i)=>({month:r.month,baseline:r.balance,scenario:v.scenario[i].balance}))}>
+              <LineChart data={comparisonData}>
                 <CartesianGrid strokeDasharray="3 3"/><XAxis dataKey="month" fontSize={11}/>
                 <YAxis width={52} fontSize={11}/><Tooltip formatter={n=>money(n)}/><Legend/>
                 <Line name="Current pattern" dataKey="baseline" stroke="#64748b" dot={false} isAnimationActive={false}/>
                 <Line name="Your scenario" dataKey="scenario" stroke="#0d9488" strokeWidth={3} dot={false} isAnimationActive={false}/>
+                {comparisons.filter(p=>p.months===Number(form.months)).map((p,i)=><Line key={p.index} name={p.name}
+                  dataKey={"saved"+p.index} stroke={["#c08457","#8b5cf6","#38bdf8"][i%3]}
+                  strokeDasharray="4 3" dot={false} isAnimationActive={false}/>)}
               </LineChart>
             </ResponsiveContainer>
           </div>
@@ -98,6 +119,12 @@ export default function FinanceScenarioSimulator({records=[],totalBalance=0,user
           <p className="pb-2 text-sm">Needed extra each month: <b>{needed||"Enter a valid RM target"}</b></p>
         </div>
         <p className="mt-2 text-xs text-slate-500">This shows the extra change needed across the chosen duration, not guaranteed cash or a saved Savings Goal.</p>
+      </div>
+      <div className="mt-3 grid gap-2 sm:grid-cols-2">
+        {comparisons.map(p=><div key={p.index} className="flex flex-wrap justify-between gap-2 rounded-xl border border-slate-200 bg-slate-50 p-3 text-xs">
+          <b data-i18n-ignore>{p.name}</b>
+          <span>{p.months} months · {money(p.value.finalDifference)} difference</span>
+        </div>)}
       </div>
       <div className="mt-4 rounded-xl border border-slate-200 p-3">
         <h3 className="font-semibold">Scenario presets · saved on this device only</h3>
