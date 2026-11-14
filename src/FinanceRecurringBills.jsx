@@ -78,6 +78,10 @@ export default function FinanceRecurringBills({
   async function markPaid(){
     const expense=candidates.find(r=>String(r.id)===chosenExpense);
     if(!expense){setError(t("必须选择已经存在的支出记录，不能凭空确认付款。","Select a real saved Expense before confirming payment."));return;}
+    const usedElsewhere=bills.some(b=>b.occurrences.some(o=>o.status==="paid"&&
+      o.recordId===String(expense.id)&&!(b.id===linkDue.billId&&o.due===linkDue.due)));
+    if(usedElsewhere){setError(t("这笔 Expense 已关联其他账单期数，不能重复认领付款。",
+      "This Expense is already linked to a different bill occurrence."));return;}
     if(!window.confirm(t("确认将该账单关联这笔已保存的支出？不会再次新增 Expense。","Link this already-saved Expense to the bill? No duplicate transaction will be created.")))return;
     await act(linkDue,{status:"paid",recordId:String(expense.id)});
   }
