@@ -1,4 +1,5 @@
-import React,{useMemo,useState} from "react";
+import React,{useMemo,useRef,useState} from "react";
+import FinanceOverlay from "./FinanceOverlay.jsx";
 import {Bar,BarChart,CartesianGrid,Legend,ResponsiveContainer,Tooltip,XAxis,YAxis} from "recharts";
 import {localMonthMY} from "./financeCalendar.js";
 import {compareFinanceMonths} from "./financePlanning.js";
@@ -10,6 +11,7 @@ export default function FinanceMonthComparison({records=[]}) {
   const [firstMonth,setFirstMonth]=useState(()=>previousMonth(current));
   const [secondMonth,setSecondMonth]=useState(current);
   const [showCategories,setShowCategories]=useState(false);
+  const categoryCompareTriggerRef=useRef(null);
   const comparison=useMemo(()=>{
     try{return {value:compareFinanceMonths(records,firstMonth,secondMonth)};}
     catch(e){return {error:e.message};}
@@ -65,11 +67,14 @@ export default function FinanceMonthComparison({records=[]}) {
           </BarChart>
         </ResponsiveContainer>
       </div>
-      <button type="button" onClick={()=>setShowCategories(v=>!v)}
-        className="mt-3 rounded-xl border border-slate-300 px-3 py-2 text-sm font-bold">
-        {showCategories?"Hide category comparison":"Show category comparison"} ({value.categories.length})
+      <button type="button" ref={categoryCompareTriggerRef} onClick={()=>setShowCategories(true)}
+        aria-haspopup="dialog" aria-expanded={showCategories}
+        className="mh-modal-trigger mt-3 min-h-11 rounded-xl border border-slate-300 px-3 py-2 text-sm font-bold">
+        Show category comparison ({value.categories.length})
       </button>
-      {showCategories&&<div className="mt-3 max-h-80 overflow-auto rounded-xl border border-slate-200">
+      <FinanceOverlay open={showCategories} title="Category Comparison / 分类对比"
+        onClose={()=>setShowCategories(false)} triggerRef={categoryCompareTriggerRef} widthClass="max-w-4xl">
+        <div className="max-h-[65dvh] overflow-auto rounded-xl border border-slate-200">
         <table className="w-full min-w-[440px] text-left text-sm">
           <thead className="sticky top-0 bg-slate-100"><tr><th className="p-2">Category</th><th className="p-2">{firstMonth}</th><th className="p-2">{secondMonth}</th><th className="p-2">Difference</th></tr></thead>
           <tbody>{value.categories.map(c=><tr key={c.category} className="border-t">
@@ -78,7 +83,8 @@ export default function FinanceMonthComparison({records=[]}) {
           </tr>)}</tbody>
         </table>
         {!value.categories.length&&<p className="p-3 text-sm text-slate-500">No expenses in either month.</p>}
-      </div>}
+        </div>
+      </FinanceOverlay>
       <p className="mt-3 text-xs text-slate-500">Records: {firstMonth} ({value.first.count}) · {secondMonth} ({value.second.count}). Positive expense change means more spending.</p>
     </>}
   </section>;
