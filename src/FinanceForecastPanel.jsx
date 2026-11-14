@@ -94,7 +94,7 @@ export default function FinanceForecastPanel({records,selectedMonth,asOfDate,pla
                   data-modal-trigger="expected-income"
                   ref={incomePlannerTriggerRef}
                   onClick={() => setIncomePlannerOpen(true)}
-                  className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-green-200 bg-white text-xl font-bold text-green-800 shadow-sm hover:bg-green-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-green-700">
+                  className="mh-modal-trigger flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-green-200 bg-white text-xl font-bold text-green-800 shadow-sm hover:bg-green-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-green-700">
                   ＋
                 </button>
               </div>
