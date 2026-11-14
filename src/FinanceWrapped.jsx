@@ -37,7 +37,7 @@ function exportStoryImage(wrapped,hidden){
     a.click();window.setTimeout(()=>URL.revokeObjectURL(url),1000);
   },"image/png");
 }
-export default function FinanceWrapped({records=[],monthRows=[],budgetTemplate={},disabled=false}){
+export default function FinanceWrapped({records=[],monthRows=[],budgetTemplate={},disabled=false,dockButton=false}){
   const {language}=useFinanceLanguage(),zh=language==="zh";
   const current=localDateMY().slice(0,7);
   const [open,setOpen]=useState(false),[mode,setMode]=useState("monthly"),[month,setMonth]=useState(current);
@@ -82,7 +82,12 @@ export default function FinanceWrapped({records=[],monthRows=[],budgetTemplate={
   ];
   return <>
     <button ref={triggerRef} type="button" disabled={disabled} onClick={()=>{setSlide(0);setOpen(true);}}
-      className="mh-modal-trigger rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm font-bold text-slate-800 disabled:opacity-50">✨ Finance Wrapped</button>
+      className={dockButton
+        ? "mh-insights-dock__button"
+        : "mh-modal-trigger rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm font-bold text-slate-800 disabled:opacity-50"}>
+      <span className={dockButton?"mh-insights-dock__label":""}>{zh?"财务回顾":"Finance Wrapped"}</span>
+      <span className={dockButton?"mh-insights-dock__icon":""} aria-hidden="true">✨</span>
+    </button>
     <FinanceOverlay open={open} onClose={()=>setOpen(false)} title="Finance Wrapped" triggerRef={triggerRef} widthClass="max-w-4xl">
       <div className="flex flex-wrap gap-2">
         {[["monthly","Monthly"],["quarterly","Custom Quarter"],["yearly","Yearly"]].map(([id,name])=><button key={id}
