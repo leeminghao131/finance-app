@@ -1259,7 +1259,7 @@ const methodOptionsFor = () => expenseMethodOptions;
   const filteredRecords = useMemo(() => filterRecords(records, filterMode, selectedMonth, selectedYear, keyword), [records, filterMode, selectedMonth, selectedYear, keyword]);
   const advancedResults = useMemo(() => {
     if (!advancedFilter) return {rows:null,error:""};
-    try { return {rows:filterFinanceRecordsAdvanced(records,advancedFilter),error:""}; }
+    try { return {rows:filterFinanceRecordsAdvanced(records.map(row=>({...row,method:recordMethod(row)})),advancedFilter),error:""}; }
     catch (error) { return {rows:[],error:error.message}; }
   },[records,advancedFilter]);
   const expenseRecords = filteredRecords.filter((r) => r.type === "expense");
