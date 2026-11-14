@@ -1,9 +1,10 @@
-import React, {useEffect, useState} from "react";
+import React, {useEffect, useRef, useState} from "react";
 import FinanceOverlay from "./FinanceOverlay.jsx";
 import {parseOpeningAmount} from "./financeOpeningBalance.js";
 
 export default function FinanceOpeningBalancePanel({methods, balances, onSave, disabled}) {
   const [open, setOpen] = useState(false);
+  const openingTriggerRef = useRef(null);
   const [draft, setDraft] = useState({});
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
@@ -31,11 +32,11 @@ export default function FinanceOpeningBalancePanel({methods, balances, onSave, d
     finally {setBusy(false);}
   }
   return <>
-    <button type="button" disabled={disabled} onClick={()=>setOpen(true)}
-      className="min-h-9 w-full rounded-xl border border-slate-300 bg-white px-2 py-2 text-xs font-bold leading-tight disabled:opacity-50">
+    <button type="button" ref={openingTriggerRef} disabled={disabled} onClick={()=>setOpen(true)}
+      className="mh-modal-trigger min-h-9 w-full rounded-xl border border-slate-300 bg-white px-2 py-2 text-xs font-bold leading-tight disabled:opacity-50">
       🏦 Opening Balance / 初始余额
     </button>
-    <FinanceOverlay open={open} title="Opening Balance / 初始余额" onClose={close} widthClass="max-w-xl">
+    <FinanceOverlay open={open} title="Opening Balance / 初始余额" onClose={close} widthClass="max-w-xl" triggerRef={openingTriggerRef}>
       <form onSubmit={save} className="space-y-3">
         <p className="text-sm text-slate-600">Account starting amounts, not Income. Saved per user; historical records remain untouched. Negative values are allowed.</p>
         {methods.map(method=><label key={method} className="flex items-center justify-between gap-3 text-sm">
