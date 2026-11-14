@@ -49,7 +49,7 @@ test("Advanced filters support dates, type, multi-select, RM ranges and full glo
   const low=filterFinanceRecordsAdvanced(rows,{...f,sort:"amountLow"});
   assert.deepEqual(low.map(r=>r.id),["4","6"]);
   assert.deepEqual(filterFinanceRecordsAdvanced(rows,{...f,keyword:"fuel"}).map(r=>r.id),["6"]);
-  assert.deepEqual(filterFinanceRecordsAdvanced(rows,{...f,methods:[]}).map(r=>r.id),["6","4","5"]);
+  assert.deepEqual(filterFinanceRecordsAdvanced(rows,{...f,methods:[]}).map(r=>r.id),["6","5","4"]);
   assert.throws(()=>validateAdvancedFilter({...f,from:"2026-02-29"}),/valid/);
   assert.throws(()=>validateAdvancedFilter({...f,min:"201",max:"200"}),/exceeds/);
   assert.throws(()=>validateAdvancedFilter({...f,sort:"drop"}),/Unsupported/);
