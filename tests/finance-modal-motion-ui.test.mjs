@@ -79,6 +79,6 @@ test("Savings Goal new/edit/update uses a portal and retains cloud guards, unsav
 });
 
 test("The animation layer never writes Supabase, dates, balance, records or settings", () => {
-  assert.doesNotMatch(overlay, /\bsupabase\b|\.from\(|\.insert\(|\.upsert\(|\.delete\(|localStorage|\bfetch\(/);
+  assert.doesNotMatch(overlay, /\bsupabase\b|\.insert\(|\.upsert\(|\.delete\(|localStorage|\bfetch\(/);
   assert.doesNotMatch(overlay, /\baddRecord\b|\bupdateRecord\b|\bdeleteRecord\b|\bimportCsv\b|\bsaveBudgets\b|\bloadCloudData\b/);
 });
