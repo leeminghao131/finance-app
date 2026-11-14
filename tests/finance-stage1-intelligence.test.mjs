@@ -86,7 +86,7 @@ test("Wrapped budget coverage never reconstructs a missing historical snapshot",
  assert.equal(budget.budget.missingMonths,0);
  assert.equal(budget.budget.templateMonths,1);
  assert.equal(budget.budget.total,200+420+9999);
- assert.equal(budget.budget.spent,75+50.65+100.2+99.99);
+ assert.equal(budget.budget.spent,325.84);
  const old=financeWrapped(rows,{mode:"monthly",month:"2026-10",asOfDate:"2026-11-14",
    monthRows:[],budgetTemplate:{Food:"9999"}});
  assert.equal(old.budget.available,false);
