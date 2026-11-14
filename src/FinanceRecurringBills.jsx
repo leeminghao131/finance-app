@@ -1,6 +1,6 @@
 import React,{useMemo,useRef,useState} from "react";
 import FinanceOverlay from "./FinanceOverlay.jsx";
-import {localDateMY,shiftCalendarDay} from "./financeCalendar.js";
+import {localDateMY,shiftCalendarDay,calendarMonthDays} from "./financeCalendar.js";
 import {billOccurrences,validateBills,withBillOccurrence} from "./financeStage2.js";
 import {useFinanceLanguage} from "./FinanceLanguageLayer.jsx";
 
@@ -18,8 +18,19 @@ export default function FinanceRecurringBills({
   const [base,setBase]=useState(""),[busy,setBusy]=useState(false),[error,setError]=useState("");
   const [linkDue,setLinkDue]=useState(null),[chosenExpense,setChosenExpense]=useState("");
   const today=localDateMY();
+  const [calendarMonth,setCalendarMonth]=useState(today.slice(0,7));
+  const [calendarDate,setCalendarDate]=useState(today);
   const events=useMemo(()=>billOccurrences(bills,today,records,70,40),[bills,today,records]);
   const pending=events.filter(e=>e.visible).sort((a,b)=>a.due.localeCompare(b.due));
+  const calendarEvents=useMemo(()=>{
+    const start=calendarMonth+"-01";
+    return billOccurrences(bills,start,records,0,calendarMonthDays(calendarMonth)-1);
+  },[bills,records,calendarMonth]);
+  const firstWeekDay=new Date(calendarMonth+"-01T00:00:00Z").getUTCDay();
+  const calendarCells=[...Array(firstWeekDay).fill(null),
+    ...Array.from({length:calendarMonthDays(calendarMonth)},(_,i)=>
+      calendarMonth+"-"+String(i+1).padStart(2,"0"))];
+  const chosenDayBills=calendarEvents.filter(e=>e.due===calendarDate);
   const selected=events.filter(e=>!selectedBillId||e.billId===selectedBillId);
   const candidates=useMemo(()=>{
     if(!linkDue)return [];
@@ -73,6 +84,35 @@ export default function FinanceRecurringBills({
         {t("＋ 新增账单","+ New Bill")}
       </button>
     </header>
+    <details className="mt-3 rounded-xl border border-slate-200 bg-white p-3">
+      <summary className="cursor-pointer text-sm font-bold">{t("🗓️ 查看账单日历","🗓️ Bill Calendar")}</summary>
+      <label className="mt-3 block text-xs text-slate-600">{t("查看月份","Select month")}
+        <input type="month" value={calendarMonth} className={field} onChange={e=>{
+          if(!e.target.value)return;
+          setCalendarMonth(e.target.value);
+          setCalendarDate(e.target.value+"-01");
+        }}/>
+      </label>
+      <div className="mt-3 grid grid-cols-7 gap-1 text-center text-xs text-slate-500">
+        {(zh?["日","一","二","三","四","五","六"]:["Su","Mo","Tu","We","Th","Fr","Sa"])
+          .map((name,i)=><b key={i} className="py-2">{name}</b>)}
+        {calendarCells.map((date,i)=>date?
+          <button type="button" key={date} onClick={()=>setCalendarDate(date)}
+            aria-pressed={calendarDate===date}
+            className={"min-h-12 rounded-lg px-1 py-1 text-xs "+(calendarDate===date?
+              "bg-slate-900 font-bold text-white":calendarEvents.some(e=>e.due===date)?"bg-amber-100 text-amber-900":"bg-slate-50 text-slate-600")}>
+            <span>{Number(date.slice(8))}</span>
+            {calendarEvents.some(e=>e.due===date)&&<span className="block text-[10px]">● {calendarEvents.filter(e=>e.due===date).length}</span>}
+          </button>:
+          <div key={"blank-"+i} aria-hidden="true"/>)}
+      </div>
+      <div className="mt-3 rounded-xl bg-slate-50 p-3 text-xs">
+        <b>{calendarDate} · {chosenDayBills.length} {t("笔计划账单","scheduled bills")}</b>
+        {chosenDayBills.map(e=><p key={e.id} className="mt-1 break-words" data-i18n-ignore>
+          {e.title} · {fmt(e.amount)} · {e.method}
+        </p>)}
+      </div>
+    </details>
     <div className="mt-3 rounded-xl bg-slate-50 p-3 text-sm text-slate-700">
       {t("待处理提醒","Alerts requiring attention")}：<b>{pending.length}</b>　·　
       {t("有效计划","Active plans")}：<b>{bills.filter(b=>b.active).length}</b>
