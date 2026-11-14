@@ -224,17 +224,31 @@ export function financeWrapped(records,{mode="monthly",month=localDateMY().slice
     daysWithRecords:new Set(current.trend.map(v=>v.date)).size,
     disclaimer:"Based on saved records only. Missing entries cannot be inferred; Transfers and Expected Income are excluded."};
 }
+/**
+ * Stage 1.2 simulation-only signed inputs:
+ *   incomeDelta > 0  earns more; incomeDelta < 0 earns less.
+ *   spendingDelta > 0 spends more; spendingDelta < 0 spends less.
+ * Legacy three-field simulations remain supported, unchanged, for older presets/tests.
+ */
 export function simulateFinanceScenarios(records,{
-  currentBalance=0,asOfDate=localDateMY(),months=12,incomeAdjustment=0,expenseReduction=0,extraExpense=0,
+  currentBalance=0,asOfDate=localDateMY(),months=12,
+  incomeDelta,spendingDelta,
+  incomeAdjustment=0,expenseReduction=0,extraExpense=0,
 }={}){
   validDate(asOfDate);
   if(![3,6,12,24].includes(Number(months)))throw new Error("Choose 3, 6, 12 or 24 months.");
-  const adjustIncome=cents(incomeAdjustment),reduceExpense=cents(expenseReduction),addExpense=cents(extraExpense);
-  if(adjustIncome<0||reduceExpense<0||addExpense<0)throw new Error("Scenario adjustments must be nonnegative.");
+  const modern=incomeDelta!==undefined||spendingDelta!==undefined;
+  let change;
+  if(modern){
+    change=cents(incomeDelta??0)-cents(spendingDelta??0);
+  }else{
+    const adjustIncome=cents(incomeAdjustment),reduceExpense=cents(expenseReduction),addExpense=cents(extraExpense);
+    if(adjustIncome<0||reduceExpense<0||addExpense<0)throw new Error("Scenario adjustments must be nonnegative.");
+    change=adjustIncome+reduceExpense-addExpense;
+  }
   const end=dayIndex(asOfDate),first=new Date((end-89)*86400000).toISOString().slice(0,10);
   const snapshot=groupedSums(records,first,asOfDate),balance=cents(currentBalance);
   const incomePerMonth=Math.round(cents(snapshot.income)*30/90),expensePerMonth=Math.round(cents(snapshot.expense)*30/90);
-  const change=adjustIncome+reduceExpense-addExpense;
   const baseline=[],scenario=[];
   for(let i=0;i<=Number(months);i++){
     baseline.push({month:i,balance:rm(balance+(incomePerMonth-expensePerMonth)*i)});
@@ -245,4 +259,20 @@ export function simulateFinanceScenarios(records,{
     monthlyImprovement:rm(change),finalDifference:rm(change*Number(months)),
     sampleRecords:snapshot.count,estimated:true,
     disclaimer:"Illustrative linear projection based on the past 90 days of recorded transactions, normalized to 30-day months. No bills, inflation, interest or missing transactions assumed."};
+}
+
+/**
+ * Convert existing device-local scenario presets without losing their ID/name
+ * or writing to localStorage. The caller decides when to persist its own edits.
+ */
+export function normalizeFinanceScenarioPreset(preset){
+  if(!preset||typeof preset!=="object"||Array.isArray(preset))
+    throw new Error("Invalid scenario preset.");
+  const {incomeAdjustment,expenseReduction,extraExpense,...rest}=preset;
+  const incomeDelta=preset.incomeDelta!==undefined?preset.incomeDelta:incomeAdjustment??0;
+  const spendingDelta=preset.spendingDelta!==undefined
+    ?preset.spendingDelta:rm(cents(extraExpense??0)-cents(expenseReduction??0));
+  const incomeInCents=cents(incomeDelta),spendInCents=cents(spendingDelta);
+  if(![3,6,12,24].includes(Number(rest.months)))throw new Error("Invalid scenario duration.");
+  return {...rest,incomeDelta:String(rm(incomeInCents)),spendingDelta:String(rm(spendInCents))};
 }

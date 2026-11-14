@@ -4,6 +4,7 @@ import { readFileSync } from "node:fs";
 
 const source = path => readFileSync(new URL("../src/" + path, import.meta.url), "utf8");
 const app = source("App.jsx");
+const dock = source("FinanceInsightsDock.jsx");
 const excel = source("FinanceExcelExportPanel.jsx");
 const excelService = source("financeExcel.js");
 const csv = source("FinanceCsvImportPanel.jsx");
@@ -36,7 +37,8 @@ test("Loading split does not touch records, transfers, budgets, settings, or Sup
   assert.match(app, /<FinanceTransferPanel/);
   assert.match(app, /<FinanceBudgetPanel/);
   assert.match(app, /<FinanceForecastPanel/);
-  assert.match(app, /<FinanceSavingsGoals/);
+  assert.match(app, /<FinanceInsightsDock/);
+  assert.match(dock, /<FinanceSavingsGoals/);
   assert.match(app, /<FinanceCategoryBubbleChart/);
   assert.match(app, /<FinanceMethodDonutChart/);
 });

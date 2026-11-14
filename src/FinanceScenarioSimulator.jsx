@@ -1,17 +1,18 @@
 import React,{useEffect,useMemo,useRef,useState} from "react";
 import {CartesianGrid,Legend,Line,LineChart,ResponsiveContainer,Tooltip,XAxis,YAxis} from "recharts";
 import FinanceOverlay from "./FinanceOverlay.jsx";
-import {simulateFinanceScenarios,money,cents} from "./financeStage1Analytics.js";
+import {simulateFinanceScenarios,normalizeFinanceScenarioPreset,money,cents} from "./financeStage1Analytics.js";
 import {localDateMY} from "./financeCalendar.js";
 import {useFinanceLanguage} from "./FinanceLanguageLayer.jsx";
 
 const field="mt-1 w-full rounded-xl border border-slate-300 bg-white px-3 py-2.5 text-base";
-const blank=(language="en")=>({name:language==="zh"?"我的方案":"My Scenario",months:12,incomeAdjustment:"300",expenseReduction:"200",extraExpense:"0"});
+const blank=(language="en")=>({name:language==="zh"?"我的方案":"My Scenario",months:12,incomeDelta:"300",spendingDelta:"-200"});
 const safeRead=userId=>{
   if(!userId)return [];
   try{
     const raw=JSON.parse(localStorage.getItem("mh-stage1-scenarios:"+userId)||"[]");
-    return Array.isArray(raw)?raw.filter(r=>r&&typeof r.id==="string").slice(0,3):[];
+    return Array.isArray(raw)?raw.filter(r=>r&&typeof r.id==="string").slice(0,3)
+      .flatMap(r=>{try{return [normalizeFinanceScenarioPreset(r)];}catch{return [];}}):[];
   }catch{return [];}
 };
 
@@ -24,13 +25,13 @@ export default function FinanceScenarioSimulator({records=[],totalBalance=0,user
   const triggerRef=useRef(null);
   useEffect(()=>{setSaved(safeRead(userId));setForm(blank(language));setError("");},[userId]);
 
-  // Stage 1 calculation and account-specific device presets are intentionally unchanged.
+  // Read-only scenarios now accept signed deltas. Old device presets are mapped in memory only.
   const result=useMemo(()=>{
     try{return {value:simulateFinanceScenarios(records,{
       currentBalance:totalBalance,asOfDate:localDateMY(),months:Number(form.months),
-      incomeAdjustment:form.incomeAdjustment,expenseReduction:form.expenseReduction,extraExpense:form.extraExpense,
+      incomeDelta:form.incomeDelta,spendingDelta:form.spendingDelta,
     })};}catch(e){return {error:e.message};}
-  },[records,totalBalance,form.months,form.incomeAdjustment,form.expenseReduction,form.extraExpense]);
+  },[records,totalBalance,form.months,form.incomeDelta,form.spendingDelta]);
   const update=(key,value)=>setForm(p=>({...p,[key]:value}));
   function persist(next){
     if(!userId)throw new Error(t("请先登录再保存模拟方案。","Sign in before saving simulation presets."));
@@ -64,7 +65,7 @@ export default function FinanceScenarioSimulator({records=[],totalBalance=0,user
     try{
       const value=simulateFinanceScenarios(records,{
         currentBalance:totalBalance,asOfDate:localDateMY(),months:Number(preset.months),
-        incomeAdjustment:preset.incomeAdjustment,expenseReduction:preset.expenseReduction,extraExpense:preset.extraExpense,
+        incomeDelta:preset.incomeDelta,spendingDelta:preset.spendingDelta,
       });
       return {index,name:preset.name,months:Number(preset.months),value,form:preset};
     }catch{return null;}
@@ -78,14 +79,34 @@ export default function FinanceScenarioSimulator({records=[],totalBalance=0,user
   const baselineEnd=v?.baseline[v.baseline.length-1]?.balance;
   const scenarioEnd=v?.scenario[v.scenario.length-1]?.balance;
   const difference=v?.finalDifference;
-  const inputCell=(key,label,slider=false)=>(
-    <label key={key} className="block min-w-0 text-sm font-medium text-slate-700">{label}
-      <input inputMode="decimal" className={field} value={form[key]} onChange={e=>update(key,e.target.value)}
-        aria-label={label}/>
-      {slider&&<input type="range" aria-label={label+t("滑块"," slider")} min="0" max="2000" step="50"
-        value={Math.min(2000,Math.max(0,Number(form[key])||0))}
-        onChange={e=>update(key,e.target.value)} className="mt-2 w-full accent-teal-600"/>}
-    </label>);
+  const signedInput=(key,label,positiveLabel,negativeLabel)=>{
+    const amount=Number(form[key]);
+    const isNegative=Number.isFinite(amount)&&amount<0;
+    const valid=Number.isFinite(amount);
+    const description=valid?(amount===0?t("不变","No change"):isNegative?negativeLabel:positiveLabel):t("请输入正确金额","Enter a valid amount");
+    return <div key={key} className="min-w-0 rounded-xl bg-slate-50 p-3 ring-1 ring-slate-200">
+      <label className="block text-sm font-semibold text-slate-800">{label}
+        <input type="text" inputMode="decimal" className={field} value={form[key]}
+          onChange={e=>update(key,e.target.value)} aria-label={label}/>
+      </label>
+      <input type="range" aria-label={label+t("滑块"," slider")} min="-2000" max="2000" step="50"
+        value={valid?Math.min(2000,Math.max(-2000,amount)):0}
+        onChange={e=>update(key,e.target.value)}
+        className="mt-3 w-full accent-teal-600"/>
+      <div className="mt-1 flex items-center justify-between gap-2 text-xs text-slate-500">
+        <span>{negativeLabel}</span><span>{t("0 · 不变","0 · Same")}</span><span>{positiveLabel}</span>
+      </div>
+      <div className="mt-2 flex flex-wrap items-center justify-between gap-2">
+        <span className={"text-xs font-semibold "+(isNegative?"text-amber-700":"text-teal-700")}>{description}</span>
+        <div className="inline-flex gap-1" aria-label={t("快速切换正负","Switch plus or minus")}>
+          <button type="button" aria-label={label+t("设为负数"," negative")} onClick={()=>update(key,String(-Math.max(50,Math.abs(valid?amount:0))))}
+            className="min-h-9 min-w-9 rounded-lg border border-slate-300 bg-white px-2 font-bold">−</button>
+          <button type="button" aria-label={label+t("设为正数"," positive")} onClick={()=>update(key,String(Math.max(50,Math.abs(valid?amount:0))))}
+            className="min-h-9 min-w-9 rounded-lg border border-slate-300 bg-white px-2 font-bold">+</button>
+        </div>
+      </div>
+    </div>;
+  };
   const summary=(label,value,accent="")=>(
     <div className="min-w-0 rounded-xl bg-slate-50 p-3 ring-1 ring-slate-100">
       <p className="text-xs leading-relaxed text-slate-500">{label}</p>
@@ -103,12 +124,12 @@ export default function FinanceScenarioSimulator({records=[],totalBalance=0,user
       triggerRef={triggerRef} widthClass="max-w-5xl">
       <div className="rounded-xl bg-slate-50 px-4 py-3">
         <h3 className="text-base font-semibold text-slate-900">
-          {t("如果每个月多赚一点、少花一点，未来余额会怎样？",
-            "What happens to your balance if you earn more or spend less each month?")}
+          {t("如果每个月收入或支出增加、减少，未来余额会怎样？",
+            "What happens to your balance if you earn or spend more — or less — each month?")}
         </h3>
         <p className="mt-1 text-sm leading-relaxed text-slate-600">
-          {t("先选模拟时间，再调整每个月的变化；下方会直接显示两种结果。",
-            "Choose a time period, adjust monthly changes, then compare the two results below.")}
+          {t("调整正负金额：收入为负代表少赚，支出为负代表少花。模拟不会修改真实记录。",
+            "Adjust signed amounts: negative income means earning less; negative spending means spending less. No real records change.")}
         </p>
       </div>
 
@@ -126,11 +147,16 @@ export default function FinanceScenarioSimulator({records=[],totalBalance=0,user
           </button>)}
         </div>
         <h3 className="mb-3 mt-4 text-sm font-bold text-slate-900">{t("第二步 · 假设每月变化","Step 2 · Adjust your monthly plan")}</h3>
-        <div className="grid gap-4 sm:grid-cols-3">
-          {inputCell("incomeAdjustment",t("每月多赚（RM）","Earn more / month (RM)"),true)}
-          {inputCell("expenseReduction",t("每月少花（RM）","Spend less / month (RM)"),true)}
-          {inputCell("extraExpense",t("每月额外多花（RM）","Spend extra / month (RM)"))}
+        <div className="grid gap-3 sm:grid-cols-2">
+          {signedInput("incomeDelta",t("每月收入变化（RM）","Monthly income change (RM)"),
+            t("多赚","Earn more"),t("少赚","Earn less"))}
+          {signedInput("spendingDelta",t("每月支出变化（RM）","Monthly spending change (RM)"),
+            t("多花","Spend more"),t("少花","Spend less"))}
         </div>
+        <p className="mt-3 text-xs text-slate-500">
+          {t("计算方式：收入变化 − 支出变化＝每月余额变化。示例：收入 +300，支出 −200，代表每个月额外留下 RM500。",
+            "Formula: income change − spending change = monthly balance difference. Example: income +300, spending −200 gives RM500 extra per month.")}
+        </p>
       </div>
 
       {result.error?<p role="alert" className="mt-3 rounded-xl bg-red-50 p-3 text-sm text-red-700">{result.error}</p>
@@ -230,9 +256,10 @@ export default function FinanceScenarioSimulator({records=[],totalBalance=0,user
                 aria-label={t("删除方案 ","Delete plan ")+p.name}
                 className="rounded-lg px-3 py-1.5 text-red-700 hover:bg-red-50">×</button>
             </div>
-            <p className="mt-1 text-xs text-slate-500">{p.months} {t("个月","months")} ·
-              {t(" 每月多赚 "," + income ")}{money(Number(p.form.incomeAdjustment))} ·
-              {t(" 每月少花 "," − expense ")}{money(Number(p.form.expenseReduction))}
+            <p className="mt-1 text-xs text-slate-500">
+              {p.months} {t("个月","months")} ·
+              {t(" 每月收入变化 "," Income change ")}{p.form.incomeDelta>=0?"+":""}{money(Number(p.form.incomeDelta))} ·
+              {t(" 每月支出变化 "," Spending change ")}{p.form.spendingDelta>=0?"+":""}{money(Number(p.form.spendingDelta))}
             </p>
             <p className="mt-1 text-xs font-semibold text-teal-800">
               {t("相对变化：","Difference: ")}{p.value.finalDifference>0?"+":""}{money(p.value.finalDifference)}

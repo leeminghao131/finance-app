@@ -7,9 +7,7 @@ import FinanceTransferPanel from "./FinanceTransferPanel.jsx";
 import FinanceBudgetPanel from "./FinanceBudgetPanel.jsx";
 import FinanceForecastPanel from "./FinanceForecastPanel.jsx";
 import FinanceOpeningBalancePanel from "./FinanceOpeningBalancePanel.jsx";
-import FinanceMonthComparison from "./FinanceMonthComparison.jsx";
 import FinanceQuickNotes from "./FinanceQuickNotes.jsx";
-import FinanceSavingsGoals from "./FinanceSavingsGoals.jsx";
 import FinanceAdvancedFilters from "./FinanceAdvancedFilters.jsx";
 import FinanceAdvancedResults from "./FinanceAdvancedResults.jsx";
 import FinanceInsightsDock from "./FinanceInsightsDock.jsx";
@@ -2373,16 +2371,12 @@ categoryOptionsFor={categoryOptionsFor}
         <FinanceInsightsDock
           records={records} monthRows={monthRows} budgetTemplate={budgets}
           totalBalance={totalBalance} userId={user?.id}
+          goals={savingsGoals} onSaveSavingsGoals={saveSavingsGoals}
+          savingsAvailability={savingsCalculation.data}
+          calculationError={savingsCalculation.error}
+          budgetMonth={savingsBudgetMonth}
           disabled={!initialDataReady||dataLoading}
         />
-        <div className="grid gap-4 xl:grid-cols-2">
-          <FinanceMonthComparison records={records} />
-          <FinanceSavingsGoals goals={savingsGoals} onSave={saveSavingsGoals}
-            disabled={!initialDataReady || dataLoading}
-            savingsAvailability={savingsCalculation.data}
-            calculationError={savingsCalculation.error}
-            budgetMonth={savingsBudgetMonth} />
-        </div>
 
         <footer className="pb-6 text-center text-xs text-slate-400">记账可视化软件 · Data synced with Supabase cloud · {records.length} total records</footer>
       </div>
