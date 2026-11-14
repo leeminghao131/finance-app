@@ -2372,7 +2372,7 @@ categoryOptionsFor={categoryOptionsFor}
        </FinanceOverlay>
 
         <section className="flex flex-wrap items-center gap-3 rounded-2xl bg-white p-4 ring-1 ring-slate-200" aria-label="Finance Intelligence Tools">
-          <h2 className="mr-2 text-sm font-bold text-slate-800">Finance Intelligence / 财务分析工具</h2>
+          <h2 className="mr-2 text-sm font-bold text-slate-800">Finance Intelligence</h2>
           <FinanceWrapped records={records} disabled={!initialDataReady||dataLoading}/>
           <FinanceScenarioSimulator records={records} totalBalance={totalBalance} userId={user?.id} disabled={!initialDataReady||dataLoading}/>
         </section>
