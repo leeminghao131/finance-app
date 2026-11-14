@@ -71,7 +71,7 @@ export default function FinanceWrapped({records=[],disabled=false}){
   return <>
     <button ref={triggerRef} type="button" disabled={disabled} onClick={()=>{setSlide(0);setOpen(true);}}
       className="mh-modal-trigger rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm font-bold text-slate-800 disabled:opacity-50">✨ Finance Wrapped</button>
-    <FinanceOverlay open={open} onClose={()=>setOpen(false)} title="Finance Wrapped / 财务回顾" triggerRef={triggerRef} widthClass="max-w-4xl">
+    <FinanceOverlay open={open} onClose={()=>setOpen(false)} title="Finance Wrapped" triggerRef={triggerRef} widthClass="max-w-4xl">
       <div className="flex flex-wrap gap-2">
         {[["monthly","Monthly"],["quarterly","Custom Quarter"],["yearly","Yearly"]].map(([id,name])=><button key={id}
           type="button" aria-pressed={mode===id} onClick={()=>{setMode(id);setSlide(0);}}
