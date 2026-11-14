@@ -76,17 +76,18 @@ test("Savings Goals reserve the current monthly budget exactly once with RM cent
 });
 test("four requested UI changes are placed correctly and never overwrite ledger flows",()=>{
  const app=readFileSync(new URL("../src/App.jsx",import.meta.url),"utf8");
+ const dock=readFileSync(new URL("../src/FinanceInsightsDock.jsx",import.meta.url),"utf8");
  const cloud=readFileSync(new URL("../src/financeCloudService.js",import.meta.url),"utf8");
  const quick=readFileSync(new URL("../src/FinanceQuickNotes.jsx",import.meta.url),"utf8");
  const goalUI=readFileSync(new URL("../src/FinanceSavingsGoals.jsx",import.meta.url),"utf8");
  const opening=readFileSync(new URL("../src/FinanceOpeningBalancePanel.jsx",import.meta.url),"utf8");
- const comparison=app.indexOf("<FinanceMonthComparison records={records}");
- const savings=app.indexOf("<FinanceSavingsGoals goals={savingsGoals}");
- const filtered=app.indexOf('title="Filtered Balance"');
- const recordOverlay=app.indexOf('<FinanceOverlay open={recordsOpen}');
- const footer=app.indexOf("<footer");
- assert.ok(comparison>recordOverlay&&comparison<footer,"comparison moved to the end");
- assert.ok(savings>filtered&&savings<footer,"goals moved to the end");
+ const comparison=dock.indexOf("<FinanceMonthComparison records={records}");
+ const savings=dock.indexOf("<FinanceSavingsGoals goals={goals}");
+ assert.ok(comparison>0,"comparison remains available through the left drawer");
+ assert.ok(savings>0,"goals remain available through the left drawer");
+ assert.ok(app.includes("<FinanceInsightsDock"),"drawer is connected to the full Dashboard");
+ assert.ok(!app.includes("<FinanceMonthComparison")&&!app.includes("<FinanceSavingsGoals"),
+   "two former permanent bottom cards are now popups, not deleted or duplicated");
  assert.match(app,/openingBalanceControl=\{<FinanceOpeningBalancePanel/);
  assert.match(app,/\{openingBalanceControl\}/);
  assert.ok(!app.includes('<FinanceOpeningBalancePanel methods='),"no standalone opening control");
