@@ -14,7 +14,7 @@ export default function FinanceBudgetBurnRate({records,budgets,month,categories}
   const visible=data.rows.filter(r=>r.hasBudget||r.spent>0).sort((a,b)=>b.spent-a.spent||a.category.localeCompare(b.category));
   return <section className="mt-4 rounded-2xl bg-slate-50 p-3 ring-1 ring-slate-200" aria-label="Budget Burn Rate Forecast">
     <div className="flex flex-wrap items-start justify-between gap-2">
-      <div><h3 className="font-bold text-slate-900">Budget Burn Rate / 预算消耗预测</h3>
+      <div><h3 className="font-bold text-slate-900">Budget Burn Rate Forecast</h3>
         <p className="mt-1 text-xs text-slate-600">{month} · {data.historical?"Past month":data.future?"Future month":data.elapsed+" / "+data.totalDays+" days elapsed"} · {data.note}</p>
       </div>
       <div className="flex gap-1">
