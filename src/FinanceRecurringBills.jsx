@@ -6,6 +6,8 @@ import {useFinanceLanguage} from "./FinanceLanguageLayer.jsx";
 
 const field="mt-1 w-full rounded-xl border border-slate-300 bg-white px-3 py-2.5 text-sm";
 const fmt=n=>new Intl.NumberFormat("en-MY",{style:"currency",currency:"MYR"}).format(n);
+const bankAlias=method=>["BANK IN","ONLINE BANK IN","DEBIT CARD"].includes(String(method||"").trim().toUpperCase())
+  ?"BANK":String(method||"").trim();
 const blank=()=>({title:"",amount:"",category:"饮食",method:"TNG",anchorDate:localDateMY(),
   cycle:"monthly",leadDays:3,active:true,occurrences:[]});
 export default function FinanceRecurringBills({
@@ -39,7 +41,7 @@ export default function FinanceRecurringBills({
   const candidates=useMemo(()=>{
     if(!linkDue)return [];
     const from=shiftCalendarDay(linkDue.due,-35),to=shiftCalendarDay(linkDue.due,35);
-    return records.filter(r=>r.type==="expense"&&!r.deleted_at&&r.method===linkDue.method&&r.date>=from&&r.date<=to)
+    return records.filter(r=>r.type==="expense"&&!r.deleted_at&&bankAlias(r.method)===bankAlias(linkDue.method)&&r.date>=from&&r.date<=to)
       .sort((a,b)=>Math.abs(Number(a.amount)-linkDue.amount)-Math.abs(Number(b.amount)-linkDue.amount))
       .slice(0,80);
   },[records,linkDue]);
