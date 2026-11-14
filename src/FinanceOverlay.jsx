@@ -43,11 +43,13 @@ export default function FinanceOverlay({
   const dialogRef = useRef(null);
   const backdropRef = useRef(null);
   const onCloseRef = useRef(onClose);
+  const openRef = useRef(open);
   const triggerRefRef = useRef(triggerRef);
   const originRectRef = useRef(null);
   const motionRef = useRef([]);
   const phaseRef = useRef("idle");
   onCloseRef.current = onClose;
+  openRef.current = open;
   triggerRefRef.current = triggerRef;
 
   useEffect(() => {
@@ -124,7 +126,7 @@ export default function FinanceOverlay({
       if (openDialogStack[openDialogStack.length - 1] !== currentDialog) return;
       if (event.key === "Escape") {
         event.preventDefault();
-        if (open) onCloseRef.current?.();
+        if (openRef.current) onCloseRef.current?.();
       }
       if (event.key === "Tab" && dialogRef.current) {
         const focusable = Array.from(dialogRef.current.querySelectorAll(
@@ -148,7 +150,7 @@ export default function FinanceOverlay({
       document.body.style.paddingRight = previousPaddingRight;
       if (activeBeforeOpen && typeof activeBeforeOpen.focus === "function") activeBeforeOpen.focus();
     };
-  }, [mounted, open]);
+  }, [mounted]);
 
   if (!mounted || typeof document === "undefined") return null;
   return createPortal(
