@@ -34,6 +34,11 @@ export default function FinanceStage2Hub({
     ...candidates.map(x=>({type:"review",id:x.id,ref:x.id,title:x.record.category,extra:x.record.date})),
     ...reconciliationAlerts.map(x=>({type:"accounts",id:x.id,ref:x.method,title:x.method,extra:today})),
   ];
+  // Show one of each alert type first so numerous bills cannot hide review notifications.
+  const firstOfType=["bill","review","accounts"]
+    .map(type=>alerts.find(item=>item.type===type)).filter(Boolean);
+  const prioritized=[...firstOfType,
+    ...alerts.filter(item=>!firstOfType.includes(item))];
   const alertCount=alerts.length;
   const open=(type,ref=null,source=null)=>{
     if(disabled)return;
@@ -66,7 +71,7 @@ export default function FinanceStage2Hub({
         <button onClick={e=>open("review",null,e.currentTarget)} type="button">🔍 {t("异常复查","Review Inbox")} ({candidates.length})</button>
         <button onClick={e=>open("accounts",null,e.currentTarget)} type="button">🏦 {t("账户对账","Balance Check")} ({reconciliationAlerts.length})</button>
       </div>}
-      {!menu&&alerts.slice(0,3).map(item=><button type="button" key={item.type+":"+item.id}
+      {!menu&&prioritized.slice(0,3).map(item=><button type="button" key={item.type+":"+item.id}
         onClick={e=>open(item.type,item.ref,e.currentTarget)}
         className="mh-stage2-notifications__toast" title={t("点开查看并处理","Open to review and act")}>
         <span aria-hidden="true">{item.type==="bill"?"🗓️":item.type==="review"?"🔎":"🏦"}</span>
