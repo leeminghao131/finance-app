@@ -145,3 +145,109 @@
 @media (prefers-reduced-motion:reduce) {
   .mh-insights-dock, .mh-insights-dock__button { transition: none !important; }
 }
+
+/* Stage 2: independent top-right in-app animated reminders; never reflow cards. */
+.mh-stage2-notifications {
+  position: fixed;
+  z-index: 60;
+  right: max(12px, env(safe-area-inset-right));
+  top: max(76px, env(safe-area-inset-top));
+  width: min(318px, calc(100vw - 26px));
+  display: grid;
+  justify-items: stretch;
+  gap: 7px;
+  pointer-events: none;
+}
+.mh-stage2-notifications > * { pointer-events: auto; }
+.mh-stage2-notifications__bell {
+  justify-self: end;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  padding: 8px 12px;
+  min-height: 40px;
+  color: #f8fafc;
+  background: #17202f;
+  border: 1px solid #64748b;
+  border-radius: 12px;
+  box-shadow: 0 6px 22px #0f172a30;
+  font-weight: 700;
+  font-size: 12px;
+}
+.mh-stage2-notifications__count {
+  min-width: 24px;
+  display: inline-grid;
+  place-items: center;
+  padding: 3px 5px;
+  border-radius: 999px;
+  background: #e05043;
+  color: white;
+  font-size: 11px;
+}
+.mh-stage2-notifications__toast {
+  width: 100%;
+  min-height: 58px;
+  display: grid;
+  grid-template-columns: 23px 1fr 16px;
+  align-items: center;
+  gap: 8px;
+  text-align: left;
+  padding: 10px 11px;
+  border-radius: 15px;
+  border: 1px solid #e9d5a5;
+  background: #fffbeb;
+  color: #713f12;
+  box-shadow: 0 10px 28px #0f172a30;
+  animation: mh-stage2-jump 1.45s ease-in-out infinite;
+}
+.mh-stage2-notifications__toast:nth-of-type(3){animation-delay: .18s}
+.mh-stage2-notifications__toast:nth-of-type(4){animation-delay: .34s}
+.mh-stage2-notifications__toast:hover { border-color: #b45309; }
+.mh-stage2-notifications__toast:focus-visible,
+.mh-stage2-notifications__bell:focus-visible,
+.mh-stage2-notifications__menu button:focus-visible {
+  outline: 3px solid #2563eb;
+  outline-offset: 2px;
+}
+.mh-stage2-notifications__more {
+  justify-self: end;
+  background: #ffffff;
+  color: #334155;
+  padding: 8px 12px;
+  border: 1px solid #cbd5e1;
+  border-radius: 10px;
+  font-size: 12px;
+}
+.mh-stage2-notifications__menu {
+  display: grid;
+  gap: 5px;
+  padding: 8px;
+  background: #ffffff;
+  border: 1px solid #cbd5e1;
+  border-radius: 14px;
+  box-shadow: 0 12px 32px #0f172a30;
+}
+.mh-stage2-notifications__menu button {
+  min-height: 43px;
+  padding: 8px 11px;
+  border-radius: 8px;
+  text-align: left;
+  font-weight: 600;
+  font-size: 13px;
+  color: #17202b;
+}
+.mh-stage2-notifications__menu button:hover { background: #f1f5f9; }
+@keyframes mh-stage2-jump {
+  0%, 100% {transform: translateY(0) rotate(0)}
+  35% {transform: translateY(-5px) rotate(-.8deg)}
+  60% {transform: translateY(0) rotate(.6deg)}
+}
+@media (max-width: 767px) {
+  .mh-stage2-notifications {top: max(58px, env(safe-area-inset-top));width: min(260px, calc(100vw - 28px));}
+  .mh-stage2-notifications__bell {min-height: 42px;}
+  .mh-stage2-notifications__toast {min-height: 56px;padding: 8px 10px;}
+}
+@media (prefers-reduced-motion:reduce) {
+  .mh-stage2-notifications__toast { animation: none !important; }
+}
