@@ -24,6 +24,10 @@ test("Every FinanceOverlay uses the 300ms button-origin animation, reversed on c
   assert.match(overlay, /direction: open \? "normal" : "reverse"/);
   assert.match(overlay, /sheetMotion\.onfinish/);
   assert.match(overlay, /setMounted\(false\)/);
+  assert.match(overlay, /lastChildrenRef\.current = children/);
+  assert.match(overlay, /lastTitleRef\.current = title/);
+  assert.match(overlay, /open \? children : lastChildrenRef\.current/);
+  assert.match(overlay, /pointerEvents: open \? "auto" : "none"/);
   assert.doesNotMatch(overlay, /fullBox|viewportOvershoot|1\.1\) scale\(/);
   assert.match(overlay, /prefers-reduced-motion: reduce/);
   assert.match(ui, /mh-modal-hover-jitter/);
