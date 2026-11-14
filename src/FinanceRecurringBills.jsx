@@ -14,6 +14,10 @@ export default function FinanceRecurringBills({
 }){
   const {language}=useFinanceLanguage(),zh=language==="zh";
   const t=(cn,en)=>zh?cn:en;
+  const cycleLabel=cycle=>({
+    weekly:t("每周","Weekly"),monthly:t("每月","Monthly"),
+    quarterly:t("每三个月","Quarterly"),yearly:t("每年","Yearly"),
+  })[cycle]||cycle;
   const [editing,setEditing]=useState(null),[draft,setDraft]=useState(blank);
   const [base,setBase]=useState(""),[busy,setBusy]=useState(false),[error,setError]=useState("");
   const [linkDue,setLinkDue]=useState(null),[chosenExpense,setChosenExpense]=useState("");
@@ -153,7 +157,7 @@ export default function FinanceRecurringBills({
     <h3 className="mb-2 mt-5 font-bold">{t("所有账单计划","Bill plans")}</h3>
     <div className="grid gap-2 sm:grid-cols-2">
       {bills.map(b=><div key={b.id} className="flex flex-wrap items-center justify-between gap-2 rounded-xl bg-slate-50 p-3">
-        <div className="min-w-0"><b data-i18n-ignore>{b.title}</b><p className="text-xs text-slate-500">{fmt(b.amount)} · {b.cycle} · {b.anchorDate}</p></div>
+        <div className="min-w-0"><b data-i18n-ignore>{b.title}</b><p className="text-xs text-slate-500">{fmt(b.amount)} · {cycleLabel(b.cycle)} · {b.anchorDate}</p></div>
         <div className="flex gap-2">
           <button type="button" onClick={()=>start(b)} className="rounded-lg border px-3 py-2 text-xs font-bold">{t("编辑","Edit")}</button>
           <button type="button" onClick={()=>remove(b)} className="rounded-lg border border-red-200 px-3 py-2 text-xs text-red-700">{t("删除","Delete")}</button>
