@@ -221,6 +221,7 @@ function BalanceCard({ title, value, desc, limit, methodBalances = [], openingBa
   const safeLimit = Number(limit || 0);
   const low = value < safeLimit;
   const [open, setOpen] = useState(false);
+  const methodTriggerRef = useRef(null);
 
   const showMethodBreakdown = title === "Balance" && methodBalances.length > 0;
 
@@ -246,9 +247,10 @@ function BalanceCard({ title, value, desc, limit, methodBalances = [], openingBa
             {showMethodBreakdown && (
                       <button
                         type="button"
+                        ref={methodTriggerRef}
                         onClick={() => setOpen(true)}
                          aria-label="Open Method Balance" aria-haspopup="dialog" aria-expanded={open}
-                        className="min-h-9 w-full rounded-xl bg-slate-100 px-2 py-2 text-xs font-bold text-slate-700 transition hover:bg-slate-200"
+                        className="mh-modal-trigger min-h-9 w-full rounded-xl bg-slate-100 px-2 py-2 text-xs font-bold text-slate-700 transition hover:bg-slate-200"
                       >
                         Methods
                       </button>
@@ -259,7 +261,7 @@ function BalanceCard({ title, value, desc, limit, methodBalances = [], openingBa
       </div>
 
       {showMethodBreakdown && (
-        <FinanceOverlay open={open} title="Method Balance" onClose={() => setOpen(false)} widthClass="max-w-xl">
+        <FinanceOverlay open={open} title="Method Balance" onClose={() => setOpen(false)} widthClass="max-w-xl" triggerRef={methodTriggerRef}>
         <div className="rounded-2xl bg-slate-50 p-3 ring-1 ring-slate-200">
           <div className="mb-3 flex items-center justify-between gap-3">
             <div>
@@ -602,6 +604,10 @@ function FinanceVisualizerAppContent() {
   const [budgetMonth, setBudgetMonth] = useState(monthNow());
   const [budgetOpen, setBudgetOpen] = useState(false);
   const [recordsOpen, setRecordsOpen] = useState(false);
+  const recordsTriggerRef = useRef(null);
+  const budgetTriggerRef = useRef(null);
+  const spendingTrendTriggerRef = useRef(null);
+  const balanceTrendTriggerRef = useRef(null);
   const [budgetDraftDirty, setBudgetDraftDirty] = useState(false);
   const [forecastPlans, setForecastPlans] = useState([]);
   const [openingBalances, setOpeningBalances] = useState({});
@@ -1856,9 +1862,9 @@ return (
       <div className="min-w-0">
         <h2 className="text-xl font-bold">{addRecordTheme.title}</h2>
         <p className="mt-1 text-sm text-white/80">{addRecordTheme.subtitle}</p>
-        <button type="button" onClick={() => setRecordsOpen(true)}
+        <button type="button" ref={recordsTriggerRef} onClick={() => setRecordsOpen(true)}
           aria-haspopup="dialog" aria-expanded={recordsOpen}
-          className="mt-3 inline-flex min-h-11 items-center gap-2 rounded-xl border border-white/35 bg-white/15 px-3 py-2 text-sm font-bold text-white transition hover:bg-white/25 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white">
+          className="mh-modal-trigger mt-3 inline-flex min-h-11 items-center gap-2 rounded-xl border border-white/35 bg-white/15 px-3 py-2 text-sm font-bold text-white transition hover:bg-white/25 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white">
           <span aria-hidden="true">📋</span><span>Transaction Records</span>
         </button>
       </div>
@@ -2034,10 +2040,10 @@ return (
             <section className="grid gap-4 md:grid-cols-3">
               <StatCard title="Filtered Income" value={money(filteredIncome)} icon="📈" desc={"Current filter: " + filterLabel} />
               <StatCard title="Filtered Expense" value={money(filteredExpense)} icon="📉" desc={"Current filter: " + filterLabel}
-                action={<button type="button" aria-label="Open Monthly Budget" aria-haspopup="dialog"
+                action={<button type="button" ref={budgetTriggerRef} aria-label="Open Monthly Budget" aria-haspopup="dialog"
                   aria-expanded={budgetOpen} title="Monthly Budget / 分类预算"
                   onClick={() => setBudgetOpen(true)}
-                  className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-amber-50 text-xl text-amber-900 ring-1 ring-amber-200 transition hover:bg-amber-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-amber-600">
+                  className="mh-modal-trigger flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-amber-50 text-xl text-amber-900 ring-1 ring-amber-200 transition hover:bg-amber-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-amber-600">
                     📊
                 </button>}
               />
@@ -2049,7 +2055,7 @@ return (
                 setBudgetDraftDirty(false);
                 setBudgetOpen(false);
               }}
-              widthClass="max-w-3xl">
+              widthClass="max-w-3xl" triggerRef={budgetTriggerRef}>
               <FinanceBudgetPanel
                 embedded
                 records={records}
@@ -2093,12 +2099,12 @@ return (
       {formatCategoryLabel(category)}
     </option>
   ))}
-</select></div><div className="h-36 cursor-zoom-in rounded-xl focus-visible:outline focus-visible:outline-2 focus-visible:outline-blue-500"
-  role="button" tabIndex={0} aria-label="Expand Spending Trend" title="Click to expand Spending Trend"
+</select></div><div className="mh-modal-trigger h-36 cursor-zoom-in rounded-xl focus-visible:outline focus-visible:outline-2 focus-visible:outline-blue-500"
+  ref={spendingTrendTriggerRef} role="button" tabIndex={0} aria-label="Expand Spending Trend" title="Click to expand Spending Trend"
   onClick={() => setExpandedTrend("expense")}
   onKeyDown={(event) => { if (event.key === "Enter" || event.key === " ") { event.preventDefault(); setExpandedTrend("expense"); } }}>
-  {trendData.length ? <ResponsiveContainer width="100%" height="100%"><LineChart data={trendData}><CartesianGrid strokeDasharray="3 3" /><XAxis dataKey="day" /><YAxis /><Tooltip content={<FinanceTrendSummaryTooltip kind="expense" />} /><Legend /><Line isAnimationActive={false} type="monotone" dataKey="expense" name="Expense" stroke="#3b82f6" strokeWidth={3} dot={{ r: 4 }} /></LineChart></ResponsiveContainer> : <div className="flex h-full items-center justify-center text-slate-500">No expense trend data.</div>}</div><div className="mt-4 border-t border-slate-200 pt-3"><p className="mb-2 text-sm font-bold text-slate-700">Filtered Balance Trend</p><div className="h-36 cursor-zoom-in rounded-xl focus-visible:outline focus-visible:outline-2 focus-visible:outline-blue-500"
-  role="button" tabIndex={0} aria-label="Expand Filtered Balance Trend" title="Click to expand Balance Trend"
+  {trendData.length ? <ResponsiveContainer width="100%" height="100%"><LineChart data={trendData}><CartesianGrid strokeDasharray="3 3" /><XAxis dataKey="day" /><YAxis /><Tooltip content={<FinanceTrendSummaryTooltip kind="expense" />} /><Legend /><Line isAnimationActive={false} type="monotone" dataKey="expense" name="Expense" stroke="#3b82f6" strokeWidth={3} dot={{ r: 4 }} /></LineChart></ResponsiveContainer> : <div className="flex h-full items-center justify-center text-slate-500">No expense trend data.</div>}</div><div className="mt-4 border-t border-slate-200 pt-3"><p className="mb-2 text-sm font-bold text-slate-700">Filtered Balance Trend</p><div className="mh-modal-trigger h-36 cursor-zoom-in rounded-xl focus-visible:outline focus-visible:outline-2 focus-visible:outline-blue-500"
+  ref={balanceTrendTriggerRef} role="button" tabIndex={0} aria-label="Expand Filtered Balance Trend" title="Click to expand Balance Trend"
   onClick={() => setExpandedTrend("balance")}
   onKeyDown={(event) => { if (event.key === "Enter" || event.key === " ") { event.preventDefault(); setExpandedTrend("balance"); } }}>
   {trendData.length ? <ResponsiveContainer width="100%" height="100%"><LineChart data={trendData}><CartesianGrid strokeDasharray="3 3" /><XAxis dataKey="day" /><YAxis /><Tooltip content={<FinanceTrendSummaryTooltip kind="balance" />} /><Legend /><Line isAnimationActive={false} connectNulls type="monotone" dataKey="balanceGreen" name={`Balance > ${balanceAlertLimitLabel}`} stroke="#22c55e" strokeWidth={3} dot={{ r: 4 }} /><Line isAnimationActive={false} connectNulls type="monotone" dataKey="balanceRed" name={`Balance ≤ ${balanceAlertLimitLabel}`} stroke="#ef4444" strokeWidth={3} dot={{ r: 4 }} /></LineChart></ResponsiveContainer> : <div className="flex h-full items-center justify-center text-slate-500">No balance trend data.</div>}</div></div></div></Card>
@@ -2120,6 +2126,7 @@ return (
             </section>
             <FinanceExpandedTrendOverlay
               open={expandedTrend !== null}
+              triggerRef={expandedTrend === "balance" ? balanceTrendTriggerRef : spendingTrendTriggerRef}
               kind={expandedTrend || "expense"}
               onKindChange={setExpandedTrend}
               onClose={() => setExpandedTrend(null)}
@@ -2134,7 +2141,7 @@ return (
         </section>
 
        <FinanceOverlay open={recordsOpen} title="Transaction Records"
-         onClose={() => { setRecordsOpen(false); setDeleteConfirm(null); }} widthClass="max-w-6xl" showTitle={false}>
+         onClose={() => { setRecordsOpen(false); setDeleteConfirm(null); }} widthClass="max-w-6xl" showTitle={false} triggerRef={recordsTriggerRef}>
        <Card>
   <div className="flex flex-col gap-2 md:flex-row md:items-end md:justify-between">
     <div>
