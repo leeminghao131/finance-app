@@ -1,4 +1,4 @@
-import { localizedFinanceAlert, localizedFinanceConfirm } from "./FinanceLanguageLayer.jsx";
+import { localizedFinanceAlert, localizedFinanceConfirm, useFinanceLanguage } from "./FinanceLanguageLayer.jsx";
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { localMonthMY } from "./financeCalendar.js";
 import { summarizeMonthlyBudget, normalizeBudgetsInput } from "./financeInsights.js";
@@ -9,6 +9,7 @@ export default function FinanceBudgetPanel({
   records, budgetMonth, setBudgetMonth, monthRows, budgetTemplate, categories,
   onSaveMonthly, onSaveTemplate, onDirtyChange, embedded = false,
 }) {
+  const {language}=useFinanceLanguage();
   const savedRow = monthRows.find(row=>row.month===budgetMonth);
   const savedVersion = savedRow?.version ?? null;
   const [draft,setDraft] = useState({});
@@ -86,9 +87,9 @@ export default function FinanceBudgetPanel({
       <p className="mt-3 rounded-xl bg-slate-50 p-3 text-xs text-slate-600">{status}</p>
       <div className="mt-3 flex flex-wrap gap-2">
         <button type="button" aria-pressed={!predictionOpen} onClick={()=>setPredictionOpen(false)}
-          className={"rounded-xl px-3 py-2 text-sm font-bold "+(!predictionOpen?"bg-slate-900 text-white":"bg-slate-100 text-slate-700")}>Budget details</button>
+          className={"rounded-xl px-3 py-2 text-sm font-bold "+(!predictionOpen?"bg-slate-900 text-white":"bg-slate-100 text-slate-700")}>{language==="zh"?"预算明细":"Budget details"}</button>
         <button type="button" aria-pressed={predictionOpen} onClick={()=>setPredictionOpen(true)}
-          className={"rounded-xl px-3 py-2 text-sm font-bold "+(predictionOpen?"bg-slate-900 text-white":"bg-slate-100 text-slate-700")}>📈 Burn Rate Forecast / 预算预测</button>
+          className={"rounded-xl px-3 py-2 text-sm font-bold "+(predictionOpen?"bg-slate-900 text-white":"bg-slate-100 text-slate-700")}>📈 {language==="zh"?"消费速度预测":"Burn Rate Forecast"}</button>
       </div>
       {predictionOpen
         ? <FinanceBudgetBurnRate records={records} budgets={activeBudgets} month={budgetMonth} categories={categories}/>
