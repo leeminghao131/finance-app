@@ -44,6 +44,13 @@ export default function FinanceStage2Hub({
     setMenu(false);
   };
   const close=()=>{setMode("");setSelectedBillId(null);setSelectedRecordId(null);};
+  const prefillAndClose=next=>{
+    // Only close when the protected, UNSAVED form was actually filled.
+    // Closing releases modal focus/scroll lock before App scrolls to the form.
+    const ok=onPrefillRecord(next);
+    if(ok)close();
+    return ok;
+  };
   const title=mode==="bill"?t("固定账单提醒","Recurring Bills")
     :mode==="review"?t("异常记录复查","Review Transactions")
     :t("账户余额对账","Reconcile Accounts");
@@ -79,14 +86,14 @@ export default function FinanceStage2Hub({
     <FinanceOverlay open={!!mode} title={title} onClose={close} triggerRef={triggerRef}
       widthClass={mode==="review"?"max-w-2xl":mode==="bill"?"max-w-4xl":"max-w-5xl"}>
       {mode==="bill"&&<FinanceRecurringBills bills={bills} records={records} categories={categories} methods={methods}
-        onSave={onSaveBills} onPrefillExpense={onPrefillExpense}
+        onSave={onSaveBills} onPrefillExpense={prefillAndClose}
         disabled={disabled} selectedBillId={selectedBillId}/>}
       {mode==="review"&&<FinanceReviewInbox records={records} reviewState={reviewState}
         onSave={onSaveReview} optionsFor={optionsFor} onUpdateRecord={onUpdateRecord}
         selectedId={selectedRecordId} disabled={disabled}/>}
       {mode==="accounts"&&<FinanceAccountReconciliation balances={balances}
         records={records} transfers={transfers} checks={checks}
-        onSave={onSaveChecks} onPrefillRecord={onPrefillRecord} disabled={disabled}/>}
+        onSave={onSaveChecks} onPrefillRecord={prefillAndClose} disabled={disabled}/>}
     </FinanceOverlay>
   </>;
 }
