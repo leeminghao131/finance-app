@@ -1782,7 +1782,7 @@ return (
           <div><p className="text-sm font-medium text-slate-300">Personal Finance Dashboard</p><h1 className="mt-2 text-3xl font-bold md:text-4xl">记账可视化软件</h1><p className="mt-2 text-sm text-slate-300">记录收入与支出，自动生成统计、分类比例、每日趋势和预算使用情况。</p></div>
           <div className="flex flex-wrap gap-3"><button onClick={() => setSoundEnabled((v) => !v)} className="rounded-2xl bg-slate-800 px-4 py-3 text-sm font-semibold text-white ring-1 ring-slate-600">{soundEnabled ? "🔊" : "🔇"} Sound</button><FinanceLanguageButton /><button type="button" disabled={!initialDataReady || dataLoading} onClick={() => { setExportOpen((v) => !v); setImportOpen(false); }} className="rounded-2xl bg-white px-4 py-3 text-sm font-semibold text-slate-900 disabled:opacity-50">⬇ Export Excel</button><button type="button" disabled={!initialDataReady || dataLoading} onClick={() => { setImportOpen((v) => !v); setExportOpen(false); }} className="rounded-2xl bg-slate-700 px-4 py-3 text-sm font-semibold text-white ring-1 ring-slate-600 disabled:opacity-50">⬆ Import CSV</button><button onClick={signOut} className="rounded-2xl bg-white px-4 py-3 text-sm font-semibold text-slate-900">Sign out</button></div>
         </header>
-        <React.Suspense fallback={<div role="status" className="rounded-2xl bg-white p-4 text-sm text-slate-600">Loading import/export tools...</div>}>
+        <React.Suspense fallback={<div role="status" className="rounded-2xl bg-white p-4 text-sm text-slate-600">Loading...</div>}>
         {importOpen && <FinanceCsvImportPanel
           supabase={supabase} user={user}
           existingRecords={[...records,...deletedRecords]}
