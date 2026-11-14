@@ -76,6 +76,23 @@ test("Wrapped respects monthly and arbitrary 3-month cross-year quarter and excl
   assert.equal(addMonths("2026-12",1),"2027-01");
   assert.throws(()=>financeWrapped(rows,{mode:"quarterly",quarterStart:"2026-13"}));
 });
+test("Wrapped budget coverage never reconstructs a missing historical snapshot",()=>{
+ const budget=financeWrapped(rows,{mode:"quarterly",quarterStart:"2026-10",asOfDate:"2026-11-14",
+   monthRows:[{month:"2026-10",category_budgets:{Food:"200"}},
+              {month:"2026-11",category_budgets:{Food:"300",Transport:"120"}}],
+   budgetTemplate:{Food:"9999"}});
+ assert.equal(budget.budget.available,true);
+ assert.equal(budget.budget.savedMonths,2);
+ assert.equal(budget.budget.missingMonths,0);
+ assert.equal(budget.budget.templateMonths,1);
+ assert.equal(budget.budget.total,200+420+9999);
+ assert.equal(budget.budget.spent,75+50.65+100.2+99.99);
+ const old=financeWrapped(rows,{mode:"monthly",month:"2026-10",asOfDate:"2026-11-14",
+   monthRows:[],budgetTemplate:{Food:"9999"}});
+ assert.equal(old.budget.available,false);
+ assert.equal(old.budget.missingMonths,1);
+ assert.equal(old.budget.total,0);
+});
 test("Time Machine compares a 90-day baseline and hypothetical adjustments without writes",()=>{
   const snap=JSON.stringify(rows);
   const v=simulateFinanceScenarios(rows,{currentBalance:5000,asOfDate:"2026-11-14",months:6,
