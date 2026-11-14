@@ -42,3 +42,19 @@
 @media (prefers-reduced-motion: reduce) {
   .mh-ui *, .mh-ui *::before, .mh-ui *::after { scroll-behavior: auto !important; transition-duration: .01ms !important; }
 }
+
+/* Only modal-opening controls jitter. Continues for as long as a desktop pointer hovers. */
+@keyframes mh-modal-hover-jitter {
+  0%, 100% { transform: translate(0, 0) rotate(0deg); }
+  25% { transform: translate(-1.1px, 0.3px) rotate(-0.35deg); }
+  50% { transform: translate(1.1px, -0.3px) rotate(0.35deg); }
+  75% { transform: translate(-0.6px, -0.3px) rotate(-0.2deg); }
+}
+@media (hover: hover) and (pointer: fine) {
+  .mh-modal-trigger:not(:disabled):hover {
+    animation: mh-modal-hover-jitter 0.16s linear infinite;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .mh-modal-trigger { animation: none !important; }
+}

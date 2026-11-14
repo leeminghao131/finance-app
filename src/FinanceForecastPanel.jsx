@@ -1,5 +1,5 @@
 import { localizedFinanceAlert, localizedFinanceConfirm } from "./FinanceLanguageLayer.jsx";
-import React, { useMemo, useState } from "react";
+import React, { useMemo, useRef, useState } from "react";
 import { CartesianGrid, Legend, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { localDateMY, shiftCalendarDay, requireCalendarDate } from "./financeCalendar.js";
 import { calculateCashForecast } from "./financeInsights.js";
@@ -14,6 +14,7 @@ export default function FinanceForecastPanel({records,selectedMonth,asOfDate,pla
   const [editForm,setEditForm] = useState({date:shiftCalendarDay(localDateMY(),1),amount:"",note:""});
   const [busy,setBusy] = useState(false);
   const [incomePlannerOpen,setIncomePlannerOpen] = useState(false);
+  const incomePlannerTriggerRef = useRef(null);
 
   const outcome = useMemo(()=>{
     try {return {data:calculateCashForecast(records,{asOfDate,selectedMonth,horizon,trailingDays,plannedIncomes,openingBalanceTotal})};}
@@ -90,8 +91,10 @@ export default function FinanceForecastPanel({records,selectedMonth,asOfDate,pla
                 <p className="text-xs text-green-700">Expected future income (not real)</p>
                 <button type="button" aria-label="Manage Expected Income" title="Expected Income / 预计收入"
                   aria-haspopup="dialog" aria-expanded={incomePlannerOpen}
+                  data-modal-trigger="expected-income"
+                  ref={incomePlannerTriggerRef}
                   onClick={() => setIncomePlannerOpen(true)}
-                  className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-green-200 bg-white text-xl font-bold text-green-800 shadow-sm hover:bg-green-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-green-700">
+                  className="mh-modal-trigger flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-green-200 bg-white text-xl font-bold text-green-800 shadow-sm hover:bg-green-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-green-700">
                   ＋
                 </button>
               </div>
@@ -130,6 +133,7 @@ export default function FinanceForecastPanel({records,selectedMonth,asOfDate,pla
       </div>
 
       <FinanceOverlay open={incomePlannerOpen} title="Expected Income / 预计收入"
+         triggerRef={incomePlannerTriggerRef}
         onClose={() => setIncomePlannerOpen(false)} widthClass="max-w-xl">
       <div className="space-y-3">
         <p className="mt-1 text-xs text-slate-500">Manual planning only. This does not create an actual Income record.</p>

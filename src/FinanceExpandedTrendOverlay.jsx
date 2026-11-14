@@ -19,7 +19,7 @@ const rm = value => {
 // This is a read-only view. The parent owns all financial calculations and filters.
 export default function FinanceExpandedTrendOverlay({
   open, kind, onKindChange, onClose, data, dailyData,
-  records, category, alertLimit, filterLabel,
+  records, category, alertLimit, filterLabel, triggerRef,
 }) {
   const { language } = useFinanceLanguage();
   const [selectedDate, setSelectedDate] = useState("");
@@ -59,7 +59,7 @@ export default function FinanceExpandedTrendOverlay({
   return (
     <FinanceOverlay open={open}
       title={kind === "expense" ? "Spending Trend / 消费趋势" : "Filtered Balance Trend / 筛选余额趋势"}
-      onClose={onClose} widthClass="max-w-7xl">
+      onClose={onClose} widthClass="max-w-7xl" triggerRef={triggerRef}>
       <div className="space-y-4">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <p className="text-xs text-slate-500">Current range: {filterLabel}</p>

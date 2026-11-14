@@ -1,4 +1,5 @@
 import React,{useRef,useState} from "react";
+import FinanceOverlay from "./FinanceOverlay.jsx";
 import {validateSavingsGoals,savingsGoalProgress} from "./financePlanning.js";
 import {requireCalendarDate} from "./financeCalendar.js";
 
@@ -15,9 +16,11 @@ export default function FinanceSavingsGoals({goals=[],onSave,disabled=false,savi
   const [base,setBase]=useState("");
   const [busy,setBusy]=useState(false);
   const pending=useRef(false);
+  const editorTriggerRef=useRef(null);
   const [message,setMessage]=useState("");
   const [error,setError]=useState("");
-  const start=(goal=null)=>{
+  const start=(goal=null,origin=null)=>{
+    if(origin)editorTriggerRef.current=origin;
     if(disabled||busy)return;
     setBase(JSON.stringify(goals));
     setDraft(goal?{title:goal.title,target:String(goal.target),saved:String(goal.saved),deadline:goal.deadline||""}:blank());
@@ -71,8 +74,8 @@ export default function FinanceSavingsGoals({goals=[],onSave,disabled=false,savi
       <div><h2 className="text-lg font-bold text-slate-900">Savings Goals</h2>
         <p className="mt-1 text-xs text-slate-500">Available savings are calculated from total Balance minus the current month budget. Goals do not move money or create transactions.</p>
       </div>
-      <button type="button" disabled={disabled||busy||goals.length>=50} onClick={()=>start()}
-        className="rounded-xl bg-slate-900 px-4 py-2 text-sm font-bold text-white disabled:opacity-50">
+      <button type="button" disabled={disabled||busy||goals.length>=50} onClick={event=>start(null,event.currentTarget)}
+        className="mh-modal-trigger min-h-11 rounded-xl bg-slate-900 px-4 py-2 text-sm font-bold text-white disabled:opacity-50">
         ＋ New Goal
       </button>
     </div>
@@ -100,15 +103,17 @@ export default function FinanceSavingsGoals({goals=[],onSave,disabled=false,savi
           <p className="mt-2 text-xs text-slate-600">{p.percent.toFixed(1)}% · {money(p.remaining)} remaining</p>
           {g.deadline&&<p className="mt-1 text-xs text-slate-500">Target date: {g.deadline}</p>}
           <div className="mt-3 flex gap-2">
-            <button type="button" disabled={disabled||busy} onClick={()=>start(g)}
-              className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-xs font-bold disabled:opacity-50">Edit / Update</button>
+            <button type="button" disabled={disabled||busy} onClick={event=>start(g,event.currentTarget)}
+              className="mh-modal-trigger min-h-11 rounded-lg border border-slate-300 bg-white px-3 py-2 text-xs font-bold disabled:opacity-50">Edit / Update</button>
             <button type="button" disabled={disabled||busy} onClick={()=>remove(g)}
               className="rounded-lg border border-red-200 bg-white px-3 py-2 text-xs font-bold text-red-700 disabled:opacity-50">Delete</button>
           </div>
         </article>;
       })}
     </div>
-    {editor&&<form onSubmit={submit} className="mt-4 rounded-xl border border-slate-300 bg-white p-4" aria-label="Savings Goal Editor">
+    <FinanceOverlay open={!!editor} title={editor==="new"?"Create Savings Goal":"Edit Savings Goal"}
+      onClose={close} triggerRef={editorTriggerRef} widthClass="max-w-2xl">
+    <form onSubmit={submit} className="rounded-xl border border-slate-300 bg-white p-4" aria-label="Savings Goal Editor">
       <h3 className="font-semibold">{editor==="new"?"Create Savings Goal":"Edit Savings Goal"}</h3>
       <div className="mt-3 grid gap-3 sm:grid-cols-2">
         <label className="text-sm">Goal name
@@ -134,6 +139,7 @@ export default function FinanceSavingsGoals({goals=[],onSave,disabled=false,savi
         <button type="submit" disabled={disabled||busy} className="rounded-xl bg-emerald-700 px-4 py-2 text-sm font-bold text-white disabled:opacity-50">{busy?"Saving...":"Save Goal"}</button>
         <button type="button" disabled={busy} onClick={close} className="rounded-xl border border-slate-300 px-4 py-2 text-sm">Cancel</button>
       </div>
-    </form>}
+    </form>
+    </FinanceOverlay>
   </section>;
 }
