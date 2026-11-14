@@ -75,6 +75,31 @@ test("Stage2 account checks preserve actual and ledger values with cents, includ
  assert.throws(()=>reconcileMethod("TNG","20.123",20,"2026-11-15","check-abcd1234"),/Invalid/);
  assert.throws(()=>validateAccountChecks([x,x]),/Duplicate/);
 });
+test("Stage2 monthly calendar and bank aliases retain accurate schedule and no silent truncation",()=>{
+ const plan={...bill,title:"Internet 2027",anchorDate:"2027-01-31"};
+ assert.deepEqual(billOccurrences([plan],"2027-02-01",rows,0,27).map(x=>x.due),["2027-02-28"]);
+ assert.throws(()=>validateBills([{...bill,title:"x".repeat(91)}]),/truncated/);
+ assert.throws(()=>validateBills([{...bill,category:"x".repeat(101)}]),/truncated/);
+ const oldBank=[
+   {id:"old",date:"2026-11-12",type:"expense",amount:12.5,category:"交通",method:"BANK IN",note:"Lunch"},
+   {id:"new",date:"2026-11-12",type:"expense",amount:12.5,category:"交通",method:"BANK",note:"Lunch"},
+ ];
+ const flags=findReviewCandidates(oldBank,{threshold:500,decisions:[]},"2026-11-15");
+ assert.equal(flags.length,2);
+ assert.ok(flags.every(x=>x.reasons.includes("duplicate")));
+});
+test("Stage2 manual expense prefill closes parent popup and double bill claim is rejected by UI",()=>{
+ const hub=src("FinanceStage2Hub.jsx"),bills=src("FinanceRecurringBills.jsx"),app=src("App.jsx");
+ assert.match(hub,/const prefillAndClose=next=>/);
+ assert.match(hub,/if\(ok\)close\(\)/);
+ assert.match(hub,/onPrefillExpense=\{prefillAndClose\}/);
+ assert.match(hub,/onPrefillRecord=\{prefillAndClose\}/);
+ assert.match(app,/setAmountEntryMode\("rm"\)/);
+ assert.match(bills,/usedElsewhere/);
+ assert.match(bills,/查看账单日历/);
+ assert.match(bills,/calendarMonthDays/);
+ assert.match(hub,/const prioritized=/);
+});
 test("Stage2 UI has top-right bounce, review mini-popup, account manual prefill, no auto records writes",()=>{
  const app=src("App.jsx"),cloud=src("financeCloudService.js"),hub=src("FinanceStage2Hub.jsx");
  const css=src("financeUi.css"),bills=src("FinanceRecurringBills.jsx"),review=src("FinanceReviewInbox.jsx");
