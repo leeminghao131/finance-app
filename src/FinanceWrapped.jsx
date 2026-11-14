@@ -37,7 +37,7 @@ function exportStoryImage(wrapped,hidden){
     a.click();window.setTimeout(()=>URL.revokeObjectURL(url),1000);
   },"image/png");
 }
-export default function FinanceWrapped({records=[],disabled=false}){
+export default function FinanceWrapped({records=[],monthRows=[],budgetTemplate={},disabled=false}){
   const {language}=useFinanceLanguage(),zh=language==="zh";
   const current=localDateMY().slice(0,7);
   const [open,setOpen]=useState(false),[mode,setMode]=useState("monthly"),[month,setMonth]=useState(current);
@@ -45,9 +45,9 @@ export default function FinanceWrapped({records=[],disabled=false}){
   const [slide,setSlide]=useState(0),[hideAmounts,setHideAmounts]=useState(false),[error,setError]=useState("");
   const triggerRef=useRef(null);
   const report=useMemo(()=>{
-    try{return {value:financeWrapped(records,{mode,month,quarterStart,year})};}
+    try{return {value:financeWrapped(records,{mode,month,quarterStart,year,monthRows,budgetTemplate})};}
     catch(e){return {error:e.message};}
-  },[records,mode,month,quarterStart,year]);
+  },[records,mode,month,quarterStart,year,monthRows,budgetTemplate]);
   const w=report.value,cur=w?.current;
   const display=n=>hideAmounts?"RM ••••":money(n);
   const slides=cur&&[
@@ -65,6 +65,18 @@ export default function FinanceWrapped({records=[],disabled=false}){
     {title:zh?"最大几笔消费":"Largest expenses",body:<div className="space-y-3">{cur.largest.slice(0,5).map((r,i)=><div key={String(r.id||i)} className="flex justify-between gap-2 rounded-xl bg-white/10 p-3 text-sm"><span data-i18n-ignore className="break-words">{r.date} · {r.category} · {r.note}</span><b className="shrink-0">{display(r.amount)}</b></div>)}{!cur.largest.length&&<p>No recorded expenses.</p>}</div>},
     {title:zh?"最常出现的备注":"Most frequent notes",body:<div className="space-y-3">{cur.notes.map((n,i)=><div key={n.name} className="flex justify-between gap-2 rounded-xl bg-white/10 p-3"><span className="break-words" data-i18n-ignore>{n.name}</span><b>×{n.count}</b></div>)}{!cur.notes.length&&<p>No notes recorded.</p>}</div>},
     {title:zh?"记录时间轴":"Activity over time",body:<div className="space-y-2">{cur.trend.slice(-9).map(d=><div key={d.date} className="flex items-center gap-2 text-xs"><span className="w-24 shrink-0">{d.date}</span><div className="h-3 flex-1 overflow-hidden rounded-full bg-white/10"><div className="h-3 rounded-full bg-rose-400" style={{width:(cur.expense?Math.min(100,d.expense/Math.max(1,...cur.trend.map(x=>x.expense))*100):0)+"%"}}/></div><span className="w-24 text-right">{display(d.expense)}</span></div>)}{!cur.trend.length&&<p>No daily records.</p>}</div>},
+    {title:zh?"预算表现":"Budget performance",body:<div className="space-y-3">
+      {w.budget.available?<>
+        <div className="flex justify-between rounded-xl bg-white/10 p-3"><span>{zh?"预算总额":"Budget total"}</span><b>{display(w.budget.total)}</b></div>
+        <div className="flex justify-between rounded-xl bg-white/10 p-3"><span>{zh?"有预算分类的已花金额":"Budgeted category spending"}</span><b>{display(w.budget.spent)}</b></div>
+        <div className="flex justify-between rounded-xl bg-white/10 p-3"><span>{zh?"预算剩余":"Budget remaining"}</span><b>{display(w.budget.remaining)}</b></div>
+        <p className="text-xs text-slate-300">{w.budget.savedMonths} {zh?"个月已保存预算":"months with saved snapshots"} · {w.budget.templateMonths} {zh?"个月采用未保存的默认模板":"months using unsaved proposed templates"}</p>
+      </>:<p>{zh?"所选期间没有可用预算快照。":"No saved budget snapshots are available for this period."}</p>}
+      {w.budget.missingMonths>0&&<p className="rounded-xl bg-amber-900/30 p-3 text-sm text-amber-100">
+        {w.budget.missingMonths} {zh?"个月缺少历史预算，因此不能将上方合计当作整个期间的完整预算。":"months have no historical budget snapshot; totals above are incomplete."}
+      </p>}
+      <p className="text-xs text-slate-300">{zh?"预算额度不等于实际现金。":"Budget allocation is not actual cash."}</p>
+    </div>},
     {title:zh?"与上一期间相比":"Compared with prior period",body:<div className="space-y-3">{[["Income",w.changes.income],["Expense",w.changes.expense],["Net",w.changes.net]].map(([name,change])=><div key={name} className="flex justify-between gap-3 rounded-xl bg-white/10 p-3"><span>{name}</span><b>{hideAmounts?"RM ••••":(change>0?"+":"")+money(change)}</b></div>)}<p className="text-xs text-slate-400">Compared with the immediately preceding period of equal length.</p></div>},
     {title:zh?"下一个目标":"Your next chapter",body:<div className="text-center"><p className="text-3xl">✨</p><p className="mt-4 text-xl font-bold">{cur.count} {zh?"笔收支记录":"recorded transactions"}</p><p className="mt-4 text-sm text-slate-300">{zh?"持续记录，让财务故事更清晰。":"Keep tracking to make your next review more meaningful."}</p></div>},
   ];
