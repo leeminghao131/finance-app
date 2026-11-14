@@ -1010,7 +1010,7 @@ useEffect(() => {
     }));
     window.setTimeout(()=>{
       document.getElementById("mh-stage2-add-record-form")?.scrollIntoView({behavior:"smooth",block:"center"});
-    },80);
+    },420);
     setSyncStatus("Unsaved record form filled — review and press Add to save.");
     return true;
   }
