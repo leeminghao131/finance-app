@@ -17,7 +17,7 @@ export async function fetchFinanceSnapshot(client,userId,onProgress) {
     userId,onProgress,
   );
   const {data:settingsRow,error:settingsError}=await client.from("user_settings")
-    .select("category_budgets,custom_options,version,forecast_plans,opening_balances,savings_goals")
+    .select("category_budgets,custom_options,version,forecast_plans,opening_balances,savings_goals,saved_filters")
     .eq("user_id",userId).maybeSingle();
   if(settingsError)throw settingsError;
   const {data:savedMonths,error:monthError}=await client.from("monthly_budgets")

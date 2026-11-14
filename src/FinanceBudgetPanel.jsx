@@ -2,6 +2,7 @@ import { localizedFinanceAlert, localizedFinanceConfirm } from "./FinanceLanguag
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { localMonthMY } from "./financeCalendar.js";
 import { summarizeMonthlyBudget, normalizeBudgetsInput } from "./financeInsights.js";
+import FinanceBudgetBurnRate from "./FinanceBudgetBurnRate.jsx";
 const money = n => new Intl.NumberFormat("en-MY",{style:"currency",currency:"MYR"}).format(Number(n||0));
 
 export default function FinanceBudgetPanel({
@@ -14,6 +15,7 @@ export default function FinanceBudgetPanel({
   const [editingVersion,setEditingVersion] = useState(null);
   const [dirty,setDirty] = useState(false);
   const [busy,setBusy] = useState(false);
+  const [predictionOpen,setPredictionOpen] = useState(false);
   const displayedMonthRef = useRef(null);
   useEffect(() => { onDirtyChange?.(dirty); }, [dirty, onDirtyChange]);
 
@@ -82,6 +84,15 @@ export default function FinanceBudgetPanel({
         </label>
       </div>
       <p className="mt-3 rounded-xl bg-slate-50 p-3 text-xs text-slate-600">{status}</p>
+      <div className="mt-3 flex flex-wrap gap-2">
+        <button type="button" aria-pressed={!predictionOpen} onClick={()=>setPredictionOpen(false)}
+          className={"rounded-xl px-3 py-2 text-sm font-bold "+(!predictionOpen?"bg-slate-900 text-white":"bg-slate-100 text-slate-700")}>Budget details</button>
+        <button type="button" aria-pressed={predictionOpen} onClick={()=>setPredictionOpen(true)}
+          className={"rounded-xl px-3 py-2 text-sm font-bold "+(predictionOpen?"bg-slate-900 text-white":"bg-slate-100 text-slate-700")}>📈 Burn Rate Forecast / 预算预测</button>
+      </div>
+      {predictionOpen
+        ? <FinanceBudgetBurnRate records={records} budgets={activeBudgets} month={budgetMonth} categories={categories}/>
+        : <>
       <div className="mt-4 grid grid-cols-2 gap-2 lg:grid-cols-4">
         <div className="rounded-xl bg-slate-50 p-3"><p className="text-xs text-slate-500">Budget</p><p className="mt-1 font-bold">{savedRow||!historicalMissing?money(summary.totalBudget):"Not saved"}</p></div>
         <div className="rounded-xl bg-slate-50 p-3"><p className="text-xs text-slate-500">Budgeted spending</p><p className="mt-1 font-bold">{money(summary.trackedExpense)}</p></div>
@@ -132,6 +143,7 @@ export default function FinanceBudgetPanel({
       <p className="mt-3 text-xs text-slate-500">
         Each saved month stays independent. The default template applies only to months without a saved snapshot. Historical months without a snapshot are labeled as such.
       </p>
+      </>}
     </div>
   );
 }
