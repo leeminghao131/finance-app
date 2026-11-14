@@ -170,7 +170,7 @@ export function validateSavedFilters(value){
     return {id,name,filters:validateAdvancedFilter(v.filters)};
   });
 }
-export function financeWrapped(records,{mode="monthly",month=localDateMY().slice(0,7),quarterStart=month,year=localDateMY().slice(0,4)}={}){
+export function financeWrapped(records,{mode="monthly",month=localDateMY().slice(0,7),quarterStart=month,year=localDateMY().slice(0,4),monthRows=[],budgetTemplate={},asOfDate=localDateMY()}={}){
   let first,last,previousFirst,previousLast,label;
   if(mode==="monthly"){
     validMonth(month);first=month+"-01";last=monthEnd(month);
@@ -185,7 +185,39 @@ export function financeWrapped(records,{mode="monthly",month=localDateMY().slice
     previousFirst=(Number(year)-1)+"-01-01";previousLast=(Number(year)-1)+"-12-31";label=String(year);
   }else throw new Error("Unknown Wrapped mode.");
   const current=groupedSums(records,first,last),previous=groupedSums(records,previousFirst,previousLast);
-  return {mode,label,first,last,current,previous,
+  validDate(asOfDate);
+  if(!Array.isArray(monthRows))throw new Error("Saved monthly budgets are unavailable.");
+  let budgetCents=0,trackedCents=0,savedMonths=0,templateMonths=0,missingMonths=0;
+  const budgetEntries=[];
+  let cursor=first.slice(0,7),lastMonth=last.slice(0,7);
+  while(cursor<=lastMonth){
+    const snapshot=monthRows.find(row=>row.month===cursor);
+    const proposed=!snapshot&&cursor>=asOfDate.slice(0,7);
+    const source=snapshot?.category_budgets||(proposed?budgetTemplate:null);
+    if(!source)missingMonths++;
+    else{
+      if(snapshot)savedMonths++;else templateMonths++;
+      const allocations=new Map();
+      for(const [category,value] of Object.entries(source)){
+        if(value===null||String(value).trim()==="")continue;
+        const limit=cents(value);
+        if(limit<0)throw new Error("Invalid negative budget.");
+        if(limit>0){allocations.set(category,limit);budgetCents+=limit;}
+      }
+      for(const row of recordsOf(records)){
+        if(row.type==="expense"&&String(row.date||"").startsWith(cursor)&&allocations.has(row.category))
+          trackedCents+=cents(row.amount);
+      }
+      budgetEntries.push({month:cursor,fromSavedSnapshot:!!snapshot,amount:rm([...allocations.values()].reduce((a,b)=>a+b,0))});
+    }
+    cursor=addMonths(cursor,1);
+  }
+  const budget={available:savedMonths+templateMonths>0,total:rm(budgetCents),spent:rm(trackedCents),
+    remaining:rm(budgetCents-trackedCents),
+    usage:budgetCents?Math.round(trackedCents/budgetCents*1000)/10:null,
+    savedMonths,templateMonths,missingMonths,entries:budgetEntries};
+
+  return {mode,label,first,last,current,previous,budget,
     changes:{income:rm(cents(current.income)-cents(previous.income)),
       expense:rm(cents(current.expense)-cents(previous.expense)),
       net:rm(cents(current.net)-cents(previous.net))},
