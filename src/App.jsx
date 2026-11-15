@@ -608,6 +608,8 @@ function FinanceVisualizerAppContent() {
   const [recurringBills, setRecurringBills] = useState([]);
   const [reviewState, setReviewState] = useState({threshold:500,decisions:[]});
   const [accountChecks, setAccountChecks] = useState([]);
+  const [transferToolTab,setTransferToolTab] = useState("transfer");
+  const [accountCheckMethod,setAccountCheckMethod] = useState("BANK");
   const [advancedFilter, setAdvancedFilter] = useState(null);
   const [undoDeleted, setUndoDeleted] = useState(null);
   const [trashOpen, setTrashOpen] = useState(false);
@@ -1903,6 +1905,13 @@ return (
   onConfirmBillPayment={confirmStage2BillPayment}
   onSaveReview={(next,baseline)=>saveStage2Field("review_state",next,baseline)}
   onSaveChecks={(next,baseline)=>saveStage2Field("account_checks",next,baseline)}
+  onOpenAccountCheck={method=>{
+    if(method)setAccountCheckMethod(method);
+    setTransferToolTab("accounts");
+    window.setTimeout(()=>{
+      document.getElementById("mh-money-transfer-card")?.scrollIntoView({behavior:"smooth",block:"start"});
+    },100);
+  }}
   onPrefillExpense={prefillStage2Record} onPrefillRecord={prefillStage2Record}
   onUpdateRecord={updateRecord}
   optionsFor={type=>({categories:categoryOptionsFor(type),methods:methodOptionsFor(type)})}
@@ -2151,6 +2160,12 @@ return (
   onUpdateTransfer={updateTransfer}
   onDeleteTransfer={deleteTransfer}
   onRestoreTransfer={restoreTransfer}
+  balances={methodBalances} records={records} checks={accountChecks}
+  onSaveChecks={(next,baseline)=>saveStage2Field("account_checks",next,baseline)}
+  onPrefillRecord={prefillStage2Record}
+  activeTab={transferToolTab} onTabChange={setTransferToolTab}
+  selectedAccountMethod={accountCheckMethod}
+  disabled={!initialDataReady||dataLoading}
 />
 
   </div>
