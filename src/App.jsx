@@ -997,8 +997,8 @@ useEffect(() => {
     if(!accountId||!supabase||!initialDataReady||dataLoading||
       liveUserIdRef.current!==accountId) return {completed:false,error:"Verified cloud data is not ready."};
     const operationKey=accountId+":"+billId+":"+due;
-    if(pendingBillPaymentsRef.current.has(operationKey))
-      return {completed:false,error:"This bill payment is already being processed."};
+    if(pendingBillPaymentsRef.current.size>0)
+      return {completed:false,error:"Another bill payment is already being processed. Finish it before confirming the next bill."};
     pendingBillPaymentsRef.current.add(operationKey);
     let recordSaved=false;
     try{
