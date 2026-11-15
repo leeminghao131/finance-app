@@ -31,7 +31,7 @@ function DockCardPopup({title,icon,children,disabled=false,widthClass="max-w-5xl
 export default function FinanceInsightsDock({
   records,monthRows,budgetTemplate,totalBalance,userId,
   goals=[],onSaveSavingsGoals,savingsAvailability,budgetMonth,calculationError,
-  disabled=false,
+  disabled=false,onOpenStage2Tool=()=>{},
 }){
   const {language}=useFinanceLanguage();
   const zh=language==="zh";
@@ -59,6 +59,27 @@ export default function FinanceInsightsDock({
             disabled={disabled} savingsAvailability={savingsAvailability}
             calculationError={calculationError} budgetMonth={budgetMonth}/>
         </DockCardPopup>
+        <button type="button" disabled={disabled} aria-haspopup="dialog"
+          aria-label={zh?"打开固定账单":"Open Recurring Bills"}
+          onClick={e=>onOpenStage2Tool("bill",e.currentTarget)}
+          className="mh-insights-dock__button">
+          <span className="mh-insights-dock__label">{zh?"固定账单":"Recurring Bills"}</span>
+          <span className="mh-insights-dock__icon" aria-hidden="true">🗓️</span>
+        </button>
+        <button type="button" disabled={disabled} aria-haspopup="dialog"
+          aria-label={zh?"打开异常记录复查":"Open Review Inbox"}
+          onClick={e=>onOpenStage2Tool("review",e.currentTarget)}
+          className="mh-insights-dock__button">
+          <span className="mh-insights-dock__label">{zh?"异常记录复查":"Review Inbox"}</span>
+          <span className="mh-insights-dock__icon" aria-hidden="true">🔎</span>
+        </button>
+        <button type="button" disabled={disabled}
+          aria-label={zh?"打开账户余额对账":"Open Balance Reconciliation"}
+          onClick={e=>onOpenStage2Tool("accounts",e.currentTarget)}
+          className="mh-insights-dock__button">
+          <span className="mh-insights-dock__label">{zh?"余额对账":"Balance Check"}</span>
+          <span className="mh-insights-dock__icon" aria-hidden="true">🏦</span>
+        </button>
       </div>
     </nav>
   </>;
