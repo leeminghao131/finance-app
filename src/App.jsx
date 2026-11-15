@@ -14,6 +14,8 @@ import FinanceInsightsDock from "./FinanceInsightsDock.jsx";
 import FinanceStage2Hub from "./FinanceStage2Hub.jsx";
 import {validateBills,validateReviewState,validateAccountChecks,withBillOccurrence} from "./financeStage2.js";
 import {checkBillPaymentEligibility,createBillPaymentExpense} from "./financeBillPayment.js";
+import {canonicalFinanceMethod} from "./financeMethodKeys.js";
+import {planReconciliationTransfers,writeReconciliationTransfer} from "./financeReconciliationTransfers.js";
 import {validateSavedFilters,filterFinanceRecordsAdvanced} from "./financeStage1Analytics.js";
 import {validateSavingsGoals,calculateSavingsAvailable} from "./financePlanning.js";
 import { openingTotal, calculateMethodBalances } from "./financeOpeningBalance.js";
@@ -631,6 +633,7 @@ function FinanceVisualizerAppContent() {
   const transferCreationPendingRef = useRef(false);
   const recordCreationPendingRef = useRef(false);
   const pendingBillPaymentsRef = useRef(new Set());
+  const reconciliationPendingRef = useRef(false);
   const confirmedCustomOptionsRef = useRef(DEFAULT_CUSTOM_OPTIONS);
   const pendingRecordsRef = useRef(new Set());
   const reloadDebounceRef = useRef(null);
@@ -1006,7 +1009,7 @@ useEffect(() => {
       // Validate against the complete owner-scoped snapshot first.
       const bill=checkBillPaymentEligibility(recurringBills,billId,due,records,today());
       if(!expenseCategoryOptions.includes(bill.category) ||
-        !expenseMethodOptions.includes(bill.method)) {
+        !expenseMethodOptions.includes(canonicalFinanceMethod(bill.method))) {
         throw Error("This bill's Category or Method is no longer available. Edit the bill plan before paying.");
       }
       const baseline=JSON.stringify(recurringBills);
@@ -1030,6 +1033,61 @@ useEffect(() => {
       }
       return {completed:false,recordSaved,error:error?.message||String(error)};
     }finally{pendingBillPaymentsRef.current.delete(operationKey);}
+  }
+
+  async function executeStage2Reconciliation(plan) {
+    const accountId=user?.id;
+    if(reconciliationPendingRef.current||transferCreationPendingRef.current||
+       !accountId||!initialDataReady||dataLoading||liveUserIdRef.current!==accountId){
+      return {completed:false,error:"Cloud data is not verified, or a Transfer is already being saved."};
+    }
+    reconciliationPendingRef.current=true;
+    let count=0;
+    try{
+      // Recreate the exact same plan from the current verified dashboard.
+      // Never trust an arbitrary plan from UI as permission to write Transfers.
+      const actual=Object.fromEntries(plan.rows.map(row=>[row.method,row.actual]));
+      const validated=planReconciliationTransfers(methodBalances,actual);
+      if(JSON.stringify(validated)!==JSON.stringify(plan)||!validated.transfers.length){
+        throw Error("The reconciliation plan changed. Recheck actual account balances.");
+      }
+      for(let i=0;i<validated.transfers.length;i++){
+        if(liveUserIdRef.current!==accountId)throw Error("Account changed during reconciliation.");
+        // Full count-verified read, including soft-deleted rows, before each INSERT.
+        // Compare all accounts with the ledger expected after our preceding steps.
+        const latest=await fetchFinanceSnapshot(supabase,accountId);
+        const remote=calculateMethodBalances(
+          latest.records.map(r=>({...r,method:recordMethod(r)})),latest.transfers,
+          accountMethodOptions,latest.settingsRow?.opening_balances||{},normalizeMethodForBalance
+        );
+        const expected=new Map(validated.rows.map(r=>[r.method,Math.round(r.ledger*100)]));
+        for(const prior of validated.transfers.slice(0,i)){
+          const sen=Math.round(prior.amount*100);
+          expected.set(prior.fromMethod,(expected.get(prior.fromMethod)||0)-sen);
+          expected.set(prior.toMethod,(expected.get(prior.toMethod)||0)+sen);
+        }
+        const remoteMap=new Map(remote.map(r=>[r.method,Math.round(r.balance*100)]));
+        if(remote.length!==expected.size||
+          [...expected].some(([method,sen])=>remoteMap.get(method)!==sen)){
+          throw Error("Cloud balances changed since the preview. Review current Transfers and recompute; no further Transfers were inserted.");
+        }
+        const answer=await writeReconciliationTransfer(supabase,accountId,validated,today(),i,crypto);
+        if(liveUserIdRef.current!==accountId)throw Error("Account changed during saving.");
+        setTransfers(rows=>rows.some(r=>String(r.id)===String(answer.transfer.id))
+          ?rows:[answer.transfer,...rows]);
+        count++;
+      }
+      setSyncStatus("Reconciliation Transfers saved: "+count);
+      await loadCloudData({background:true});
+      return {completed:true,count};
+    }catch(error){
+      setSyncStatus("Reconciliation stopped after "+count+" confirmed Transfers: "+(error?.message||"unknown"));
+      // Partial batches must never be silently rolled back or repeated with
+      // fresh request keys. Refresh shows the real confirmed transfers.
+      await loadCloudData({background:true});
+      return {completed:false,count,error:
+        "Stopped after "+count+" confirmed Transfers. Check Transfer History; "+(error?.message||"refresh required")};
+    }finally{reconciliationPendingRef.current=false;}
   }
 
   function prefillStage2Record(next) {
@@ -2164,6 +2222,7 @@ return (
   onRestoreTransfer={restoreTransfer}
   balances={methodBalances} records={records} checks={accountChecks}
   onSaveChecks={(next,baseline)=>saveStage2Field("account_checks",next,baseline)}
+  onExecuteTransfers={executeStage2Reconciliation}
   onPrefillRecord={prefillStage2Record}
   activeTab={transferToolTab} onTabChange={setTransferToolTab}
   selectedAccountMethod={accountCheckMethod} accountNavigationKey={accountNavigationKey}
