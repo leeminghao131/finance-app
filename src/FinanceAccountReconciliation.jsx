@@ -1,4 +1,4 @@
-import React,{useMemo,useState} from "react";
+import React,{useEffect,useMemo,useState} from "react";
 import {localDateMY} from "./financeCalendar.js";
 import {reconcileMethod,validateAccountChecks} from "./financeStage2.js";
 import {useFinanceLanguage} from "./FinanceLanguageLayer.jsx";
@@ -17,6 +17,12 @@ export default function FinanceAccountReconciliation({
   const {language}=useFinanceLanguage(),zh=language==="zh",t=(cn,en)=>zh?cn:en;
   const [method,setMethod]=useState(selectedMethod||"BANK"),[actual,setActual]=useState("");
   const [note,setNote]=useState(""),[busy,setBusy]=useState(false),[message,setMessage]=useState(""),[error,setError]=useState("");
+  useEffect(()=>{
+    if(selectedMethod){
+      setMethod(selectedMethod);
+      setActual("");setError("");setMessage("");
+    }
+  },[selectedMethod]);
   const selected=balances.find(x=>x.method===method)||balances[0];
   const expected=Number(selected?.balance||0);
   const amount=actual.trim()===""?null:Number(actual);
