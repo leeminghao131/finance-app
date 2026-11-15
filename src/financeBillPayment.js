@@ -2,6 +2,7 @@ import {requireCalendarDate} from "./financeCalendar.js";
 import {validateBills,billOccurrences} from "./financeStage2.js";
 import {normalizeRecord} from "./financeRecords.js";
 import {cents} from "./financeStage1Analytics.js";
+import {canonicalFinanceMethod} from "./financeMethodKeys.js";
 
 const fields="id,type,amount,category,method,note,date,created_at,updated_at,version,deleted_at";
 const validOwner=id=>/^[0-9a-f]{8}-[0-9a-f-]{27,}$/.test(String(id||""));
@@ -44,7 +45,7 @@ export function matchesBillPaymentRecord(row,bill){
   return !!row&&row.type==="expense"&&!row.deleted_at
     &&cents(row.amount)===cents(bill.amount)
     &&String(row.category)===bill.category
-    &&String(row.method)===bill.method
+    &&canonicalFinanceMethod(row.method)===canonicalFinanceMethod(bill.method)
     &&String(row.note||"")===bill.title;
 }
 
@@ -75,7 +76,7 @@ export async function createBillPaymentExpense(client,userId,bill,due,paidDate,c
   const prior=await existing();
   if(prior)return {record:confirm(prior),created:false,requestId};
   const payload={user_id:userId,type:"expense",amount:verified.amount,
-    category:verified.category,method:verified.method,note:verified.title,
+    category:verified.category,method:canonicalFinanceMethod(verified.method),note:verified.title,
     date:paidDate,client_request_id:requestId};
   let inserted;
   try{
