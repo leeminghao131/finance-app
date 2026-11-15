@@ -88,7 +88,7 @@ export default function FinanceAccountReconciliation({
       "A residual is not necessarily Income or Expense. Check bank activity and Opening Balance. Only an UNSAVED form will be filled.")))return;
     onPrefillRecord({
       type:x.type,amount:String(x.amount),method:x.method,
-      note:t("余额核对差额，已确认原因后补记","Reconciliation discrepancy - check underlying cause"),
+      note:"balance",
       date:localDateMY(),
     });
   };
