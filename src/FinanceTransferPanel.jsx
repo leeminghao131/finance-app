@@ -1,4 +1,5 @@
-import { localizedFinanceAlert, localizedFinanceConfirm } from "./FinanceLanguageLayer.jsx";
+import { localizedFinanceAlert, localizedFinanceConfirm, useFinanceLanguage } from "./FinanceLanguageLayer.jsx";
+import FinanceAccountReconciliation from "./FinanceAccountReconciliation.jsx";
 import React, { useMemo, useState } from "react";
 import { requireCalendarDate } from "./financeCalendar.js";
 
@@ -9,7 +10,11 @@ const buttonStyle = "rounded-xl border border-slate-300 bg-white px-3 py-2 text-
 export default function FinanceTransferPanel({
   transferForm, setTransferForm, methodOptions, transfers, deletedTransfers,
   onTransfer, onUpdateTransfer, onDeleteTransfer, onRestoreTransfer, undoTransfer,
+  balances=[],records=[],checks=[],onSaveChecks,onPrefillRecord,
+  activeTab="transfer",onTabChange=()=>{},selectedAccountMethod=null,disabled=false,
 }) {
+  const {language}=useFinanceLanguage();
+  const t=(cn,en)=>language==="zh"?cn:en;
   const [showAll, setShowAll] = useState(false);
   const [showTrash, setShowTrash] = useState(false);
   const [month, setMonth] = useState("all");
@@ -52,7 +57,7 @@ export default function FinanceTransferPanel({
   }
 
   return (
-    <div className="rounded-2xl bg-white p-5 shadow-sm ring-1 ring-slate-200">
+    <div id="mh-money-transfer-card" className="rounded-2xl bg-white p-5 shadow-sm ring-1 ring-slate-200">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <h2 className="text-xl font-bold">Money Transfer</h2>
@@ -61,6 +66,28 @@ export default function FinanceTransferPanel({
         <span className="rounded-2xl bg-blue-50 px-3 py-2 text-xl">🔁</span>
       </div>
 
+      <div role="tablist" aria-label={t("资金转移与对账","Transfers and reconciliation")}
+        className="mt-4 grid grid-cols-2 gap-2 rounded-xl bg-slate-100 p-1">
+        <button type="button" role="tab" aria-selected={activeTab==="transfer"}
+          onClick={()=>onTabChange("transfer")}
+          className={"rounded-lg px-3 py-3 text-sm font-bold transition "+
+            (activeTab==="transfer"?"bg-white text-blue-800 shadow-sm":"text-slate-600 hover:bg-white/60")}>
+          🔁 {t("资金转移","Money Transfer")}
+        </button>
+        <button type="button" role="tab" aria-selected={activeTab==="accounts"}
+          onClick={()=>onTabChange("accounts")}
+          className={"rounded-lg px-3 py-3 text-sm font-bold transition "+
+            (activeTab==="accounts"?"bg-white text-blue-800 shadow-sm":"text-slate-600 hover:bg-white/60")}>
+          🏦 {t("余额对账","Balance Check")}
+        </button>
+      </div>
+      {activeTab==="accounts"
+        ? <div role="tabpanel" className="mt-4">
+            <FinanceAccountReconciliation balances={balances} records={records} transfers={transfers}
+              checks={checks} onSave={onSaveChecks} onPrefillRecord={onPrefillRecord}
+              selectedMethod={selectedAccountMethod} disabled={disabled}/>
+          </div>
+        : <div role="tabpanel">
       <form onSubmit={onTransfer} className="mt-4 space-y-3">
         <div className="grid gap-3 sm:grid-cols-2">
           <label className="text-sm text-slate-700">From Method
@@ -230,6 +257,7 @@ export default function FinanceTransferPanel({
             ))}
         </div>
       )}
+        </div>}
     </div>
   );
 }
