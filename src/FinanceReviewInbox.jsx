@@ -1,7 +1,7 @@
 import React,{useMemo,useState} from "react";
 import FinanceOverlay from "./FinanceOverlay.jsx";
 import {localDateMY} from "./financeCalendar.js";
-import {confirmReview,findReviewCandidates,validateReviewState} from "./financeStage2.js";
+import {confirmReview,findReviewCandidates,validateReviewState,REVIEW_RULE_KEYS,DEFAULT_REVIEW_RULES} from "./financeStage2.js";
 import {useFinanceLanguage} from "./FinanceLanguageLayer.jsx";
 
 const money=n=>new Intl.NumberFormat("en-MY",{style:"currency",currency:"MYR"}).format(n);
@@ -37,6 +37,11 @@ export default function FinanceReviewInbox({
       return true;
     }catch(e){setError(e.message);return false;}finally{setBusy(false);}
   };
+  const toggleRule=async(rule,checked)=>{
+    const normalized=validateReviewState(reviewState);
+    const next={...normalized,enabled:{...normalized.enabled,[rule]:checked}};
+    await saveSnapshot(next,JSON.stringify(reviewState));
+  };
   const confirm=async c=>{
     if(await saveSnapshot(confirmReview(reviewState,c.record,localDateMY()),JSON.stringify(reviewState)))
       setMessage(t("已确认无误，之后同版本不会重复提醒。","Confirmed. This unchanged record will not alert again."));
@@ -71,6 +76,23 @@ export default function FinanceReviewInbox({
         {candidates.filter(c=>!c.confirmed).length} {t("待确认","pending")}
       </span>
     </div>
+    <section className="mt-3 rounded-xl border border-slate-200 bg-slate-50 p-3">
+      <h3 className="text-sm font-bold">{t("异常提醒开关","Anomaly reminder switches")}</h3>
+      <p className="mt-1 text-xs text-slate-500">
+        {t("每种提醒都可以独立开启或关闭，设置会保存至你的账号。关闭不会修改历史记录。",
+          "Enable or disable each rule separately. Saved per account; no transaction is changed.")}
+      </p>
+      <div className="mt-3 grid gap-2 sm:grid-cols-2">
+        {REVIEW_RULE_KEYS.map(rule=><label key={rule}
+          className="flex min-h-12 items-center justify-between gap-3 rounded-xl bg-white px-3 py-2 text-sm ring-1 ring-slate-200">
+          <span className="font-medium">{labels[rule]?.[zh?0:1]||rule}</span>
+          <input type="checkbox" role="switch" aria-label={labels[rule]?.[zh?0:1]||rule}
+            checked={(reviewState.enabled??DEFAULT_REVIEW_RULES)[rule]!==false}
+            disabled={busy||disabled} onChange={e=>toggleRule(rule,e.target.checked)}
+            className="h-5 w-5 accent-teal-700"/>
+        </label>)}
+      </div>
+    </section>
     <form onSubmit={adjustThreshold} className="mt-3 flex flex-wrap items-end gap-2 rounded-xl bg-slate-50 p-3">
       <label className="min-w-[140px] flex-1 text-sm">{t("大额支出提醒阈值（RM）","Large-expense threshold (RM)")}
         <input name="threshold" defaultValue={reviewState.threshold} key={String(reviewState.threshold)}

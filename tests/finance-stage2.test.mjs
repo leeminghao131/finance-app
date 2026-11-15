@@ -88,17 +88,22 @@ test("Stage2 monthly calendar and bank aliases retain accurate schedule and no s
  assert.equal(flags.length,2);
  assert.ok(flags.every(x=>x.reasons.includes("duplicate")));
 });
-test("Stage2 manual expense prefill closes parent popup and double bill claim is rejected by UI",()=>{
- const hub=src("FinanceStage2Hub.jsx"),bills=src("FinanceRecurringBills.jsx"),app=src("App.jsx");
- assert.match(hub,/const prefillAndClose=next=>/);
- assert.match(hub,/if\(ok\)close\(\)/);
- assert.match(hub,/onPrefillExpense=\{prefillAndClose\}/);
- assert.match(hub,/onPrefillRecord=\{prefillAndClose\}/);
- assert.match(app,/setAmountEntryMode\("rm"\)/);
- assert.match(bills,/usedElsewhere/);
+test("Stage 2.1 bill confirms directly and account mismatch alerts open Transfer Balance Check",()=>{
+ const hub=src("FinanceStage2Hub.jsx"),bills=src("FinanceRecurringBills.jsx");
+ const app=src("App.jsx"),transfer=src("FinanceTransferPanel.jsx");
+ assert.match(hub,/onConfirmPayment=\{onConfirmBillPayment\}/);
+ assert.match(hub,/onOpenAccountCheck\?\.\(ref\)/);
+ assert.match(bills,/onConfirmPayment\(\{billId:event.billId,due:event.due\}\)/);
+ assert.match(bills,/确认已付并自动记账/);
+ assert.ok(!bills.includes("选择一笔已存在的支出"));
+ assert.ok(!bills.includes("Fill Expense form"));
  assert.match(bills,/查看账单日历/);
  assert.match(bills,/calendarMonthDays/);
  assert.match(hub,/const prioritized=/);
+ assert.match(app,/createBillPaymentExpense\(supabase,accountId,bill,due,today\(\),crypto\)/);
+ assert.match(transfer,/FinanceAccountReconciliation/);
+ assert.match(transfer,/activeTab==="accounts"/);
+ assert.match(app,/onOpenAccountCheck=\{method=>/);
 });
 test("Stage2 UI has top-right bounce, review mini-popup, account manual prefill, no auto records writes",()=>{
  const app=src("App.jsx"),cloud=src("financeCloudService.js"),hub=src("FinanceStage2Hub.jsx");
@@ -113,7 +118,7 @@ test("Stage2 UI has top-right bounce, review mini-popup, account manual prefill,
  assert.match(css,/mh-stage2-jump/);assert.match(css,/prefers-reduced-motion:reduce/);
  assert.match(hub,/mh-stage2-notifications__toast/);
  assert.match(hub,/selectedId=\{selectedRecordId\}/);
- assert.match(bills,/Confirm paid \(link only\)/);
+ assert.match(bills,/Confirm paid & add Expense/);
  assert.match(bills,/withBillOccurrence/);
  assert.match(review,/onUpdateRecord\(c.record.id,fieldName,editValue\)/);
  assert.match(review,/confirmReview\(reviewState,c.record,localDateMY\(\)\)/);
