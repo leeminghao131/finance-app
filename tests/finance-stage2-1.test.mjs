@@ -159,7 +159,7 @@ test("Stage 2.1 Balance Reconciliation is a tab inside Money Transfer, not a sep
   assert.match(transfer,/FinanceAccountReconciliation/);
   assert.match(transfer,/activeTab==="transfer"/);
   assert.match(transfer,/activeTab==="accounts"/);
-  assert.match(transfer,/onTransfer=\{addTransfer\}/); // App still uses original transfer handler, in App
+  assert.match(app,/onTransfer=\{addTransfer\}/); // App still uses original transfer handler
   assert.ok(!hub.includes("<FinanceAccountReconciliation"));
   assert.match(hub,/onOpenAccountCheck\?\.\(ref\)/);
   assert.match(app,/onOpenAccountCheck=\{method=>/);
