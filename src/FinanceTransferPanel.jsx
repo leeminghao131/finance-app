@@ -11,7 +11,7 @@ export default function FinanceTransferPanel({
   transferForm, setTransferForm, methodOptions, transfers, deletedTransfers,
   onTransfer, onUpdateTransfer, onDeleteTransfer, onRestoreTransfer, undoTransfer,
   balances=[],records=[],checks=[],onSaveChecks,onPrefillRecord,
-  activeTab="transfer",onTabChange=()=>{},selectedAccountMethod=null,disabled=false,
+  activeTab="transfer",onTabChange=()=>{},selectedAccountMethod=null,accountNavigationKey=0,disabled=false,
 }) {
   const {language}=useFinanceLanguage();
   const t=(cn,en)=>language==="zh"?cn:en;
@@ -83,7 +83,7 @@ export default function FinanceTransferPanel({
       </div>
       {activeTab==="accounts"
         ? <div role="tabpanel" className="mt-4">
-            <FinanceAccountReconciliation balances={balances} records={records} transfers={transfers}
+            <FinanceAccountReconciliation key={"reconcile-"+accountNavigationKey} balances={balances} records={records} transfers={transfers}
               checks={checks} onSave={onSaveChecks} onPrefillRecord={onPrefillRecord}
               selectedMethod={selectedAccountMethod} disabled={disabled}/>
           </div>
