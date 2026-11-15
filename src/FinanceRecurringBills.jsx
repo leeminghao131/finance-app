@@ -6,13 +6,11 @@ import {useFinanceLanguage} from "./FinanceLanguageLayer.jsx";
 
 const field="mt-1 w-full rounded-xl border border-slate-300 bg-white px-3 py-2.5 text-sm";
 const fmt=n=>new Intl.NumberFormat("en-MY",{style:"currency",currency:"MYR"}).format(n);
-const bankAlias=method=>["BANK IN","ONLINE BANK IN","DEBIT CARD"].includes(String(method||"").trim().toUpperCase())
-  ?"BANK":String(method||"").trim();
 const blank=()=>({title:"",amount:"",category:"饮食",method:"TNG",anchorDate:localDateMY(),
   cycle:"monthly",leadDays:3,active:true,occurrences:[]});
 export default function FinanceRecurringBills({
-  bills=[],records=[],categories=[],methods=[],onSave,onPrefillExpense,disabled=false,
-  open=false,onClose=()=>{},selectedBillId=null,
+  bills=[],records=[],categories=[],methods=[],onSave,onConfirmPayment,disabled=false,
+  selectedBillId=null,
 }){
   const {language}=useFinanceLanguage(),zh=language==="zh";
   const t=(cn,en)=>zh?cn:en;
@@ -22,7 +20,8 @@ export default function FinanceRecurringBills({
   })[cycle]||cycle;
   const [editing,setEditing]=useState(null),[draft,setDraft]=useState(blank);
   const [base,setBase]=useState(""),[busy,setBusy]=useState(false),[error,setError]=useState("");
-  const [linkDue,setLinkDue]=useState(null),[chosenExpense,setChosenExpense]=useState("");
+  const [paymentMessage,setPaymentMessage]=useState("");
+  const paymentPendingRef=useRef(false);
   const today=localDateMY();
   const [calendarMonth,setCalendarMonth]=useState(today.slice(0,7));
   const [calendarDate,setCalendarDate]=useState(today);
@@ -38,15 +37,8 @@ export default function FinanceRecurringBills({
       calendarMonth+"-"+String(i+1).padStart(2,"0"))];
   const chosenDayBills=calendarEvents.filter(e=>e.due===calendarDate);
   const selected=events.filter(e=>!selectedBillId||e.billId===selectedBillId);
-  const candidates=useMemo(()=>{
-    if(!linkDue)return [];
-    const from=shiftCalendarDay(linkDue.due,-35),to=shiftCalendarDay(linkDue.due,35);
-    return records.filter(r=>r.type==="expense"&&!r.deleted_at&&bankAlias(r.method)===bankAlias(linkDue.method)&&r.date>=from&&r.date<=to)
-      .sort((a,b)=>Math.abs(Number(a.amount)-linkDue.amount)-Math.abs(Number(b.amount)-linkDue.amount))
-      .slice(0,80);
-  },[records,linkDue]);
   const start=(bill=null)=>{
-    setError("");setLinkDue(null);
+    setError("");setPaymentMessage("");
     setBase(JSON.stringify(bills));
     setDraft(bill?{...bill,amount:String(bill.amount)}:blank());
     setEditing(bill?.id||"new");
@@ -73,22 +65,29 @@ export default function FinanceRecurringBills({
   }
   async function act(event,change){
     const next=withBillOccurrence(bills,event.billId,event.due,change);
-    if(await saveList(next,JSON.stringify(bills))){setLinkDue(null);setChosenExpense("");}
+    await saveList(next,JSON.stringify(bills));
   }
-  async function markPaid(){
-    const expense=candidates.find(r=>String(r.id)===chosenExpense);
-    if(!expense){setError(t("必须选择已经存在的支出记录，不能凭空确认付款。","Select a real saved Expense before confirming payment."));return;}
-    const usedElsewhere=bills.some(b=>b.occurrences.some(o=>o.status==="paid"&&
-      o.recordId===String(expense.id)&&!(b.id===linkDue.billId&&o.due===linkDue.due)));
-    if(usedElsewhere){setError(t("这笔 Expense 已关联其他账单期数，不能重复认领付款。",
-      "This Expense is already linked to a different bill occurrence."));return;}
-    if(!window.confirm(t("确认将该账单关联这笔已保存的支出？不会再次新增 Expense。","Link this already-saved Expense to the bill? No duplicate transaction will be created.")))return;
-    await act(linkDue,{status:"paid",recordId:String(expense.id)});
+  async function markPaid(event){
+    if(paymentPendingRef.current||disabled||busy)return;
+    paymentPendingRef.current=true;
+    setBusy(true);setError("");setPaymentMessage("");
+    try{
+      const result=await onConfirmPayment({billId:event.billId,due:event.due});
+      if(result?.completed){
+        setPaymentMessage(t("已自动新增一笔支出并确认本期已付（重复操作不会再新增）。",
+          "Expense saved and this bill marked paid. Repeated clicks cannot create another Expense."));
+      }else if(result?.recordSaved){
+        setError(t("支出已写入云端，但账单状态还未同步完成。请刷新后再按确认，系统只会关联原本这笔支出，不会再次扣款。",
+          "Expense is saved, but bill status was not confirmed. Refresh and confirm again to link the SAME Expense safely."));
+      }else throw Error(result?.error||t("付款未确认，请先核对交易记录，刷新后再重试。",
+        "Payment not confirmed. Check records and refresh before retrying."));
+    }catch(error){setError(error.message||String(error));}
+    finally{setBusy(false);paymentPendingRef.current=false;}
   }
   return <>
     <header className="flex flex-wrap items-center justify-between gap-2">
       <div><h2 className="text-lg font-bold">{t("固定账单与提醒","Recurring Bills & Reminders")}</h2>
-        <p className="mt-1 text-xs text-slate-500">{t("只提醒及追踪；付款必须由现有真实支出记录确认，不会自动扣款。","Track due dates only. A saved Expense is required to mark paid; no automatic charge.")}</p></div>
+        <p className="mt-1 text-xs text-slate-500">{t("只提醒及追踪；按“确认付款”会立即自动新增一笔真实 Expense，必须是你实际已经付过的账单。","Track due dates only. Confirming a bill creates one real Expense immediately. Only confirm a payment you actually made.")}</p></div>
       <button type="button" onClick={()=>start()} disabled={disabled||busy||bills.length>=40}
         className="rounded-xl bg-slate-900 px-4 py-2.5 text-sm font-bold text-white disabled:opacity-50">
         {t("＋ 新增账单","+ New Bill")}
@@ -128,6 +127,7 @@ export default function FinanceRecurringBills({
       {t("有效计划","Active plans")}：<b>{bills.filter(b=>b.active).length}</b>
     </div>
     {error&&<p role="alert" className="mt-2 rounded-lg bg-red-50 p-3 text-sm text-red-700">{error}</p>}
+    {paymentMessage&&<p role="status" className="mt-2 rounded-lg bg-emerald-50 p-3 text-sm text-emerald-700">{paymentMessage}</p>}
     <div className="mt-3 space-y-3">
       {selected.map(e=><article key={e.id} className={"rounded-xl border p-3 "+(e.visible?"border-amber-200 bg-amber-50/40":"border-slate-200 bg-white")}>
         <div className="flex flex-wrap items-start justify-between gap-3">
@@ -136,27 +136,26 @@ export default function FinanceRecurringBills({
             <p className="mt-1 text-sm font-semibold">{fmt(e.amount)}</p>
           </div>
           <span className="rounded-full bg-slate-100 px-2 py-1 text-xs font-semibold">
-            {e.status==="paid"?t("已关联支出","Paid / linked"):e.status==="skipped"?t("本期已跳过","Skipped"):
+            {e.status==="paid"?t("已付并记账","Paid / recorded"):e.status==="skipped"?t("本期已跳过","Skipped"):
               e.status==="snoozed"?t("已稍后提醒","Snoozed"):e.status==="unlinked"?t("原付款记录已失效","Linked expense missing"):
               e.phase==="overdue"?t("已逾期","Overdue"):e.phase==="today"?t("今天到期","Due today"):t("即将到期","Upcoming")}
           </span>
         </div>
         {e.status!=="paid"&&e.status!=="skipped"&&<div className="mt-3 flex flex-wrap gap-2">
-          <button type="button" onClick={()=>{setLinkDue(e);setChosenExpense("");setError("");}}
-            className="min-h-10 rounded-lg bg-emerald-700 px-3 py-2 text-xs font-bold text-white">
-            {t("确认已付 / 关联支出","Mark paid / Link Expense")}
-          </button>
-          <button type="button" disabled={busy} onClick={()=>onPrefillExpense({type:"expense",amount:String(e.amount),
-            category:e.category,method:e.method,note:e.title,date:today})}
-            className="min-h-10 rounded-lg border px-3 py-2 text-xs font-semibold">
-            {t("填入支出表单","Fill Expense form")}
-          </button>
-          <button type="button" disabled={busy} onClick={()=>act(e,{status:"snoozed",remindOn:shiftCalendarDay(today,1)})}
+          {e.status!=="unlinked"&&<button type="button" disabled={busy||disabled} onClick={()=>markPaid(e)}
+            className="min-h-11 rounded-lg bg-emerald-700 px-3 py-2 text-xs font-bold text-white disabled:opacity-50">
+            {busy?t("保存中…","Saving…"):t("✓ 确认已付并自动记账","✓ Confirm paid & add Expense")}
+          </button>}
+          {e.status==="unlinked"&&<p className="text-xs font-semibold text-amber-800">
+            {t("此前已经确认付款，但原 Expense 不存在或已删除。请先检查回收站，不会自动重复记账。",
+              "Previously paid, but its Expense is missing/deleted. Check Recycle Bin; no duplicate will be created.")}
+          </p>}
+          <button type="button" disabled={busy||disabled} onClick={()=>act(e,{status:"snoozed",remindOn:shiftCalendarDay(today,1)})}
             className="min-h-10 rounded-lg border px-3 py-2 text-xs font-semibold">{t("明天再提醒","Remind tomorrow")}</button>
-          <button type="button" disabled={busy} onClick={()=>act(e,{status:"skipped"})}
+          <button type="button" disabled={busy||disabled} onClick={()=>act(e,{status:"skipped"})}
             className="min-h-10 rounded-lg border px-3 py-2 text-xs font-semibold text-slate-600">{t("跳过本期","Skip this occurrence")}</button>
         </div>}
-        {e.status==="paid"&&<p className="mt-2 text-xs text-emerald-700">{t("已关联 Expense ID：","Linked Expense ID: ")}{e.linkedRecordId}</p>}
+        {e.status==="paid"&&<p className="mt-2 text-xs text-emerald-700">{t("真实支出记录 ID：","Expense record ID: ")}{e.linkedRecordId}</p>}
       </article>)}
       {!selected.length&&<p className="rounded-xl bg-slate-50 p-4 text-sm text-slate-500">{t("当前范围内没有到期账单。","No bill occurrences in this date range.")}</p>}
     </div>
@@ -203,24 +202,6 @@ export default function FinanceRecurringBills({
         </div>
       </form>
     </FinanceOverlay>
-    <FinanceOverlay open={!!linkDue} onClose={()=>{if(!busy)setLinkDue(null);}}
-      title={t("确认账单付款","Confirm bill payment")} widthClass="max-w-lg">
-      {linkDue&&<div>
-        <p className="text-sm">{t("请选择已经保存的支出记录。选择后仅关联这笔交易，不会新增、修改或扣除第二笔钱。","Choose a saved Expense. Linking never inserts or charges another payment.")}</p>
-        <p className="mt-2 font-semibold" data-i18n-ignore>{linkDue.title} · {fmt(linkDue.amount)}</p>
-        <label className="mt-3 block text-sm">{t("已有 Expense","Existing Expense")}
-          <select value={chosenExpense} className={field} onChange={e=>setChosenExpense(e.target.value)}>
-            <option value="">{t("选择一笔已存在的支出","Select an existing Expense")}</option>
-            {candidates.map(r=><option key={r.id} value={String(r.id)}>
-              {r.date} · {fmt(r.amount)} · {r.category} · {r.note||"—"} · {String(r.id).slice(0,8)}
-            </option>)}
-          </select>
-        </label>
-        {!candidates.length&&<p className="mt-2 text-sm text-amber-700">{t("没有对应付款记录。请先填入并手动保存一笔 Expense，然后回来关联。","No matching method/date Expense. Fill and save a real Expense first, then return to link it.")}</p>}
-        <button disabled={!chosenExpense||busy} onClick={markPaid} className="mt-3 rounded-xl bg-emerald-700 px-4 py-3 text-sm font-bold text-white disabled:opacity-50">
-          {t("确认已付（只关联）","Confirm paid (link only)")}</button>
-        {error&&<p role="alert" className="mt-2 text-sm text-red-700">{error}</p>}
-      </div>}
-    </FinanceOverlay>
+
   </>;
 }
