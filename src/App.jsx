@@ -12,7 +12,8 @@ import FinanceAdvancedFilters from "./FinanceAdvancedFilters.jsx";
 import FinanceAdvancedResults from "./FinanceAdvancedResults.jsx";
 import FinanceInsightsDock from "./FinanceInsightsDock.jsx";
 import FinanceStage2Hub from "./FinanceStage2Hub.jsx";
-import {validateBills,validateReviewState,validateAccountChecks} from "./financeStage2.js";
+import {validateBills,validateReviewState,validateAccountChecks,withBillOccurrence} from "./financeStage2.js";
+import {checkBillPaymentEligibility,createBillPaymentExpense} from "./financeBillPayment.js";
 import {validateSavedFilters,filterFinanceRecordsAdvanced} from "./financeStage1Analytics.js";
 import {validateSavingsGoals,calculateSavingsAvailable} from "./financePlanning.js";
 import { openingTotal, calculateMethodBalances } from "./financeOpeningBalance.js";
@@ -626,6 +627,7 @@ function FinanceVisualizerAppContent() {
   const pendingTransfersRef = useRef(new Set());
   const transferCreationPendingRef = useRef(false);
   const recordCreationPendingRef = useRef(false);
+  const pendingBillPaymentsRef = useRef(new Set());
   const confirmedCustomOptionsRef = useRef(DEFAULT_CUSTOM_OPTIONS);
   const pendingRecordsRef = useRef(new Set());
   const reloadDebounceRef = useRef(null);
@@ -986,6 +988,45 @@ useEffect(() => {
     else if (column === "review_state") setReviewState(normalized);
     else setAccountChecks(normalized);
     return true;
+  }
+
+  async function confirmStage2BillPayment({billId,due}) {
+    const accountId=user?.id;
+    if(!accountId||!supabase||!initialDataReady||dataLoading||
+      liveUserIdRef.current!==accountId) return {completed:false,error:"Verified cloud data is not ready."};
+    const operationKey=accountId+":"+billId+":"+due;
+    if(pendingBillPaymentsRef.current.has(operationKey))
+      return {completed:false,error:"This bill payment is already being processed."};
+    pendingBillPaymentsRef.current.add(operationKey);
+    let recordSaved=false;
+    try{
+      // Validate against the complete owner-scoped snapshot first.
+      const bill=checkBillPaymentEligibility(recurringBills,billId,due,records,today());
+      if(!expenseCategoryOptions.includes(bill.category) ||
+        !expenseMethodOptions.includes(bill.method)) {
+        throw Error("This bill's Category or Method is no longer available. Edit the bill plan before paying.");
+      }
+      const baseline=JSON.stringify(recurringBills);
+      const {record}=await createBillPaymentExpense(supabase,accountId,bill,due,today(),crypto);
+      recordSaved=true; // only after DB acknowledges a real, matching, non-deleted Expense
+      if(liveUserIdRef.current!==accountId) return {completed:false,recordSaved:true};
+      setRecords(rows=>rows.some(r=>String(r.id)===String(record.id))?rows:[record,...rows]);
+      const paid=withBillOccurrence(recurringBills,billId,due,{status:"paid",recordId:String(record.id)});
+      // A settings conflict may occur between INSERT and this independent field update.
+      // Fail closed: show partial success and let user RETRY using the SAME stable request ID.
+      const linked=await saveStage2Field("recurring_bills",paid,baseline);
+      if(!linked||liveUserIdRef.current!==accountId){
+        setSyncStatus("Bill Expense saved; bill status not confirmed. Refresh before retry.");
+        return {completed:false,recordSaved:true,recordId:String(record.id)};
+      }
+      setSyncStatus("Recurring bill paid and Expense saved to cloud");
+      return {completed:true,recordSaved:true,recordId:String(record.id)};
+    }catch(error){
+      if(liveUserIdRef.current===accountId) {
+        setSyncStatus("Bill confirmation needs review: "+(error?.message||"unknown error"));
+      }
+      return {completed:false,recordSaved,error:error?.message||String(error)};
+    }finally{pendingBillPaymentsRef.current.delete(operationKey);}
   }
 
   function prefillStage2Record(next) {
@@ -1859,6 +1900,7 @@ return (
   records={records} transfers={transfers} balances={methodBalances}
   categories={expenseCategoryOptions} methods={expenseMethodOptions}
   onSaveBills={(next,baseline)=>saveStage2Field("recurring_bills",next,baseline)}
+  onConfirmBillPayment={confirmStage2BillPayment}
   onSaveReview={(next,baseline)=>saveStage2Field("review_state",next,baseline)}
   onSaveChecks={(next,baseline)=>saveStage2Field("account_checks",next,baseline)}
   onPrefillExpense={prefillStage2Record} onPrefillRecord={prefillStage2Record}
