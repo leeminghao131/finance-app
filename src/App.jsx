@@ -14,6 +14,7 @@ import FinanceInsightsDock from "./FinanceInsightsDock.jsx";
 import FinanceStage2Hub from "./FinanceStage2Hub.jsx";
 import {validateBills,validateReviewState,validateAccountChecks,withBillOccurrence} from "./financeStage2.js";
 import {checkBillPaymentEligibility,createBillPaymentExpense} from "./financeBillPayment.js";
+import {canonicalFinanceMethod} from "./financeMethodKeys.js";
 import {validateSavedFilters,filterFinanceRecordsAdvanced} from "./financeStage1Analytics.js";
 import {validateSavingsGoals,calculateSavingsAvailable} from "./financePlanning.js";
 import { openingTotal, calculateMethodBalances } from "./financeOpeningBalance.js";
@@ -1006,7 +1007,7 @@ useEffect(() => {
       // Validate against the complete owner-scoped snapshot first.
       const bill=checkBillPaymentEligibility(recurringBills,billId,due,records,today());
       if(!expenseCategoryOptions.includes(bill.category) ||
-        !expenseMethodOptions.includes(bill.method)) {
+        !expenseMethodOptions.includes(canonicalFinanceMethod(bill.method))) {
         throw Error("This bill's Category or Method is no longer available. Edit the bill plan before paying.");
       }
       const baseline=JSON.stringify(recurringBills);
