@@ -103,7 +103,7 @@ test("Stage 2.1 bill confirms directly and account mismatch alerts open Transfer
  assert.match(app,/createBillPaymentExpense\(supabase,accountId,bill,due,today\(\),crypto\)/);
  assert.match(transfer,/FinanceAccountReconciliation/);
  assert.match(transfer,/activeTab==="accounts"/);
- assert.match(app,/onOpenAccountCheck=\{method=>/);
+ assert.match(app,/onOpenAccountCheck=\{openStage2AccountCheck\}/);
 });
 test("Stage2 UI has top-right bounce, review mini-popup, account manual prefill, no auto records writes",()=>{
  const app=src("App.jsx"),cloud=src("financeCloudService.js"),hub=src("FinanceStage2Hub.jsx");
