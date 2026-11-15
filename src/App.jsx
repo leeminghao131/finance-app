@@ -613,6 +613,7 @@ function FinanceVisualizerAppContent() {
   const [transferToolTab,setTransferToolTab] = useState("transfer");
   const [accountCheckMethod,setAccountCheckMethod] = useState("BANK");
   const [accountNavigationKey,setAccountNavigationKey] = useState(0);
+  const [stage2ToolRequest,setStage2ToolRequest] = useState(null);
   const [advancedFilter, setAdvancedFilter] = useState(null);
   const [undoDeleted, setUndoDeleted] = useState(null);
   const [trashOpen, setTrashOpen] = useState(false);
@@ -755,6 +756,7 @@ function FinanceVisualizerAppContent() {
       setSavingsGoals([]);
       setSavedFilters([]);
       setRecurringBills([]);
+      setStage2ToolRequest(null);
       setReviewState({threshold:500,decisions:[]});
       setAccountChecks([]);
       setAdvancedFilter(null);
@@ -1088,6 +1090,24 @@ useEffect(() => {
       return {completed:false,count,error:
         "Stopped after "+count+" confirmed Transfers. Check Transfer History; "+(error?.message||"refresh required")};
     }finally{reconciliationPendingRef.current=false;}
+  }
+
+  // Stage 2.3: notification links and the left dock share the SAME feature.
+  // Account reconciliation stays within the original Money Transfer card.
+  function openStage2AccountCheck(method=null) {
+    if(!initialDataReady||dataLoading)return;
+    if(method)setAccountCheckMethod(method);
+    setAccountNavigationKey(x=>x+1);
+    setTransferToolTab("accounts");
+    window.setTimeout(()=>{
+      document.getElementById("mh-money-transfer-card")?.scrollIntoView({behavior:"smooth",block:"start"});
+    },100);
+  }
+  function openStage2DockTool(type,source) {
+    if(!initialDataReady||dataLoading)return;
+    if(type==="accounts"){openStage2AccountCheck();return;}
+    if(type!=="bill"&&type!=="review")return;
+    setStage2ToolRequest({type,source});
   }
 
   function prefillStage2Record(next) {
@@ -1956,7 +1976,7 @@ const addRecordTheme =
 return (
   <div onClickCapture={(e) => e.target.closest("button,select") && playSound()} className="mh-ui min-h-screen bg-slate-50 p-3 text-slate-900 sm:p-4 md:p-8">
 <CoinRainEffect trigger={coinRainTrigger} />
-<FinanceStage2Hub
+<FinanceStage2Hub toolRequest={stage2ToolRequest}
   bills={recurringBills} reviewState={reviewState} checks={accountChecks}
   records={records} transfers={transfers} balances={methodBalances}
   categories={expenseCategoryOptions} methods={expenseMethodOptions}
@@ -1964,14 +1984,7 @@ return (
   onConfirmBillPayment={confirmStage2BillPayment}
   onSaveReview={(next,baseline)=>saveStage2Field("review_state",next,baseline)}
   onSaveChecks={(next,baseline)=>saveStage2Field("account_checks",next,baseline)}
-  onOpenAccountCheck={method=>{
-    if(method)setAccountCheckMethod(method);
-    setAccountNavigationKey(x=>x+1);
-    setTransferToolTab("accounts");
-    window.setTimeout(()=>{
-      document.getElementById("mh-money-transfer-card")?.scrollIntoView({behavior:"smooth",block:"start"});
-    },100);
-  }}
+  onOpenAccountCheck={openStage2AccountCheck}
   onPrefillExpense={prefillStage2Record} onPrefillRecord={prefillStage2Record}
   onUpdateRecord={updateRecord}
   optionsFor={type=>({categories:categoryOptionsFor(type),methods:methodOptionsFor(type)})}
@@ -2562,6 +2575,7 @@ categoryOptionsFor={categoryOptionsFor}
           savingsAvailability={savingsCalculation.data}
           calculationError={savingsCalculation.error}
           budgetMonth={savingsBudgetMonth}
+          onOpenStage2Tool={openStage2DockTool}
           disabled={!initialDataReady||dataLoading}
         />
 

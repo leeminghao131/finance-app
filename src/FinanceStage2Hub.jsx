@@ -1,4 +1,4 @@
-import React,{useMemo,useRef,useState} from "react";
+import React,{useEffect,useMemo,useRef,useState} from "react";
 import FinanceOverlay from "./FinanceOverlay.jsx";
 import FinanceRecurringBills from "./FinanceRecurringBills.jsx";
 import FinanceReviewInbox from "./FinanceReviewInbox.jsx";
@@ -11,12 +11,13 @@ export default function FinanceStage2Hub({
   bills=[],reviewState={threshold:500,decisions:[]},checks=[],
   records=[],transfers=[],balances=[],categories=[],methods=[],
   onSaveBills,onConfirmBillPayment,onSaveReview,onUpdateRecord,onOpenAccountCheck,
-  optionsFor,disabled=false,
+  optionsFor,disabled=false,toolRequest=null,
 }){
   const {language}=useFinanceLanguage(),zh=language==="zh",t=(cn,en)=>zh?cn:en;
   const [mode,setMode]=useState(""),[selectedBillId,setSelectedBillId]=useState(null);
   const [selectedRecordId,setSelectedRecordId]=useState(null),[menu,setMenu]=useState(false);
   const triggerRef=useRef(null);
+  const handledRequestRef=useRef(null);
   const today=localDateMY();
   const billsDue=useMemo(()=>billOccurrences(bills,today,records,70,35).filter(x=>x.visible),[bills,records,today]);
   const candidates=useMemo(()=>findReviewCandidates(records,reviewState,today).filter(x=>!x.confirmed),
@@ -54,6 +55,18 @@ export default function FinanceStage2Hub({
     setSelectedRecordId(type==="review"?ref:null);
     setMenu(false);
   };
+  // Dock launchers reuse the SAME popup and handlers as the existing
+  // actionable notifications; never mount a second copy of review/bill data.
+  useEffect(()=>{
+    if(!toolRequest || handledRequestRef.current===toolRequest)return;
+    handledRequestRef.current=toolRequest;
+    if(disabled || !["bill","review"].includes(toolRequest.type))return;
+    triggerRef.current=toolRequest.source||null;
+    setMode(toolRequest.type);
+    setSelectedBillId(null);
+    setSelectedRecordId(null);
+    setMenu(false);
+  },[toolRequest,disabled]);
   const close=()=>{setMode("");setSelectedBillId(null);setSelectedRecordId(null);};
   const title=mode==="bill"?t("固定账单提醒","Recurring Bills")
     :t("异常记录复查","Review Transactions");
@@ -64,10 +77,28 @@ export default function FinanceStage2Hub({
         🔔 <span>{t("提醒","Alerts")}</span>
         {alertCount>0&&<span className="mh-stage2-notifications__count">{alertCount>99?"99+":alertCount}</span>}
       </button>
-      {menu&&<div className="mh-stage2-notifications__menu">
-        <button onClick={e=>open("bill",null,e.currentTarget)} type="button">🗓️ {t("固定账单","Recurring Bills")} ({billsDue.length})</button>
-        <button onClick={e=>open("review",null,e.currentTarget)} type="button">🔍 {t("异常复查","Review Inbox")} ({candidates.length})</button>
-        <button onClick={e=>open("accounts",null,e.currentTarget)} type="button">🏦 {t("账户对账","Balance Check")} ({reconciliationAlerts.length})</button>
+      {menu&&<div className="mh-stage2-notifications__menu"
+        aria-label={t("逐条待处理通知","Individual pending notifications")}>
+        <p className="px-2 py-1 text-xs font-semibold text-slate-500">
+          {t("待处理提醒","Pending reminders")} · {alertCount}
+        </p>
+        <div className="mh-stage2-notifications__alert-list">
+          {prioritized.map(item=><button key={item.type+":"+item.id}
+            type="button" onClick={e=>open(item.type,item.ref,e.currentTarget)}>
+            <span aria-hidden="true">{item.type==="bill"?"🗓️":item.type==="review"?"🔎":"🏦"}</span>
+            <span className="min-w-0 flex-1">
+              <b className="block">{item.type==="bill"?t("账单到期提醒","Bill due"):
+                item.type==="review"?t("交易待确认","Review transaction"):t("账户有差额","Balance difference")}</b>
+              <span className="block break-words text-xs text-slate-500" data-i18n-ignore>
+                {item.title} · {item.extra}
+              </span>
+            </span>
+          </button>)}
+          {!prioritized.length&&<p className="px-3 py-3 text-sm text-slate-500">
+            {t("目前没有待处理提醒。功能入口已移至左侧抽屉。",
+               "No pending reminders. Tools are available in the left drawer.")}
+          </p>}
+        </div>
       </div>}
       {!menu&&prioritized.slice(0,3).map(item=><button type="button" key={item.type+":"+item.id}
         onClick={e=>open(item.type,item.ref,e.currentTarget)}

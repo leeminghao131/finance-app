@@ -68,6 +68,9 @@
   z-index: 45;
   width: 208px;
   max-width: calc(100vw - 12px);
+  max-height: calc(100dvh - 32px);
+  display: flex;
+  flex-direction: column;
   padding: 6px 5px 8px 7px;
   background: linear-gradient(150deg, #212a38, #171c27);
   border: 1px solid #4b5563;
@@ -104,7 +107,15 @@
   outline: 2px solid #f4d390;
   outline-offset: 2px;
 }
-.mh-insights-dock__items { display: grid; gap: 6px; }
+.mh-insights-dock__items {
+  display: grid;
+  gap: 6px;
+  min-height: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+  overscroll-behavior: contain;
+  scrollbar-width: thin;
+}
 .mh-insights-dock__button {
   display: flex;
   align-items: center;
@@ -139,7 +150,7 @@
   cursor: default;
 }
 @media (max-width: 767px) {
-  .mh-insights-dock { top: 56%; width: 190px; }
+  .mh-insights-dock { top: 50%; width: 190px; }
   .mh-insights-dock__button { min-height: 54px; }
 }
 @media (prefers-reduced-motion:reduce) {
@@ -238,6 +249,21 @@
   color: #17202b;
 }
 .mh-stage2-notifications__menu button:hover { background: #f1f5f9; }
+/* Bell menu is now only an actionable alert list, not a second tool launcher. */
+.mh-stage2-notifications__alert-list {
+  display: grid;
+  gap: 4px;
+  max-height: min(52dvh, 430px);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+.mh-stage2-notifications__alert-list button {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  min-width: 0;
+}
+
 @keyframes mh-stage2-jump {
   0%, 100% {transform: translateY(0) rotate(0)}
   35% {transform: translateY(-5px) rotate(-.8deg)}
