@@ -15,6 +15,18 @@ export default function FinanceRecurringBills({
 }){
   const {language}=useFinanceLanguage(),zh=language==="zh";
   const t=(cn,en)=>zh?cn:en;
+  const billError=message=>{
+    const source=String(message||"");
+    if(source.includes("Category or Method is no longer available"))
+      return t("账单原本保存的是中文付款名称，或分类/付款方式已经被删除。现在会自动兼容内置的中文付款名称；如果是已删除的自定义选项，请编辑账单计划。",
+        "The bill Category or Method is no longer available. Built-in translated Method labels are supported; edit any deleted custom option.");
+    if(source.includes("Bill payment not confirmed")||source.includes("database did not acknowledge"))
+      return t("付款状态尚未确认，请先刷新交易记录，确认是否已经保存，再安全重试。",
+        "Bill payment not confirmed. Refresh transaction history before retrying.");
+    if(source.includes("Recycle Bin"))return t("原来的账单支出已在回收站，请先查看并恢复，不会重复新增。",
+      "Original bill Expense is in Recycle Bin. Restore/review it; no duplicate Expense will be created.");
+    return source;
+  };
   const cycleLabel=cycle=>({
     weekly:t("每周","Weekly"),monthly:t("每月","Monthly"),
     quarterly:t("每三个月","Quarterly"),yearly:t("每年","Yearly"),
@@ -82,7 +94,7 @@ export default function FinanceRecurringBills({
           "Expense is saved, but bill status was not confirmed. Refresh and confirm again to link the SAME Expense safely."));
       }else throw Error(result?.error||t("付款未确认，请先核对交易记录，刷新后再重试。",
         "Payment not confirmed. Check records and refresh before retrying."));
-    }catch(error){setError(error.message||String(error));}
+    }catch(error){setError(billError(error.message||String(error)));}
     finally{setBusy(false);paymentPendingRef.current=false;}
   }
   return <>
