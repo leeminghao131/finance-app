@@ -3,6 +3,7 @@ import FinanceOverlay from "./FinanceOverlay.jsx";
 import {localDateMY,shiftCalendarDay,calendarMonthDays} from "./financeCalendar.js";
 import {billOccurrences,validateBills,withBillOccurrence} from "./financeStage2.js";
 import {useFinanceLanguage} from "./FinanceLanguageLayer.jsx";
+import {canonicalFinanceMethod} from "./financeMethodKeys.js";
 
 const field="mt-1 w-full rounded-xl border border-slate-300 bg-white px-3 py-2.5 text-sm";
 const fmt=n=>new Intl.NumberFormat("en-MY",{style:"currency",currency:"MYR"}).format(n);
@@ -40,7 +41,7 @@ export default function FinanceRecurringBills({
   const start=(bill=null)=>{
     setError("");setPaymentMessage("");
     setBase(JSON.stringify(bills));
-    setDraft(bill?{...bill,amount:String(bill.amount)}:blank());
+    setDraft(bill?{...bill,amount:String(bill.amount),method:canonicalFinanceMethod(bill.method)}:blank());
     setEditing(bill?.id||"new");
   };
   async function saveList(next,baseline){
@@ -56,7 +57,7 @@ export default function FinanceRecurringBills({
   async function submit(e){
     e.preventDefault();
     const id=editing==="new"?crypto.randomUUID():editing;
-    const next=editing==="new"?[...bills,{...draft,id}]:bills.map(b=>b.id===id?{...draft,id}:b);
+    const next=editing==="new"?[...bills,{...draft,id,method:canonicalFinanceMethod(draft.method)}]:bills.map(b=>b.id===id?{...draft,id,method:canonicalFinanceMethod(draft.method)}:b);
     try{if(await saveList(next,base))setEditing(null);}catch(e){setError(e.message);}
   }
   async function remove(bill){
@@ -190,7 +191,7 @@ export default function FinanceRecurringBills({
         <label className="text-sm">{t("分类","Category")}
           <select className={field} value={draft.category} onChange={e=>setDraft(v=>({...v,category:e.target.value}))}>{categories.map(c=><option key={c} value={c}>{c}</option>)}</select></label>
         <label className="text-sm">{t("付款方式","Method")}
-          <select className={field} value={draft.method} onChange={e=>setDraft(v=>({...v,method:e.target.value}))}>{methods.map(m=><option key={m}>{m}</option>)}</select></label>
+          <select className={field} value={canonicalFinanceMethod(draft.method)} onChange={e=>setDraft(v=>({...v,method:canonicalFinanceMethod(e.target.value)}))}>{methods.map(m=><option key={m} value={m}>{m}</option>)}</select></label>
         <label className="flex items-center gap-2 text-sm sm:col-span-2">
           <input type="checkbox" checked={draft.active} onChange={e=>setDraft(v=>({...v,active:e.target.checked}))}/>
           {t("启用提醒","Enable reminders")}</label>
