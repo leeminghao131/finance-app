@@ -106,9 +106,22 @@ const normalizeMethod=value=>{
 };
 export const recordFingerprint=r=>
   [r.id,r.version??"",r.updated_at??"",r.date,r.type,r.amount,r.category,r.method,r.note??""].join("|");
+export const REVIEW_RULE_KEYS=Object.freeze(["large","duplicate","missingNote","futureDate"]);
+export const DEFAULT_REVIEW_RULES=Object.freeze({
+  large:true,duplicate:true,missingNote:true,futureDate:true
+});
 export function validateReviewState(input){
   if(!input||typeof input!=="object"||Array.isArray(input))throw Error("Invalid Review Inbox state.");
   const threshold=cleanAmount(input.threshold??500);
+  const settings=input.enabled??DEFAULT_REVIEW_RULES;
+  if(!settings||typeof settings!=="object"||Array.isArray(settings))
+    throw Error("Review switches are invalid.");
+  const enabled={...DEFAULT_REVIEW_RULES};
+  for(const rule of REVIEW_RULE_KEYS){
+    if(settings[rule]!==undefined&&typeof settings[rule]!=="boolean")
+      throw Error("Review switch must be on or off.");
+    if(settings[rule]!==undefined)enabled[rule]=settings[rule];
+  }
   const decisions=input.decisions??[];
   if(!Array.isArray(decisions)||decisions.length>5000)throw Error("Review history exceeds safety limit.");
   const seen=new Set();
@@ -121,12 +134,12 @@ export function validateReviewState(input){
     const checkedAt=iso(d.checkedAt);
     return {recordId:id,fingerprint,checkedAt};
   });
-  return {threshold,decisions:normalized};
+  return {threshold,enabled,decisions:normalized};
 }
 export function findReviewCandidates(records,rawState={},asOfDate,limitDays=180){
   iso(asOfDate);
   if(!Array.isArray(records))throw Error("Complete finance records not ready.");
-  const state=validateReviewState({threshold:rawState?.threshold??500,decisions:rawState?.decisions??[]});
+  const state=validateReviewState({threshold:rawState?.threshold??500,enabled:rawState?.enabled,decisions:rawState?.decisions??[]});
   const start=shiftCalendarDay(asOfDate,-limitDays);
   const today=asOfDate;
   const rows=records.filter(r=>r&&!r.deleted_at&&["expense","income"].includes(r.type));
@@ -140,11 +153,11 @@ export function findReviewCandidates(records,rawState={},asOfDate,limitDays=180)
   for(const r of rows){
     if(!r.date||r.date<start)continue;
     const reasons=[];
-    if(r.type==="expense"&&cents(r.amount)>=cents(state.threshold))reasons.push("large");
-    if(!String(r.note||"").trim())reasons.push("missingNote");
-    if(r.date>today)reasons.push("futureDate");
+    if(state.enabled.large&&r.type==="expense"&&cents(r.amount)>=cents(state.threshold))reasons.push("large");
+    if(state.enabled.missingNote&&!String(r.note||"").trim())reasons.push("missingNote");
+    if(state.enabled.futureDate&&r.date>today)reasons.push("futureDate");
     const key=[r.date,r.type,r.category,normalizeMethod(r.method),Math.round(Number(r.amount)*100)].join("|");
-    if((duplicates.get(key)||[]).length>1)reasons.push("duplicate");
+    if(state.enabled.duplicate&&(duplicates.get(key)||[]).length>1)reasons.push("duplicate");
     if(!reasons.length)continue;
     const fingerprint=recordFingerprint(r);
     const confirmed=reviewed.get(String(r.id))===fingerprint;
