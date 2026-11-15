@@ -162,7 +162,7 @@ test("Stage 2.1 Balance Reconciliation is a tab inside Money Transfer, not a sep
   assert.match(app,/onTransfer=\{addTransfer\}/); // App still uses original transfer handler
   assert.ok(!hub.includes("<FinanceAccountReconciliation"));
   assert.match(hub,/onOpenAccountCheck\?\.\(ref\)/);
-  assert.match(app,/onOpenAccountCheck=\{method=>/);
+  assert.match(app,/onOpenAccountCheck=\{openStage2AccountCheck\}/);
   assert.match(app,/onSaveChecks=\{\(next,baseline\)=>saveStage2Field\("account_checks",next,baseline\)\}/);
 });
 test("Stage 2.1 independent payment service uses only INSERT/select and not finance record update/delete",()=>{
