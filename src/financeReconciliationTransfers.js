@@ -49,6 +49,10 @@ export function planReconciliationTransfers(balances,actualByMethod){
   }
   const remainingIncome=receiver.reduce((sum,x)=>sum+x.remaining,0);
   const remainingExpense=donor.reduce((sum,x)=>sum+x.remaining,0);
+  const remainders=[
+    ...receiver.filter(x=>x.remaining>0).map(x=>({method:x.method,type:"income",amount:rm(x.remaining)})),
+    ...donor.filter(x=>x.remaining>0).map(x=>({method:x.method,type:"expense",amount:rm(x.remaining)})),
+  ];
   const ledgerTotal=rows.reduce((sum,x)=>sum+x.ledger,0);
   const actualTotal=rows.reduce((sum,x)=>sum+x.actual,0);
   if(!Number.isSafeInteger(ledgerTotal)||!Number.isSafeInteger(actualTotal))
@@ -56,7 +60,7 @@ export function planReconciliationTransfers(balances,actualByMethod){
   if(actualTotal-ledgerTotal!==remainingIncome-remainingExpense)
     throw Error("Reconciliation invariant violated: no transfers executed.");
   return {rows:rows.map(r=>({...r,ledger:rm(r.ledger),actual:rm(r.actual),difference:rm(r.difference)})),
-    transfers,remainingIncome:rm(remainingIncome),remainingExpense:rm(remainingExpense),
+    transfers,remainders,remainingIncome:rm(remainingIncome),remainingExpense:rm(remainingExpense),
     difference:rm(actualTotal-ledgerTotal),ledgerTotal:rm(ledgerTotal),actualTotal:rm(actualTotal)};
 }
 
