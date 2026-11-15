@@ -110,7 +110,7 @@ test("Stage2.2 one or more short accounts result in suggested Expense, not autom
 test("Stage2.2 all accounts must be filled; blanks are not zero, exact sen preserved",()=>{
  assert.throws(()=>planReconciliationTransfers(balances,{TNG:"",CASH:"100",BANK:"880","GRAB PAY":"100"}));
  assert.throws(()=>planReconciliationTransfers(balances,{TNG:"1150",CASH:"100",BANK:"880"}),/every Method/);
- assert.throws(()=>planReconciliationTransfers(balances,{...actual,TNG:"1150.123"}),/two decimals/);
+ assert.throws(()=>planReconciliationTransfers(balances,{...actual,TNG:"1150.123"}),/2 decimals/);
  const p=planReconciliationTransfers(
    [{method:"TNG",balance:1.12},{method:"BANK",balance:0}],
    {TNG:"1.14",BANK:"-0.02"}
