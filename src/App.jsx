@@ -610,6 +610,7 @@ function FinanceVisualizerAppContent() {
   const [accountChecks, setAccountChecks] = useState([]);
   const [transferToolTab,setTransferToolTab] = useState("transfer");
   const [accountCheckMethod,setAccountCheckMethod] = useState("BANK");
+  const [accountNavigationKey,setAccountNavigationKey] = useState(0);
   const [advancedFilter, setAdvancedFilter] = useState(null);
   const [undoDeleted, setUndoDeleted] = useState(null);
   const [trashOpen, setTrashOpen] = useState(false);
@@ -1907,6 +1908,7 @@ return (
   onSaveChecks={(next,baseline)=>saveStage2Field("account_checks",next,baseline)}
   onOpenAccountCheck={method=>{
     if(method)setAccountCheckMethod(method);
+    setAccountNavigationKey(x=>x+1);
     setTransferToolTab("accounts");
     window.setTimeout(()=>{
       document.getElementById("mh-money-transfer-card")?.scrollIntoView({behavior:"smooth",block:"start"});
@@ -2164,7 +2166,7 @@ return (
   onSaveChecks={(next,baseline)=>saveStage2Field("account_checks",next,baseline)}
   onPrefillRecord={prefillStage2Record}
   activeTab={transferToolTab} onTabChange={setTransferToolTab}
-  selectedAccountMethod={accountCheckMethod}
+  selectedAccountMethod={accountCheckMethod} accountNavigationKey={accountNavigationKey}
   disabled={!initialDataReady||dataLoading}
 />
 
