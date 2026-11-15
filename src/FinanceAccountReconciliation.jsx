@@ -1,140 +1,216 @@
 import React,{useEffect,useMemo,useState} from "react";
 import {localDateMY} from "./financeCalendar.js";
 import {reconcileMethod,validateAccountChecks} from "./financeStage2.js";
+import {planReconciliationTransfers} from "./financeReconciliationTransfers.js";
+import {canonicalFinanceMethod} from "./financeMethodKeys.js";
 import {useFinanceLanguage} from "./FinanceLanguageLayer.jsx";
 
 const money=n=>new Intl.NumberFormat("en-MY",{style:"currency",currency:"MYR"}).format(n);
-const field="mt-1 w-full rounded-xl border border-slate-300 bg-white px-3 py-2.5 text-sm";
-const norm=value=>{
-  const raw=String(value||"").trim(),upper=raw.toUpperCase();
-  if(["BANK IN","ONLINE BANK IN","DEBIT CARD"].includes(upper))return "BANK";
-  return raw;
-};
+const field="w-full min-w-0 rounded-xl border border-slate-300 bg-white px-3 py-2.5 text-sm";
 export default function FinanceAccountReconciliation({
-  balances=[],records=[],transfers=[],checks=[],onSave,onPrefillRecord,
+  balances=[],records=[],transfers=[],checks=[],onSave,onPrefillRecord,onExecuteTransfers,
   disabled=false,selectedMethod=null,
 }){
   const {language}=useFinanceLanguage(),zh=language==="zh",t=(cn,en)=>zh?cn:en;
-  const [method,setMethod]=useState(selectedMethod||"BANK"),[actual,setActual]=useState("");
-  const [note,setNote]=useState(""),[busy,setBusy]=useState(false),[message,setMessage]=useState(""),[error,setError]=useState("");
-  useEffect(()=>{
-    if(selectedMethod){
-      setMethod(selectedMethod);
-      setActual("");setError("");setMessage("");
-    }
-  },[selectedMethod]);
-  const selected=balances.find(x=>x.method===method)||balances[0];
-  const expected=Number(selected?.balance||0);
-  const amount=actual.trim()===""?null:Number(actual);
-  const validActual=actual.trim()!==""&&/^-?\d+(?:\.\d{1,2})?$/.test(actual.trim())
-    &&Number.isFinite(amount)&&Number.isSafeInteger(Math.round(amount*100));
-  const difference=validActual?Math.round((amount-expected)*100)/100:null;
+  const [actualByMethod,setActualByMethod]=useState({}),[note,setNote]=useState("");
+  const [busy,setBusy]=useState(false),[message,setMessage]=useState(""),[error,setError]=useState("");
+  const [focusMethod,setFocusMethod]=useState(selectedMethod||"BANK");
+  useEffect(()=>{if(selectedMethod)setFocusMethod(canonicalFinanceMethod(selectedMethod));},[selectedMethod]);
+  const normalizedBalances=useMemo(()=>balances.map(b=>({...b,method:canonicalFinanceMethod(b.method)})),[balances]);
+  // A user must enter every method; missing inputs NEVER mean zero.
+  const completed=normalizedBalances.length>0&&normalizedBalances.every(b=>Object.hasOwn(actualByMethod,b.method)&&actualByMethod[b.method].trim()!=="");
+  const result=useMemo(()=>{
+    if(!completed)return {plan:null,error:""};
+    try{return {plan:planReconciliationTransfers(normalizedBalances,actualByMethod),error:""};}
+    catch(e){return {plan:null,error:e.message};}
+  },[completed,normalizedBalances,actualByMethod]);
+  const plan=result.plan;
+  const normalizedMethod=m=>canonicalFinanceMethod(m);
   const recent=useMemo(()=>{
+    const selected=focusMethod||normalizedBalances[0]?.method;
     if(!selected)return [];
     const rows=[
-      ...records.filter(r=>!r.deleted_at&&norm(r.method)===selected.method)
+      ...records.filter(r=>!r.deleted_at&&normalizedMethod(r.method)===selected)
         .map(r=>({id:"record-"+r.id,date:r.date,kind:r.type,
           amount:r.type==="income"?Number(r.amount):-Number(r.amount),note:r.note||r.category})),
-      ...transfers.filter(r=>!r.deleted_at&&(norm(r.fromMethod)===selected.method||norm(r.toMethod)===selected.method))
+      ...transfers.filter(r=>!r.deleted_at&&
+          (normalizedMethod(r.fromMethod)===selected||normalizedMethod(r.toMethod)===selected))
         .map(r=>({id:"transfer-"+r.id,date:r.date,kind:"transfer",
-          amount:(norm(r.toMethod)===selected.method?1:-1)*Number(r.amount),note:r.note||"Transfer"})),
+          amount:(normalizedMethod(r.toMethod)===selected?1:-1)*Number(r.amount),note:r.note||"Transfer"})),
     ];
     return rows.sort((a,b)=>b.date.localeCompare(a.date)).slice(0,12);
-  },[selected,records,transfers]);
-  const relevant=checks.filter(c=>!selected||c.method===selected.method)
+  },[focusMethod,normalizedBalances,records,transfers]);
+  const relevant=checks.filter(c=>normalizedMethod(c.method)===focusMethod)
     .slice().sort((a,b)=>b.date.localeCompare(a.date));
-  async function saveCheck(){
-    if(disabled||busy||!selected)return;
-    setError("");setMessage("");setBusy(true);
+
+  const update=(method,value)=>{
+    setActualByMethod(old=>({...old,[method]:value}));
+    setError("");setMessage("");
+  };
+  async function saveAllChecks(){
+    if(disabled||busy||!plan)return;
+    setBusy(true);setError("");setMessage("");
     try{
-      if(!validActual)throw Error(t("请输入真实账户余额，保留最多两位小数。","Enter actual account balance with at most two decimals."));
       const baseline=JSON.stringify(checks);
-      const next=validateAccountChecks([...checks,reconcileMethod(selected.method,actual,expected,localDateMY(),crypto.randomUUID(),note)]);
-      if(!await onSave(next,baseline))throw Error(t("保存失败或其他设备已更新，请刷新后再试。","Saving failed or another device updated settings. Refresh first."));
-      setMessage(t("对账记录已保存。真实财务交易及初始余额保持不变。","Reconciliation saved. No transaction or opening balance changed."));
-      setActual("");setNote("");
+      const entries=plan.rows.map(r=>reconcileMethod(r.method,r.actual,r.ledger,localDateMY(),
+        crypto.randomUUID(),note));
+      const verified=validateAccountChecks([...checks,...entries]);
+      if(!await onSave(verified,baseline))throw Error(t("保存失败，可能有其他设备更新了对账历史。请刷新再试。",
+        "Saving failed. Another device may have updated reconciliation history. Refresh first."));
+      setMessage(t("所有账户的本次核对快照已保存，不会自动改变账户余额。",
+        "Reconciliation snapshots saved for all Methods. No balance was changed."));
     }catch(e){setError(e.message);}finally{setBusy(false);}
   }
-  const fill=(type)=>{
-    if(difference===null||difference===0)return;
-    if(!window.confirm(t("这只会填入一张待保存的记账表单。请核对原因后自行决定是否保存；不会自动改余额。",
-      "This only fills an unsaved transaction form. Verify the cause before deciding to save. No automatic correction.")))return;
+  async function executePlan(){
+    if(disabled||busy||!plan||!plan.transfers.length)return;
+    const lines=plan.transfers.map(x=>x.fromMethod+" → "+x.toMethod+"  "+money(x.amount)).join("\n");
+    const warning=t("确认只补记实际发生过、但账本漏记的转账？\n"+
+      "系统将依次把以下转账保存到 Transfer History：\n\n",
+      "Only confirm transfers that REALLY happened but were missing in your ledger.\n"+
+      "The following will be added to Transfer History sequentially:\n\n");
+    const tail=t("\n\n不会自动增加 Income/Expense。多笔转账不是同一个数据库事务；如中途失败，会停止并显示已完成的笔数。",
+      "\n\nNo Income/Expense will be inserted. Multiple Transfers are not one database transaction; a partial failure stops further transfers.");
+    if(!window.confirm(warning+lines+tail))return;
+    setBusy(true);setError("");setMessage("");
+    try{
+      const answer=await onExecuteTransfers(plan);
+      if(!answer?.completed){
+        throw Error(answer?.error||t("部分转账未确认。请核对 Transfer History，刷新后重新分析剩余差额。",
+          "Some transfers were not confirmed. Review Transfer History, refresh and recheck the remaining differences."));
+      }
+      setMessage(t("已记录 "+answer.count+" 笔转账。总资产不会因 Transfer 改变；请查看剩余差额。",
+        "Saved "+answer.count+" Transfers. Total assets stay unchanged by Transfers. Review any remaining discrepancies."));
+    }catch(e){setError(e.message);}finally{setBusy(false);}
+  }
+  const fillResidual=(x)=>{
+    if(disabled||busy)return;
+    if(!window.confirm(t("剩余差额不一定是收入或支出。请核对银行流水及 Opening Balance。仅填入未保存的记账表单，由你决定是否保存。",
+      "A residual is not necessarily Income or Expense. Check bank activity and Opening Balance. Only an UNSAVED form will be filled.")))return;
     onPrefillRecord({
-      type,amount:String(Math.abs(difference)),method:selected.method,
-      note:t("账户对账差额（请确认原因）","Reconciliation difference (verify reason)"),date:localDateMY(),
+      type:x.type,amount:String(x.amount),method:x.method,
+      note:t("余额核对差额，已确认原因后补记","Reconciliation discrepancy - check underlying cause"),
+      date:localDateMY(),
     });
   };
   return <>
-    <div><h2 className="text-lg font-bold">{t("账户余额对账","Account Balance Reconciliation")}</h2>
-      <p className="mt-1 text-xs text-slate-500">{t("人工输入账户上实际看到的余额，与账本余额比较；绝不会自动改初始余额、转账或记录。",
-        "Enter the real Method balance and compare it with your ledger. This never auto-changes opening balances, Transfers or records.")}</p></div>
-    <div className="mt-4 grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
-      {balances.map(b=><button key={b.method} type="button"
-        onClick={()=>{setMethod(b.method);setActual("");setError("");setMessage("");}}
-        className={"rounded-xl border p-3 text-left transition-colors "+
-        (selected?.method===b.method?"border-slate-900 bg-slate-900 text-white":"border-slate-200 bg-slate-50 text-slate-900 hover:border-slate-400")}>
-        <b data-i18n-ignore>{b.method}</b><p className="mt-2 text-sm font-bold tabular-nums">{money(b.balance)}</p>
-      </button>)}
-    </div>
-    {selected&&<section className="mt-4 rounded-xl border border-slate-200 bg-white p-3 sm:p-4">
-      <h3 className="text-sm font-bold" data-i18n-ignore>{selected.method}</h3>
-      <div className="mt-3 grid gap-3 sm:grid-cols-2">
-        <div className="rounded-xl bg-slate-50 p-3">
-          <p className="text-xs text-slate-500">{t("账本计算余额","Ledger-calculated balance")}</p>
-          <p className="mt-1 text-lg font-bold tabular-nums">{money(expected)}</p>
-        </div>
-        <label className="text-sm">{t("实际账户余额（RM）","Actual Method balance (RM)")}
-          <input className={field} value={actual} inputMode="decimal" placeholder="0.00"
-            onChange={e=>setActual(e.target.value)}/>
-        </label>
-      </div>
-      {actual.trim()!==""&&<p role="status" className={"mt-3 rounded-xl p-3 text-sm font-semibold "+
-        (!validActual?"bg-red-50 text-red-700":Math.abs(difference)>0.005?"bg-amber-50 text-amber-800":"bg-emerald-50 text-emerald-700")}>
-        {!validActual?t("金额格式不正确","Invalid amount"):
-          t("差额（实际 − 账本）：","Difference (actual − ledger): ")+money(difference)}
-      </p>}
-      <label className="mt-3 block text-sm">{t("核对备注（可选）","Reconciliation note (optional)")}
-        <input className={field} maxLength={240} value={note} onChange={e=>setNote(e.target.value)}
-          placeholder={t("例如：核对银行 App 当前余额","For example, checked balance in banking app")}/>
-      </label>
-      <div className="mt-3 flex flex-wrap gap-2">
-        <button type="button" onClick={saveCheck} disabled={!validActual||busy||disabled}
-          className="rounded-xl bg-slate-900 px-4 py-3 text-sm font-bold text-white disabled:opacity-50">
-          {t("保存本次核对","Save this check")}</button>
-        {validActual&&Math.abs(difference)>0.005&&<>
-          <button type="button" onClick={()=>fill("expense")}
-            className="rounded-xl border border-slate-300 px-3 py-3 text-sm">{t("补记支出表单","Fill Expense form")}</button>
-          <button type="button" onClick={()=>fill("income")}
-            className="rounded-xl border border-slate-300 px-3 py-3 text-sm">{t("补记收入表单","Fill Income form")}</button>
-        </>}
-      </div>
-      <p className="mt-2 text-xs text-slate-500">
-        {t("余额差额不一定属于收入或支出，也可能是遗漏转账、账户费用或尚未记录的项目。请先核对原因。",
-          "A difference may be a missing Transfer, bank fee or other issue, not necessarily an Income or Expense. Investigate before entering records.")}
+    <div>
+      <h2 className="text-lg font-bold">{t("账户余额统一核对","Reconcile All Account Balances")}</h2>
+      <p className="mt-1 text-xs leading-relaxed text-slate-600">
+        {t("一次输入所有账户的实际余额。系统会建议漏记的账户间转账；只有确认后才写入 Transfer History。",
+          "Enter actual balances for every account. Suggested missing transfers are recorded only after you confirm.")}
       </p>
-      {error&&<p role="alert" className="mt-2 text-xs text-red-700">{error}</p>}
-      {message&&<p role="status" className="mt-2 text-xs text-emerald-700">{message}</p>}
+    </div>
+    <div className="mt-4 space-y-2">
+      {normalizedBalances.map(b=>{
+        const complete=Object.hasOwn(actualByMethod,b.method)&&actualByMethod[b.method].trim()!=="";
+        const diff=plan?.rows.find(row=>row.method===b.method)?.difference;
+        return <div key={b.method} className={"rounded-xl border p-3 "+
+          (focusMethod===b.method?"border-teal-300 bg-teal-50/40":"border-slate-200 bg-slate-50/50")}>
+          <div className="mb-2 flex flex-wrap items-start justify-between gap-2">
+            <button type="button" onClick={()=>setFocusMethod(b.method)}
+              className="text-left text-sm font-extrabold text-slate-900" data-i18n-ignore>{b.method}</button>
+            <span className="break-all text-right text-xs font-semibold text-slate-600">
+              {t("账本余额","Ledger")}：{money(b.balance)}
+            </span>
+          </div>
+          <label className="block text-xs font-medium text-slate-700">
+            {t("实际账户余额（RM）","Actual balance (RM)")}
+            <input value={actualByMethod[b.method]??""} onChange={e=>update(b.method,e.target.value)}
+              className={"mt-1 "+field} placeholder="0.00" type="text" inputMode="decimal"
+              aria-label={b.method+" "+t("实际余额","actual balance")}/>
+          </label>
+          {complete&&plan&&<p className={"mt-2 text-xs font-semibold "+
+            (diff===0?"text-emerald-700":"text-amber-800")}>
+            {t("差额（实际 − 账本）","Difference (actual − ledger)")}：
+            {diff>0?"+":""}{money(diff)}
+          </p>}
+        </div>;
+      })}
+    </div>
+    {!completed&&<p className="mt-3 rounded-xl bg-slate-50 p-3 text-xs text-slate-600">
+      {t("请填完全部 "+normalizedBalances.length+" 个 Method，空格不会自动视为 RM0。",
+        "Enter all "+normalizedBalances.length+" Methods. Blank is never treated as RM0.")}
+    </p>}
+    {result.error&&<p role="alert" className="mt-2 rounded-xl bg-red-50 p-3 text-sm text-red-700">{result.error}</p>}
+    {plan&&<section className="mt-4 rounded-xl border border-slate-200 p-3">
+      <h3 className="font-bold">{t("自动匹配建议","Automatic Matching Proposal")}</h3>
+      <p className="mt-1 text-xs text-slate-600">
+        {t("正差额＝该账户实际比账本多，需要补记流入；负差额＝实际比账本少，需要补记流出。只有真实发生过的转账才能确认。",
+          "Positive difference needs an incoming ledger Transfer; negative difference needs an outgoing one. Confirm only transfers that actually happened.")}
+      </p>
+      {plan.transfers.length>0?<div className="mt-3 space-y-2">
+        {plan.transfers.map((row,i)=><div key={i}
+          className="flex flex-wrap items-center justify-between gap-2 rounded-xl bg-teal-50 p-3">
+          <b className="text-sm text-teal-900" data-i18n-ignore>{row.fromMethod} → {row.toMethod}</b>
+          <b className="text-sm tabular-nums text-teal-800">{money(row.amount)}</b>
+        </div>)}
+      </div>:<p className="mt-3 text-sm text-slate-500">{t("目前没有需要补记的账户间转账。",
+        "No missing transfers to match.")}</p>}
+      <div className="mt-3 rounded-xl bg-slate-50 p-3 text-sm">
+        <b>{t("实际总资产 − 账本总资产","Actual total − ledger total")}</b>
+        <p className="mt-1 text-lg font-bold tabular-nums">{plan.difference>0?"+":""}{money(plan.difference)}</p>
+        <p className="mt-1 text-xs text-slate-600">{t("内部 Transfer 不改变这笔总差额。",
+          "Transfers between Methods cannot change this overall discrepancy.")}</p>
+      </div>
+      <div className="mt-3 space-y-2">
+        {plan.remainders.map(x=><div key={x.method}
+          className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-amber-200 bg-amber-50 p-3">
+          <div className="min-w-0">
+            <p className="text-sm font-semibold" data-i18n-ignore>{x.method} · {money(x.amount)}</p>
+            <p className="text-xs text-amber-900">{x.type==="income"
+              ?t("仍有多余余额：核对收入、初始余额或遗漏记录。","Surplus: check Income, opening balances or missing entries.")
+              :t("仍有不足余额：核对支出、初始余额或遗漏记录。","Shortfall: check Expenses, opening balances or missing entries.")}</p>
+          </div>
+          <button type="button" disabled={disabled||busy} onClick={()=>fillResidual(x)}
+            className="rounded-xl border border-amber-300 bg-white px-3 py-2 text-xs font-bold">
+            {x.type==="income"?t("填入收入","Fill Income"):t("填入支出","Fill Expense")}
+          </button>
+        </div>)}
+      </div>
+      {plan.transfers.length>0&&<button type="button" onClick={executePlan}
+        disabled={busy||disabled} className="mt-3 w-full rounded-xl bg-teal-700 px-4 py-3 text-sm font-bold text-white disabled:opacity-50">
+        {busy?t("执行中…","Processing…"):t("✓ 核对并执行建议转账","✓ Confirm & Record Suggested Transfers")}
+      </button>}
+      <p className="mt-2 text-xs text-amber-800">
+        {t("如并没有发生这些转账，就不要执行；系统不能仅靠余额差额证明实际转账。",
+          "Do not execute if these transfers never happened. Balance differences alone cannot prove that they did.")}
+      </p>
     </section>}
-    <div className="mt-4 grid gap-3 lg:grid-cols-2">
+    <div className="mt-3 rounded-xl border border-slate-200 p-3">
+      <label className="block text-xs">{t("本次核对备注（可选）","Reconciliation note (optional)")}
+        <input className={"mt-1 "+field} maxLength={240} value={note}
+          onChange={e=>setNote(e.target.value)}/>
+      </label>
+      <button type="button" onClick={saveAllChecks} disabled={busy||disabled||!plan}
+        className="mt-3 rounded-xl bg-slate-900 px-4 py-2.5 text-sm font-bold text-white disabled:opacity-50">
+        {t("保存全部余额核对记录","Save All Reconciliation Snapshots")}
+      </button>
+    </div>
+    {error&&<p role="alert" className="mt-3 rounded-xl bg-red-50 p-3 text-sm text-red-700">{error}</p>}
+    {message&&<p role="status" className="mt-3 rounded-xl bg-emerald-50 p-3 text-sm text-emerald-700">{message}</p>}
+    <div className="mt-4 grid gap-3">
       <section className="rounded-xl border border-slate-200 p-3">
-        <h3 className="font-bold">{t("最近交易与转账","Recent transactions and Transfers")}</h3>
-        <div className="mt-3 max-h-72 space-y-2 overflow-auto">
-          {recent.map(row=><div key={row.id} className="flex items-center justify-between gap-2 rounded-lg bg-slate-50 p-2 text-xs">
-            <div className="min-w-0"><b>{row.date} · {row.kind}</b><p className="break-words text-slate-500" data-i18n-ignore>{row.note}</p></div>
-            <b className={(row.amount>=0?"text-emerald-700":"text-red-700")+" shrink-0 tabular-nums"}>{row.amount>=0?"+":""}{money(row.amount)}</b>
+        <h3 className="font-bold">{t("近期活动","Recent Activity")} · <span data-i18n-ignore>{focusMethod}</span></h3>
+        <div className="mt-2 max-h-44 space-y-2 overflow-auto">
+          {recent.map(row=><div key={row.id}
+            className="flex items-center justify-between gap-2 rounded-lg bg-slate-50 p-2 text-xs">
+            <div className="min-w-0"><b>{row.date} · {row.kind}</b>
+              <p className="break-words text-slate-500" data-i18n-ignore>{row.note}</p></div>
+            <b className={(row.amount>=0?"text-emerald-700":"text-red-700")+" tabular-nums"}>
+              {row.amount>0?"+":""}{money(row.amount)}</b>
           </div>)}
-          {!recent.length&&<p className="text-sm text-slate-500">{t("没有相关记录。","No related transactions.")}</p>}
+          {!recent.length&&<p className="text-xs text-slate-500">{t("没有相关记录。","No related records.")}</p>}
         </div>
       </section>
       <section className="rounded-xl border border-slate-200 p-3">
-        <h3 className="font-bold">{t("历史对账记录","Reconciliation history")}</h3>
-        <div className="mt-3 max-h-72 space-y-2 overflow-auto">
-          {relevant.slice(0,30).map(c=><div key={c.id} className="rounded-lg bg-slate-50 p-2 text-xs">
-            <div className="flex justify-between gap-2"><b>{c.date}</b><b>{t("差额 ","Difference ")}{money(c.difference)}</b></div>
-            <p className="mt-1 text-slate-600">{t("账本 ","Ledger ")}{money(c.ledger)} · {t("实际 ","Actual ")}{money(c.actual)}</p>
+        <h3 className="font-bold">{t("历史对账","Reconciliation History")} · <span data-i18n-ignore>{focusMethod}</span></h3>
+        <div className="mt-2 max-h-44 space-y-2 overflow-auto">
+          {relevant.slice(0,20).map(c=><div key={c.id} className="rounded-lg bg-slate-50 p-2 text-xs">
+            <b>{c.date} · {t("差额","Difference")} {money(c.difference)}</b>
+            <p className="mt-1 text-slate-600">{t("账本","Ledger")} {money(c.ledger)} · {t("实际","Actual")} {money(c.actual)}</p>
             {c.note&&<p data-i18n-ignore className="mt-1 text-slate-500">{c.note}</p>}
           </div>)}
-          {!relevant.length&&<p className="text-sm text-slate-500">{t("尚无对账历史。","No reconciliation history yet.")}</p>}
+          {!relevant.length&&<p className="text-xs text-slate-500">{t("尚无对账历史。","No reconciliation history yet.")}</p>}
         </div>
       </section>
     </div>
