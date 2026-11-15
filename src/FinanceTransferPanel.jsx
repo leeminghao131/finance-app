@@ -10,7 +10,7 @@ const buttonStyle = "rounded-xl border border-slate-300 bg-white px-3 py-2 text-
 export default function FinanceTransferPanel({
   transferForm, setTransferForm, methodOptions, transfers, deletedTransfers,
   onTransfer, onUpdateTransfer, onDeleteTransfer, onRestoreTransfer, undoTransfer,
-  balances=[],records=[],checks=[],onSaveChecks,onPrefillRecord,
+  balances=[],records=[],checks=[],onSaveChecks,onPrefillRecord,onExecuteTransfers,
   activeTab="transfer",onTabChange=()=>{},selectedAccountMethod=null,accountNavigationKey=0,disabled=false,
 }) {
   const {language}=useFinanceLanguage();
@@ -85,6 +85,7 @@ export default function FinanceTransferPanel({
         ? <div role="tabpanel" className="mt-4">
             <FinanceAccountReconciliation key={"reconcile-"+accountNavigationKey} balances={balances} records={records} transfers={transfers}
               checks={checks} onSave={onSaveChecks} onPrefillRecord={onPrefillRecord}
+              onExecuteTransfers={onExecuteTransfers}
               selectedMethod={selectedAccountMethod} disabled={disabled}/>
           </div>
         : <div role="tabpanel">
