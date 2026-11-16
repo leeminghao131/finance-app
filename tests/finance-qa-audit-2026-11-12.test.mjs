@@ -22,6 +22,7 @@ test("QA: network-rejected add-record keeps draft and warns result is uncertain"
     user:{id:"fake-user"},
     form:{type:"expense",amount:"123.45",category:"Food",method:"BANK",note:"unconfirmed",date:"2026-11-12"},
     recordCreationPendingRef:ref,
+    activities:[],activeActivity:()=>null,
     getRecordRequestId:async()=> "10000000-0000-4000-8000-000000000001",
     confirmRecordRequest:()=>{},
     sessionStorage:{},crypto:{},

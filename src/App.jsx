@@ -11,6 +11,8 @@ import FinanceQuickNotes from "./FinanceQuickNotes.jsx";
 import FinanceAdvancedFilters from "./FinanceAdvancedFilters.jsx";
 import FinanceAdvancedResults from "./FinanceAdvancedResults.jsx";
 import FinanceInsightsDock from "./FinanceInsightsDock.jsx";
+import {activeActivity,activityOfRecord} from "./financeActivity.js";
+import {createFinanceActivity,updateFinanceActivity,linkFinanceExpense,unlinkFinanceExpense,currentActiveActivity} from "./financeActivityService.js";
 import FinanceStage2Hub from "./FinanceStage2Hub.jsx";
 import {validateBills,validateReviewState,validateAccountChecks,withBillOccurrence} from "./financeStage2.js";
 import {checkBillPaymentEligibility,createBillPaymentExpense} from "./financeBillPayment.js";
@@ -606,6 +608,8 @@ function FinanceVisualizerAppContent() {
   const [openingBalances, setOpeningBalances] = useState({});
   const [savingsGoals, setSavingsGoals] = useState([]);
   const [savedFilters, setSavedFilters] = useState([]);
+  const [activities,setActivities]=useState([]);
+  const [activityLinks,setActivityLinks]=useState([]);
   // Stage 2 separate, per-account planning/review/check data; no transaction table writes.
   const [recurringBills, setRecurringBills] = useState([]);
   const [reviewState, setReviewState] = useState({threshold:500,decisions:[]});
@@ -632,6 +636,8 @@ function FinanceVisualizerAppContent() {
   const recordCreationPendingRef = useRef(false);
   const pendingBillPaymentsRef = useRef(new Set());
   const reconciliationPendingRef = useRef(false);
+  const activityPendingRef=useRef(false);
+  const activityLinkPendingRef=useRef(new Set());
   const confirmedCustomOptionsRef = useRef(DEFAULT_CUSTOM_OPTIONS);
   const pendingRecordsRef = useRef(new Set());
   const reloadDebounceRef = useRef(null);
@@ -752,6 +758,7 @@ function FinanceVisualizerAppContent() {
       setOpeningBalances({});
       setSavingsGoals([]);
       setSavedFilters([]);
+      setActivities([]);setActivityLinks([]);
       setRecurringBills([]);
       setStage2ToolRequest(null);
       setReviewState({threshold:500,decisions:[]});
@@ -786,7 +793,7 @@ function FinanceVisualizerAppContent() {
       }, 350);
     };
     const channel = supabase.channel("finance-updates-" + accountId);
-    for (const table of ["records", "transfers", "user_settings", "monthly_budgets"]) {
+    for (const table of ["records", "transfers", "user_settings", "monthly_budgets", "finance_activities", "finance_activity_links"]) {
       channel.on("postgres_changes", {
         event: "*", schema: "public", table, filter: "user_id=eq." + accountId,
       }, scheduleRefresh);
@@ -896,6 +903,7 @@ useEffect(() => {
       setOpeningBalances(settingsRow?.opening_balances || {});
       setSavingsGoals(validateSavingsGoals(settingsRow?.savings_goals || []));
       setSavedFilters(validateSavedFilters(settingsRow?.saved_filters || []));
+      setActivities(snapshot.activities);setActivityLinks(snapshot.activityLinks);
       setRecurringBills(validateBills(settingsRow?.recurring_bills || []));
       setReviewState(validateReviewState(settingsRow?.review_state || {threshold:500,decisions:[]}));
       setAccountChecks(validateAccountChecks(settingsRow?.account_checks || []));
@@ -977,6 +985,52 @@ useEffect(() => {
     return ok;
   }
 
+  // Stage 3 metadata writes never mutate a historical Income/Expense row.
+  const activityReady=()=>!!user?.id&&!!supabase&&initialDataReady&&!dataLoading&&liveUserIdRef.current===user.id;
+  async function startActivity(draft){
+    if(!activityReady()||activityPendingRef.current)throw Error("Activity data not ready.");
+    activityPendingRef.current=true;const owner=user.id;
+    try{
+      const created=await createFinanceActivity(supabase,owner,draft,today());
+      if(liveUserIdRef.current!==owner)throw Error("Account changed.");
+      setActivities(rows=>[created,...rows]);return created;
+    }catch(e){if(liveUserIdRef.current===owner)await loadCloudData({background:true});throw e;}
+    finally{activityPendingRef.current=false;}
+  }
+  async function changeActivity(activity,changes){
+    if(!activityReady()||activityPendingRef.current)throw Error("Activity data not ready.");
+    activityPendingRef.current=true;const owner=user.id;
+    try{
+      const saved=await updateFinanceActivity(supabase,owner,activity,changes);
+      if(liveUserIdRef.current!==owner)throw Error("Account changed.");
+      setActivities(rows=>rows.map(a=>a.id===saved.id?saved:a));return saved;
+    }catch(e){if(liveUserIdRef.current===owner)await loadCloudData({background:true});throw e;}
+    finally{activityPendingRef.current=false;}
+  }
+  async function associateActivityExpense(recordId,activityId){
+    const owner=user?.id,key=String(recordId);
+    if(!activityReady()||activityLinkPendingRef.current.has(key))throw Error("Activity link busy.");
+    const row=records.find(r=>String(r.id)===key);
+    if(!row||row.type!=="expense"||row.deleted_at)throw Error("Only saved Expenses may be tagged.");
+    activityLinkPendingRef.current.add(key);
+    try{
+      const saved=await linkFinanceExpense(supabase,owner,key,activityId);
+      if(liveUserIdRef.current!==owner)throw Error("Account changed.");
+      setActivityLinks(rows=>[...rows.filter(r=>r.recordId!==key),saved]);return saved;
+    }catch(e){if(liveUserIdRef.current===owner)await loadCloudData({background:true});throw e;}
+    finally{activityLinkPendingRef.current.delete(key);}
+  }
+  async function detachActivityExpense(link){
+    if(!activityReady()||activityLinkPendingRef.current.has(link.recordId))throw Error("Activity link busy.");
+    const owner=user.id;activityLinkPendingRef.current.add(link.recordId);
+    try{
+      const saved=await unlinkFinanceExpense(supabase,owner,link);
+      if(liveUserIdRef.current!==owner)throw Error("Account changed.");
+      setActivityLinks(rows=>rows.map(r=>r.id===saved.id?saved:r));return saved;
+    }catch(e){if(liveUserIdRef.current===owner)await loadCloudData({background:true});throw e;}
+    finally{activityLinkPendingRef.current.delete(link.recordId);}
+  }
+
   async function saveStage2Field(column, next, baseline) {
     const accountId = user?.id;
     const verify = column === "recurring_bills" ? validateBills
@@ -1023,6 +1077,22 @@ useEffect(() => {
       if(!linked||liveUserIdRef.current!==accountId){
         setSyncStatus("Bill Expense saved; bill status not confirmed. Refresh before retry.");
         return {completed:false,recordSaved:true,recordId:String(record.id)};
+      }
+      // A fixed bill is also a real Expense. During an active trip, attach
+      // its existing record ID; never create an additional Expense.
+      const billActivity=activeActivity(activities);
+      if(billActivity){
+        try{
+          const stillActive=await currentActiveActivity(supabase,accountId,billActivity.id);
+          if(stillActive&&liveUserIdRef.current===accountId){
+            const tag=await linkFinanceExpense(supabase,accountId,String(record.id),billActivity.id);
+            if(liveUserIdRef.current===accountId)
+              setActivityLinks(rows=>[...rows.filter(r=>r.recordId!==tag.recordId),tag]);
+          }
+        }catch(tagError){
+          if(liveUserIdRef.current===accountId)
+            localizedFinanceAlert("Bill Expense was saved, but Activity tag failed. Attach that saved Expense manually in Activity Mode; do not confirm the payment again.");
+        }
       }
       setSyncStatus("Recurring bill paid and Expense saved to cloud");
       return {completed:true,recordSaved:true,recordId:String(record.id)};
@@ -1617,6 +1687,7 @@ async function addRecord(e) {
     let amount;
     try { amount = parseEditedAmount(form.amount); }
     catch(error) { localizedFinanceAlert(error.message); return; }
+    const pendingActivity=form.type==="expense"?activeActivity(activities):null;
     const payload = toRecordPayload(
       { ...form, amount, note: form.note.trim() },
       user.id
@@ -1644,6 +1715,25 @@ async function addRecord(e) {
     const insertedRecord = normalizeRecord(data);
     setRecords((p) => p.some(row => row.id === insertedRecord.id) ? p : [insertedRecord, ...p]);
     setForm((p) => ({ ...p, amount: amountEntryMode === "rm" ? "" : "0.00", note: "", date: today() }));
+    // This secondary association is not a second Expense. Never report a
+    // saved Expense as lost if Activity tagging needs manual recovery.
+    if(insertedRecord.type==="expense"&&pendingActivity){
+      try{
+        const stillActive=await currentActiveActivity(supabase,user.id,pendingActivity.id);
+        if(stillActive&&liveUserIdRef.current===user.id){
+          const linked=await linkFinanceExpense(supabase,user.id,String(insertedRecord.id),pendingActivity.id);
+          if(liveUserIdRef.current===user.id)
+            setActivityLinks(rows=>[...rows.filter(r=>r.recordId!==linked.recordId),linked]);
+        }else if(liveUserIdRef.current===user.id){
+          localizedFinanceAlert("Expense saved. Activity changed while saving; link the record manually if needed.");
+        }
+      }catch(linkError){
+        if(liveUserIdRef.current===user.id){
+          setSyncStatus("Expense saved; Activity tag not confirmed: "+(linkError?.message||"unknown"));
+          localizedFinanceAlert("Expense WAS saved, but Activity tag was not confirmed. Reopen Activity Mode and link it manually. Do not add the Expense again.");
+        }
+      }
+    }
     setSyncStatus("Record added to cloud");
     if (insertedRecord.type === "expense") {
       playCoinRainSound();
@@ -2066,6 +2156,9 @@ return (
       <div className="shrink-0 rounded-2xl bg-white/20 px-3 py-2 text-2xl">{addRecordTheme.icon}</div>
     </div>
   </div>
+            {activeActivity(activities)&&<p className="mx-4 mt-3 rounded-xl bg-amber-50 px-3 py-2 text-xs font-bold text-amber-900">
+              🎒 {activeActivity(activities).title} · {form.type==="expense"?"New Expenses auto-tagged":"Income excluded from Activity spending"}
+            </p>}
             <form id="mh-stage2-add-record-form" onSubmit={addRecord} className="mt-5 space-y-4">
               <div className="grid grid-cols-2 gap-3 rounded-2xl bg-slate-100 p-1"><button
   type="button"
@@ -2362,7 +2455,8 @@ return (
     ? <p role="alert" className="mt-3 rounded-xl bg-red-50 p-3 text-sm text-red-700">{advancedResults.error}</p>
     : <FinanceAdvancedResults rows={advancedResults.rows} EditableCell={EditableCell}
         onUpdate={updateRecord} onDelete={deleteRecord}
-        categoryOptionsFor={categoryOptionsFor} methodOptionsFor={methodOptionsFor}/>)}
+        categoryOptionsFor={categoryOptionsFor} methodOptionsFor={methodOptionsFor}
+        getActivityLabel={id=>activityOfRecord(id,activityLinks,activities)?.title||""}/>)}
   {!advancedFilter && <div className="mt-5 space-y-3">
     {groupedTransactionRecords.length === 0 && (
       <div className="rounded-2xl bg-slate-50 p-8 text-center text-sm text-slate-400 ring-1 ring-slate-100">
@@ -2463,6 +2557,10 @@ categoryOptionsFor={categoryOptionsFor}
                       <td className="py-3 pr-4 text-slate-500">
                         <EditableCell value={record.note || ""} field="note" recordType={record.type} onSave={(v) => updateRecord(record.id, "note", v)} categoryOptionsFor={categoryOptionsFor}
   methodOptionsFor={methodOptionsFor} />
+                        {record.type==="expense"&&activityOfRecord(record.id,activityLinks,activities)&&<span data-i18n-ignore
+                          className="ml-1 inline-flex max-w-40 truncate rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-semibold text-amber-900">
+                          🎒 {activityOfRecord(record.id,activityLinks,activities).title}
+                        </span>}
                       </td>
 
                       <td className="py-3">
@@ -2494,6 +2592,7 @@ categoryOptionsFor={categoryOptionsFor}
                 methodOptionsFor={methodOptionsFor}
                 onUpdate={updateRecord}
                 onDelete={deleteRecord}
+                getActivityLabel={id=>activityOfRecord(id,activityLinks,activities)?.title||""}
               />
             </div>
           )}
@@ -2563,6 +2662,9 @@ categoryOptionsFor={categoryOptionsFor}
           calculationError={savingsCalculation.error}
           budgetMonth={savingsBudgetMonth}
           onOpenStage2Tool={openStage2DockTool}
+          activities={activities} activityLinks={activityLinks}
+          onCreateActivity={startActivity} onUpdateActivity={changeActivity}
+          onLinkActivity={associateActivityExpense} onUnlinkActivity={detachActivityExpense}
           disabled={!initialDataReady||dataLoading}
         />
 
