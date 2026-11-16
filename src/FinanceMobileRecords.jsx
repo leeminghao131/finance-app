@@ -15,7 +15,7 @@ const methodOf = (record) => record.method || "TNG";
 const builtInCategories = new Set(["饮食", "教育", "住房", "日用", "交通", "娱乐", "运动", "医疗", "美容", "Salary", "Allowance", "Part-time", "Gift", "Others"]);
 const builtInMethods = new Set(["BANK", "CASH", "TNG", "GRAB PAY", "BANK IN", "DEBIT CARD", "ONLINE BANK IN"]);
 
-export default function FinanceMobileRecords({ records, onUpdate, onDelete, categoryOptionsFor, methodOptionsFor }) {
+export default function FinanceMobileRecords({ records, onUpdate, onDelete, categoryOptionsFor, methodOptionsFor, getActivityLabel=()=>"" }) {
   const { language } = useFinanceLanguage();
   const [editingId, setEditingId] = useState(null);
   const editTriggerRef = React.useRef(null);
@@ -78,6 +78,10 @@ export default function FinanceMobileRecords({ records, onUpdate, onDelete, cate
           <div className="mt-3 min-w-0 border-t border-slate-100 pt-3">
             <p className="text-xs text-slate-500">Note</p>
             <p className="whitespace-pre-wrap break-words text-sm text-slate-700" data-i18n-ignore>{item.note || "—"}</p>
+            {getActivityLabel(item.id)&&<span data-i18n-ignore
+              className="mt-1 inline-flex max-w-full break-words rounded-full bg-amber-100 px-2 py-1 text-xs font-semibold text-amber-900">
+              🎒 {getActivityLabel(item.id)}
+            </span>}
           </div>
           <div className="mt-4 flex gap-3 border-t border-slate-100 pt-3">
             <button type="button" onClick={event => { editTriggerRef.current = event.currentTarget; startEdit(item); }} className="mh-modal-trigger mh-touch flex-1 rounded-xl bg-slate-900 px-4 py-2.5 text-sm font-bold text-white">Edit</button>
