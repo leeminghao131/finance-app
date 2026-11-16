@@ -53,14 +53,12 @@ export function validateActivityLinks(rows,activities=[],records=[]){
   return rows.map(normalizeActivityLink).map(link=>{
     if(ids.has(link.id)||byRecord.has(link.recordId))throw Error("Duplicate Activity link ID/record.");
     ids.add(link.id);byRecord.add(link.recordId);
-    if(aById.size){
-      const activity=aById.get(link.activityId);
-      if(!activity||activity.userId!==link.userId)throw Error("Activity link crosses account ownership.");
-    }
-    if(rById.size){
-      const record=rById.get(link.recordId);
-      if(!record||record.type!=="expense")throw Error("Activity link targets a missing/non-Expense record.");
-    }
+    const activity=aById.get(link.activityId);
+    if(!activity||activity.userId!==link.userId)throw Error("Activity link crosses account ownership.");
+    // A saved Expense may later be edited into Income. Keep the old link
+    // metadata recoverable, but exclude that row from Activity spending.
+    const record=rById.get(link.recordId);
+    if(!record)throw Error("Activity link targets a missing record.");
     return link;
   });
 }
