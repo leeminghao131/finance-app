@@ -8,7 +8,7 @@ import {canonicalFinanceMethod} from "./financeMethodKeys.js";
 const field="mt-1 w-full rounded-xl border border-slate-300 bg-white px-3 py-2.5 text-sm";
 const fmt=n=>new Intl.NumberFormat("en-MY",{style:"currency",currency:"MYR"}).format(n);
 const blank=()=>({title:"",amount:"",category:"饮食",method:"TNG",anchorDate:localDateMY(),
-  cycle:"monthly",leadDays:3,active:true,occurrences:[]});
+  cycle:"monthly",leadDays:0,active:true,occurrences:[]});
 export default function FinanceRecurringBills({
   bills=[],records=[],categories=[],methods=[],onSave,onConfirmPayment,disabled=false,
   selectedBillId=null,
