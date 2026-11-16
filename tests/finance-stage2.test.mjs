@@ -88,11 +88,11 @@ test("Stage2 monthly calendar and bank aliases retain accurate schedule and no s
  assert.equal(flags.length,2);
  assert.ok(flags.every(x=>x.reasons.includes("duplicate")));
 });
-test("Stage 2.1 bill confirms directly and account mismatch alerts open Transfer Balance Check",()=>{
+test("Stage 2.6 bill confirms directly while Balance Check remains available in left drawer",()=>{
  const hub=src("FinanceStage2Hub.jsx"),bills=src("FinanceRecurringBills.jsx");
  const app=src("App.jsx"),transfer=src("FinanceTransferPanel.jsx");
  assert.match(hub,/onConfirmPayment=\{onConfirmBillPayment\}/);
- assert.match(hub,/onOpenAccountCheck\?\.\(ref,source\)/);
+ assert.match(src("FinanceInsightsDock.jsx"),/onOpenStage2Tool\("accounts",e\.currentTarget\)/);
  assert.match(bills,/onConfirmPayment\(\{billId:event.billId,due:event.due\}\)/);
  assert.match(bills,/确认已付并自动记账/);
  assert.ok(!bills.includes("选择一笔已存在的支出"));

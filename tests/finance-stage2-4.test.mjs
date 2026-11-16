@@ -82,13 +82,13 @@ test("Stage 2.4: all-balance reconciliation is accessible ONLY as a floating pop
  assert.match(src("FinanceAccountReconciliation.jsx"),/note:"balance"/);
 });
 
-test("Stage 2.4: specific BILL, REVIEW and ACCOUNT notifications still open their target data",()=>{
+test("Stage 2.6: specific BILL and REVIEW notifications open targets, balance dock stays available",()=>{
  const hub=src("FinanceStage2Hub.jsx"),dock=src("FinanceInsightsDock.jsx"),app=src("App.jsx");
  assert.match(hub,/prioritized\.slice\(0,3\)\.map/);
  assert.equal((hub.match(/open\(item\.type,item\.ref,e\.currentTarget\)/g)||[]).length,2);
  assert.match(hub,/setSelectedBillId\(type==="bill"\?ref:null\)/);
  assert.match(hub,/setSelectedRecordId\(type==="review"\?ref:null\)/);
- assert.match(hub,/onOpenAccountCheck\?\.\(ref,source\)/);
+ assert.doesNotMatch(hub,/reconciliationAlerts/);
  assert.match(hub,/setSelectedAccountMethod\(toolRequest\.type==="accounts"\?\(toolRequest\.method\|\|null\):null\)/);
  assert.match(app,/function openStage2AccountCheck\(method=null,source=null\)/);
  assert.match(app,/if\(type==="accounts"\)\{openStage2AccountCheck\(null,source\);return;\}/);

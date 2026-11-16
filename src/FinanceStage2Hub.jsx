@@ -25,33 +25,19 @@ export default function FinanceStage2Hub({
   const billsDue=useMemo(()=>billOccurrences(bills,today,records,70,35).filter(x=>x.visible),[bills,records,today]);
   const candidates=useMemo(()=>findReviewCandidates(records,reviewState,today).filter(x=>!x.confirmed),
     [records,reviewState,today]);
-  const reconciliationAlerts=useMemo(()=>{
-    const latest=new Map();
-    for(const row of checks.slice().sort((a,b)=>b.date.localeCompare(a.date))){
-      if(!latest.has(row.method))latest.set(row.method,row);
-    }
-    return [...latest.values()].filter(row=>Math.abs(row.difference)>0.005);
-  },[checks]);
   const alerts=[
     ...billsDue.map(x=>({type:"bill",id:x.id,ref:x.billId,title:x.title,extra:x.due})),
     ...candidates.map(x=>({type:"review",id:x.id,ref:x.id,title:x.record.category,extra:x.record.date})),
-    ...reconciliationAlerts.map(x=>({type:"accounts",id:x.id,ref:x.method,title:x.method,extra:today})),
   ];
-  // Show one of each alert type first so numerous bills cannot hide review notifications.
-  const firstOfType=["bill","review","accounts"]
+  // Only overdue bills and unconfirmed anomalous transactions trigger notifications.
+  // Method discrepancies are handled on demand via the left-side Balance Check drawer.
+  const firstOfType=["bill","review"]
     .map(type=>alerts.find(item=>item.type===type)).filter(Boolean);
   const prioritized=[...firstOfType,
     ...alerts.filter(item=>!firstOfType.includes(item))];
   const alertCount=alerts.length;
   const open=(type,ref=null,source=null)=>{
     if(disabled)return;
-    if(type==="accounts"){
-      // A specific discrepancy notice opens the SAME reconciliation popup
-      // as the dock, preselected to that Method. No second page card.
-      setMenu(false);
-      onOpenAccountCheck?.(ref,source);
-      return;
-    }
     if(source)triggerRef.current=source;
     setMode(type);
     setSelectedBillId(type==="bill"?ref:null);
@@ -100,10 +86,10 @@ export default function FinanceStage2Hub({
         <div className="mh-stage2-notifications__alert-list">
           {prioritized.map(item=><button key={item.type+":"+item.id}
             type="button" onClick={e=>open(item.type,item.ref,e.currentTarget)}>
-            <span aria-hidden="true">{item.type==="bill"?"🗓️":item.type==="review"?"🔎":"🏦"}</span>
+            <span aria-hidden="true">{item.type==="bill"?"🗓️":"🔎"}</span>
             <span className="min-w-0 flex-1">
               <b className="block">{item.type==="bill"?t("账单到期提醒","Bill due"):
-                item.type==="review"?t("交易待确认","Review transaction"):t("账户有差额","Balance difference")}</b>
+                t("交易待确认","Review transaction")}</b>
               <span className="block break-words text-xs text-slate-500" data-i18n-ignore>
                 {item.title} · {item.extra}
               </span>
@@ -118,10 +104,10 @@ export default function FinanceStage2Hub({
       {!menu&&prioritized.slice(0,3).map(item=><button type="button" key={item.type+":"+item.id}
         onClick={e=>open(item.type,item.ref,e.currentTarget)}
         className="mh-stage2-notifications__toast" title={t("点开查看并处理","Open to review and act")}>
-        <span aria-hidden="true">{item.type==="bill"?"🗓️":item.type==="review"?"🔎":"🏦"}</span>
+        <span aria-hidden="true">{item.type==="bill"?"🗓️":"🔎"}</span>
         <span className="min-w-0">
           <b>{item.type==="bill"?t("账单到期提醒","Bill due"):
-              item.type==="review"?t("交易待确认","Review transaction"):t("账户有差额","Balance difference")}</b>
+              t("交易待确认","Review transaction")}</b>
           <span className="block truncate text-xs" data-i18n-ignore>{item.title} · {item.extra}</span>
         </span>
         <span aria-hidden="true">›</span>

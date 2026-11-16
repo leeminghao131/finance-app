@@ -72,7 +72,7 @@ test("Stage 2.3: bell remains animated; notification list opens the correspondin
  assert.equal(calls.length,2,"both per-record toast and full notification list must open actual item");
  assert.match(hub,/setSelectedBillId\(type==="bill"\?ref:null\)/);
  assert.match(hub,/setSelectedRecordId\(type==="review"\?ref:null\)/);
- assert.match(hub,/onOpenAccountCheck\?\.\(ref,source\)/);
+ assert.doesNotMatch(hub,/onOpenAccountCheck\?\.\(ref,source\)/);
  assert.ok(!hub.includes('open("bill",null,e.currentTarget)'));
  assert.ok(!hub.includes('open("review",null,e.currentTarget)'));
  assert.ok(!hub.includes('open("accounts",null,e.currentTarget)'));
@@ -82,7 +82,7 @@ test("Stage 2.3: bell remains animated; notification list opens the correspondin
  assert.match(css,/\.mh-stage2-notifications__toast \{ animation: none !important; \}/);
 });
 
-test("Stage 2.4: account drawer entry and discrepancy notification both target floating Balance Check dialog",()=>{
+test("Stage 2.6: Balance Check dock still opens its original floating dialog without Method notifications",()=>{
  const app=source("App.jsx"),hub=source("FinanceStage2Hub.jsx");
  const transfer=source("FinanceTransferPanel.jsx");
  assert.match(app,/function openStage2AccountCheck\(method=null,source=null\)/);
@@ -91,8 +91,8 @@ test("Stage 2.4: account drawer entry and discrepancy notification both target f
  assert.match(app,/setStage2ToolRequest\(\{type:"accounts",method,source\}\)/);
  assert.match(app,/setStage2ToolRequest\(\{type:"accounts",method,source\}\)/);
  assert.match(hub,/mode==="accounts"&&<FinanceAccountReconciliation/);
- assert.match(hub,/if\(type==="accounts"\)\{/);
- assert.match(hub,/onOpenAccountCheck\?\.\(ref,source\)/);
+ assert.match(hub,/const firstOfType=\["bill","review"\]/);
+ assert.doesNotMatch(hub,/onOpenAccountCheck\?\.\(ref,source\)/);
  assert.match(transfer,/<FinanceOverlay open=\{historyOpen\}/);
  assert.ok(!transfer.includes("FinanceAccountReconciliation"));
  assert.match(transfer,/onTransfer/);
