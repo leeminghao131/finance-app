@@ -2557,7 +2557,7 @@ categoryOptionsFor={categoryOptionsFor}
                       <td className="py-3 pr-4 text-slate-500">
                         <EditableCell value={record.note || ""} field="note" recordType={record.type} onSave={(v) => updateRecord(record.id, "note", v)} categoryOptionsFor={categoryOptionsFor}
   methodOptionsFor={methodOptionsFor} />
-                        {activityOfRecord(record.id,activityLinks,activities)&&<span data-i18n-ignore
+                        {record.type==="expense"&&activityOfRecord(record.id,activityLinks,activities)&&<span data-i18n-ignore
                           className="ml-1 inline-flex max-w-40 truncate rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-semibold text-amber-900">
                           🎒 {activityOfRecord(record.id,activityLinks,activities).title}
                         </span>}
