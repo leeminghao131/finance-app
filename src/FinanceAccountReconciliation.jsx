@@ -6,7 +6,7 @@ import {canonicalFinanceMethod} from "./financeMethodKeys.js";
 import {useFinanceLanguage} from "./FinanceLanguageLayer.jsx";
 
 const money=n=>new Intl.NumberFormat("en-MY",{style:"currency",currency:"MYR"}).format(n);
-const field="w-full min-w-0 rounded-xl border border-slate-300 bg-white px-3 py-2.5 text-sm";
+const field="w-full min-w-0 rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm";
 export default function FinanceAccountReconciliation({
   balances=[],records=[],transfers=[],checks=[],onSave,onPrefillRecord,onExecuteTransfers,
   disabled=false,selectedMethod=null,
@@ -93,46 +93,46 @@ export default function FinanceAccountReconciliation({
     });
   };
   return <>
-    <div>
-      <h2 className="text-lg font-bold">{t("账户余额统一核对","Reconcile All Account Balances")}</h2>
-      <p className="mt-1 text-xs leading-relaxed text-slate-600">
-        {t("一次输入所有账户的实际余额。系统会建议漏记的账户间转账；只有确认后才写入 Transfer History。",
-          "Enter actual balances for every account. Suggested missing transfers are recorded only after you confirm.")}
+    <div className="flex flex-wrap items-baseline justify-between gap-2">
+      <h2 className="text-base font-bold">{t("账户余额统一核对","Reconcile All Account Balances")}</h2>
+      <p className="text-xs text-slate-500">
+        {t("填写全部实际余额 · 确认后才补记 Transfer",
+          "Enter all actual balances · Confirm to record Transfers")}
       </p>
     </div>
-    <div className="mt-4 space-y-2">
+    <div className="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-2">
       {normalizedBalances.map(b=>{
         const complete=Object.hasOwn(actualByMethod,b.method)&&actualByMethod[b.method].trim()!=="";
         const diff=plan?.rows.find(row=>row.method===b.method)?.difference;
-        return <div key={b.method} className={"rounded-xl border p-3 "+
+        return <div key={b.method} className={"min-w-0 rounded-xl border px-3 py-2 "+
           (focusMethod===b.method?"border-teal-300 bg-teal-50/40":"border-slate-200 bg-slate-50/50")}>
-          <div className="mb-2 flex flex-wrap items-start justify-between gap-2">
+          <div className="mb-1 flex flex-wrap items-baseline justify-between gap-x-2 gap-y-0.5">
             <button type="button" onClick={()=>setFocusMethod(b.method)}
-              className="text-left text-sm font-extrabold text-slate-900" data-i18n-ignore>{b.method}</button>
-            <span className="break-all text-right text-xs font-semibold text-slate-600">
-              {t("账本余额","Ledger")}：{money(b.balance)}
+              aria-label={t("查看账户活动：","View account activity: ")+b.method}
+              className="min-h-8 text-left text-sm font-extrabold text-slate-900" data-i18n-ignore>{b.method}</button>
+            <span className="min-w-0 break-words text-right text-xs text-slate-600">
+              {t("账本","Ledger")}：<b className="tabular-nums">{money(b.balance)}</b>
             </span>
           </div>
           <label className="block text-xs font-medium text-slate-700">
-            {t("实际账户余额（RM）","Actual balance (RM)")}
+            {t("实际余额（RM）","Actual balance (RM)")}
             <input value={actualByMethod[b.method]??""} onChange={e=>update(b.method,e.target.value)}
               className={"mt-1 "+field} placeholder="0.00" type="text" inputMode="decimal"
               aria-label={b.method+" "+t("实际余额","actual balance")}/>
           </label>
-          {complete&&plan&&<p className={"mt-2 text-xs font-semibold "+
+          {complete&&plan&&<p className={"mt-1 text-xs font-semibold "+
             (diff===0?"text-emerald-700":"text-amber-800")}>
-            {t("差额（实际 − 账本）","Difference (actual − ledger)")}：
-            {diff>0?"+":""}{money(diff)}
+            {t("差额","Difference")}：{diff>0?"+":""}{money(diff)}
           </p>}
         </div>;
       })}
     </div>
-    {!completed&&<p className="mt-3 rounded-xl bg-slate-50 p-3 text-xs text-slate-600">
+    {!completed&&<p className="mt-2 rounded-lg bg-slate-50 px-3 py-2 text-xs text-slate-600">
       {t("请填完全部 "+normalizedBalances.length+" 个 Method，空格不会自动视为 RM0。",
         "Enter all "+normalizedBalances.length+" Methods. Blank is never treated as RM0.")}
     </p>}
     {result.error&&<p role="alert" className="mt-2 rounded-xl bg-red-50 p-3 text-sm text-red-700">{result.error}</p>}
-    {plan&&<section className="mt-4 rounded-xl border border-slate-200 p-3">
+    {plan&&<section className="mt-3 rounded-xl border border-slate-200 p-3">
       <h3 className="font-bold">{t("自动匹配建议","Automatic Matching Proposal")}</h3>
       <p className="mt-1 text-xs text-slate-600">
         {t("正差额＝该账户实际比账本多，需要补记流入；负差额＝实际比账本少，需要补记流出。只有真实发生过的转账才能确认。",
@@ -176,21 +176,23 @@ export default function FinanceAccountReconciliation({
           "Do not execute if these transfers never happened. Balance differences alone cannot prove that they did.")}
       </p>
     </section>}
-    <div className="mt-3 rounded-xl border border-slate-200 p-3">
-      <label className="block text-xs">{t("本次核对备注（可选）","Reconciliation note (optional)")}
+    <div className="mt-3 flex flex-col items-stretch gap-2 rounded-xl border border-slate-200 p-3 sm:flex-row sm:items-end">
+      <label className="min-w-0 flex-1 text-xs">{t("本次核对备注（可选）","Reconciliation note (optional)")}
         <input className={"mt-1 "+field} maxLength={240} value={note}
           onChange={e=>setNote(e.target.value)}/>
       </label>
       <button type="button" onClick={saveAllChecks} disabled={busy||disabled||!plan}
-        className="mt-3 rounded-xl bg-slate-900 px-4 py-2.5 text-sm font-bold text-white disabled:opacity-50">
+        className="min-h-10 shrink-0 rounded-xl bg-slate-900 px-4 py-2 text-sm font-bold text-white disabled:opacity-50">
         {t("保存全部余额核对记录","Save All Reconciliation Snapshots")}
       </button>
     </div>
     {error&&<p role="alert" className="mt-3 rounded-xl bg-red-50 p-3 text-sm text-red-700">{error}</p>}
     {message&&<p role="status" className="mt-3 rounded-xl bg-emerald-50 p-3 text-sm text-emerald-700">{message}</p>}
-    <div className="mt-4 grid gap-3">
-      <section className="rounded-xl border border-slate-200 p-3">
-        <h3 className="font-bold">{t("近期活动","Recent Activity")} · <span data-i18n-ignore>{focusMethod}</span></h3>
+    <div className="mt-3 grid gap-2">
+      <details className="rounded-xl border border-slate-200 p-3">
+        <summary className="cursor-pointer text-sm font-bold">
+          {t("近期活动","Recent Activity")} · <span data-i18n-ignore>{focusMethod}</span>
+        </summary>
         <div className="mt-2 max-h-44 space-y-2 overflow-auto">
           {recent.map(row=><div key={row.id}
             className="flex items-center justify-between gap-2 rounded-lg bg-slate-50 p-2 text-xs">
@@ -201,9 +203,11 @@ export default function FinanceAccountReconciliation({
           </div>)}
           {!recent.length&&<p className="text-xs text-slate-500">{t("没有相关记录。","No related records.")}</p>}
         </div>
-      </section>
-      <section className="rounded-xl border border-slate-200 p-3">
-        <h3 className="font-bold">{t("历史对账","Reconciliation History")} · <span data-i18n-ignore>{focusMethod}</span></h3>
+      </details>
+      <details className="rounded-xl border border-slate-200 p-3">
+        <summary className="cursor-pointer text-sm font-bold">
+          {t("历史对账","Reconciliation History")} · <span data-i18n-ignore>{focusMethod}</span>
+        </summary>
         <div className="mt-2 max-h-44 space-y-2 overflow-auto">
           {relevant.slice(0,20).map(c=><div key={c.id} className="rounded-lg bg-slate-50 p-2 text-xs">
             <b>{c.date} · {t("差额","Difference")} {money(c.difference)}</b>
@@ -212,7 +216,7 @@ export default function FinanceAccountReconciliation({
           </div>)}
           {!relevant.length&&<p className="text-xs text-slate-500">{t("尚无对账历史。","No reconciliation history yet.")}</p>}
         </div>
-      </section>
+      </details>
     </div>
   </>;
 }
