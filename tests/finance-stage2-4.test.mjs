@@ -45,7 +45,7 @@ test("Stage 2.4: Transfer History opens from header button as a FULL floating mo
  assert.match(ui,/<FinanceOverlay open=\{historyOpen\} triggerRef=\{historyTriggerRef\}/);
  const form=ui.indexOf("<form onSubmit={onTransfer}");
  const modal=ui.indexOf("<FinanceOverlay open={historyOpen}");
- const filter=ui.indexOf("Transfer History</h3>",modal);
+ const filter=ui.indexOf('<h3 className="font-bold">{t("转账历史","Transfer History")}</h3>',modal);
  const trash=ui.indexOf("Transfer Recycle Bin",modal);
  const close=ui.lastIndexOf("</FinanceOverlay>");
  assert.ok(form>=0&&form<modal&&modal<filter&&filter<trash&&trash<close,
@@ -99,7 +99,7 @@ test("Stage 2.4: specific BILL, REVIEW and ACCOUNT notifications still open thei
 
 test("Stage 2.4: data-writes and ledger calculations remain in existing modules",()=>{
  const app=src("App.jsx"),transfer=src("FinanceTransferPanel.jsx");
- for(const symbol of ["addRecord","updateRecord","deleteRecord","importCsv","saveBudgets","loadCloudData","executeStage2Reconciliation","confirmStage2BillPayment"])
+ for(const symbol of ["addRecord","updateRecord","deleteRecord","FinanceCsvImportPanel","saveBudgets","loadCloudData","executeStage2Reconciliation","confirmStage2BillPayment"])
   assert.ok(app.includes(symbol),symbol);
  for(const symbol of ["onTransfer","onUpdateTransfer","onDeleteTransfer","onRestoreTransfer","undoTransfer"])
   assert.ok(transfer.includes(symbol),symbol);
