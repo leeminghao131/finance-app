@@ -182,7 +182,7 @@ test("Stage2.2 all-Method reconciliation is legible and confirmation required fo
  assert.match(ui,/plan.remainders.map/);
  assert.ok(!ui.includes("xl:grid-cols-4"));
  assert.ok(!ui.includes("sm:grid-cols-4"));
- assert.match(transfer,/onExecuteTransfers=\{onExecuteTransfers\}/);
+ assert.match(src("FinanceStage2Hub.jsx"),/onExecuteTransfers=\{onExecuteTransfers\}/);
 });
 test("Stage2.2 execution checks fresh cloud snapshot before every transfer and stops on mismatch",()=>{
  const app=src("App.jsx"),service=src("financeReconciliationTransfers.js");
