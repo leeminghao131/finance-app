@@ -610,9 +610,6 @@ function FinanceVisualizerAppContent() {
   const [recurringBills, setRecurringBills] = useState([]);
   const [reviewState, setReviewState] = useState({threshold:500,decisions:[]});
   const [accountChecks, setAccountChecks] = useState([]);
-  const [transferToolTab,setTransferToolTab] = useState("transfer");
-  const [accountCheckMethod,setAccountCheckMethod] = useState("BANK");
-  const [accountNavigationKey,setAccountNavigationKey] = useState(0);
   const [stage2ToolRequest,setStage2ToolRequest] = useState(null);
   const [advancedFilter, setAdvancedFilter] = useState(null);
   const [undoDeleted, setUndoDeleted] = useState(null);
@@ -1092,20 +1089,15 @@ useEffect(() => {
     }finally{reconciliationPendingRef.current=false;}
   }
 
-  // Stage 2.3: notification links and the left dock share the SAME feature.
-  // Account reconciliation stays within the original Money Transfer card.
-  function openStage2AccountCheck(method=null) {
+  // Stage 2.4: both sources open one shared floating reconciliation popup.
+  // All existing settings, planned Transfers and record-writing callbacks stay in App.
+  function openStage2AccountCheck(method=null,source=null) {
     if(!initialDataReady||dataLoading)return;
-    if(method)setAccountCheckMethod(method);
-    setAccountNavigationKey(x=>x+1);
-    setTransferToolTab("accounts");
-    window.setTimeout(()=>{
-      document.getElementById("mh-money-transfer-card")?.scrollIntoView({behavior:"smooth",block:"start"});
-    },100);
+    setStage2ToolRequest({type:"accounts",method,source});
   }
   function openStage2DockTool(type,source) {
     if(!initialDataReady||dataLoading)return;
-    if(type==="accounts"){openStage2AccountCheck();return;}
+    if(type==="accounts"){openStage2AccountCheck(null,source);return;}
     if(type!=="bill"&&type!=="review")return;
     setStage2ToolRequest({type,source});
   }
@@ -1984,8 +1976,9 @@ return (
   onConfirmBillPayment={confirmStage2BillPayment}
   onSaveReview={(next,baseline)=>saveStage2Field("review_state",next,baseline)}
   onSaveChecks={(next,baseline)=>saveStage2Field("account_checks",next,baseline)}
+  onExecuteTransfers={executeStage2Reconciliation}
   onOpenAccountCheck={openStage2AccountCheck}
-  onPrefillExpense={prefillStage2Record} onPrefillRecord={prefillStage2Record}
+  onPrefillRecord={prefillStage2Record}
   onUpdateRecord={updateRecord}
   optionsFor={type=>({categories:categoryOptionsFor(type),methods:methodOptionsFor(type)})}
   disabled={!initialDataReady||dataLoading}
@@ -2233,12 +2226,6 @@ return (
   onUpdateTransfer={updateTransfer}
   onDeleteTransfer={deleteTransfer}
   onRestoreTransfer={restoreTransfer}
-  balances={methodBalances} records={records} checks={accountChecks}
-  onSaveChecks={(next,baseline)=>saveStage2Field("account_checks",next,baseline)}
-  onExecuteTransfers={executeStage2Reconciliation}
-  onPrefillRecord={prefillStage2Record}
-  activeTab={transferToolTab} onTabChange={setTransferToolTab}
-  selectedAccountMethod={accountCheckMethod} accountNavigationKey={accountNavigationKey}
   disabled={!initialDataReady||dataLoading}
 />
 
