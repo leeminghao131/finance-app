@@ -64,6 +64,7 @@ test("unique-conflict recovery selects the first server record, without insertin
  const context={
    user:{id:"fake-test-user"},
    recordCreationPendingRef:{current:false},
+   activities:[],activeActivity:()=>null,
    form:{type:"expense",amount:"24.55",category:"Food",method:"TNG",note:"Sample",date:"2026-11-12"},
    parseEditedAmount,
    toRecordPayload:(rec,user_id)=>({...rec,user_id}),
