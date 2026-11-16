@@ -92,7 +92,7 @@ test("Stage 2.1 bill confirms directly and account mismatch alerts open Transfer
  const hub=src("FinanceStage2Hub.jsx"),bills=src("FinanceRecurringBills.jsx");
  const app=src("App.jsx"),transfer=src("FinanceTransferPanel.jsx");
  assert.match(hub,/onConfirmPayment=\{onConfirmBillPayment\}/);
- assert.match(hub,/onOpenAccountCheck\?\.\(ref\)/);
+ assert.match(hub,/onOpenAccountCheck\?\.\(ref,source\)/);
  assert.match(bills,/onConfirmPayment\(\{billId:event.billId,due:event.due\}\)/);
  assert.match(bills,/确认已付并自动记账/);
  assert.ok(!bills.includes("选择一笔已存在的支出"));
@@ -101,8 +101,8 @@ test("Stage 2.1 bill confirms directly and account mismatch alerts open Transfer
  assert.match(bills,/calendarMonthDays/);
  assert.match(hub,/const prioritized=/);
  assert.match(app,/createBillPaymentExpense\(supabase,accountId,bill,due,today\(\),crypto\)/);
- assert.match(transfer,/FinanceAccountReconciliation/);
- assert.match(transfer,/activeTab==="accounts"/);
+ assert.match(hub,/FinanceAccountReconciliation/);
+ assert.match(hub,/mode==="accounts"&&<FinanceAccountReconciliation/);
  assert.match(app,/onOpenAccountCheck=\{openStage2AccountCheck\}/);
 });
 test("Stage2 UI has top-right bounce, review mini-popup, account manual prefill, no auto records writes",()=>{
