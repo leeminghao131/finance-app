@@ -35,7 +35,7 @@ export default function FinanceAdvancedResults({rows=[],EditableCell,onUpdate,on
           <td className="p-2">{editable(r,"method",r.method)}</td>
           <td className="p-2 font-semibold">{editable(r,"amount",r.amount)}</td>
           <td className="p-2">{editable(r,"note",r.note||"")}
-            {getActivityLabel(r.id)&&<span className="ml-1 rounded-full bg-amber-100 px-2 py-0.5 text-xs text-amber-900" data-i18n-ignore>🎒 {getActivityLabel(r.id)}</span>}
+            {r.type==="expense"&&getActivityLabel(r.id)&&<span className="ml-1 rounded-full bg-amber-100 px-2 py-0.5 text-xs text-amber-900" data-i18n-ignore>🎒 {getActivityLabel(r.id)}</span>}
           </td>
           <td className="p-2">{confirmId===r.id?
             <span className="flex gap-1">
