@@ -1,6 +1,7 @@
 import { loadEveryOwnedRow,splitRecordStatus } from "./financeData.js";
 import { normalizeRecord,normalizeTransfer } from "./financeRecords.js";
 import { validateFinanceSnapshotRows } from "./financeIntegrity.js";
+import {validateActivities,validateActivityLinks} from "./financeActivity.js";
 
 // Fetch one coherent, count-checked cloud snapshot without mutating the source DB.
 // All visible totals are replaced only after the caller receives this full result.
@@ -16,6 +17,12 @@ export async function fetchFinanceSnapshot(client,userId,onProgress) {
     "id,from_method,to_method,amount,note,date,created_at,updated_at,version,deleted_at",
     userId,onProgress,
   );
+  const activityRows=await loadEveryOwnedRow(client,"finance_activities",
+    "id,user_id,title,budget,status,started_on,ended_on,version,created_at,updated_at",
+    userId,onProgress);
+  const linkRows=await loadEveryOwnedRow(client,"finance_activity_links",
+    "id,user_id,activity_id,record_id,removed_at,version,created_at,updated_at",
+    userId,onProgress);
   const {data:settingsRow,error:settingsError}=await client.from("user_settings")
     .select("category_budgets,custom_options,version,forecast_plans,opening_balances,savings_goals,saved_filters,recurring_bills,review_state,account_checks")
     .eq("user_id",userId).maybeSingle();
@@ -33,6 +40,8 @@ export async function fetchFinanceSnapshot(client,userId,onProgress) {
     recordRows.slice().sort(byNewest).map(normalizeRecord));
   const {active:transfers,deleted:deletedTransfers}=splitRecordStatus(
     transferRows.slice().sort(byNewest).map(normalizeTransfer));
+  const activities=validateActivities(activityRows);
+  const activityLinks=validateActivityLinks(linkRows,activities,[...records,...deletedRecords]);
   return {records,deletedRecords,transfers,deletedTransfers,
-    settingsRow:settingsRow||null,monthRows:savedMonths||[]};
+    settingsRow:settingsRow||null,monthRows:savedMonths||[],activities,activityLinks};
 }
