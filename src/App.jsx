@@ -793,7 +793,7 @@ function FinanceVisualizerAppContent() {
       }, 350);
     };
     const channel = supabase.channel("finance-updates-" + accountId);
-    for (const table of ["records", "transfers", "user_settings", "monthly_budgets"]) {
+    for (const table of ["records", "transfers", "user_settings", "monthly_budgets", "finance_activities", "finance_activity_links"]) {
       channel.on("postgres_changes", {
         event: "*", schema: "public", table, filter: "user_id=eq." + accountId,
       }, scheduleRefresh);
