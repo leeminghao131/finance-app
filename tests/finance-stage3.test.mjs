@@ -43,7 +43,7 @@ test("Stage3 owner only one automatic active Activity and unique IDs",()=>{
  assert.equal(activeActivity([{...activity,status:"paused"}]),null);
  assert.throws(()=>validateActivities([activity,{...activity,id:other}]),/Multiple active/);
  assert.throws(()=>validateActivities([activity,activity]),/Duplicate Activity/);
- assert.equal(validateActivities([{...activity,status:"paused"},activity].map(x=>({
+ assert.equal(validateActivities([{...activity,id:other,status:"paused"},activity].map(x=>({
   id:x.id,user_id:x.userId,title:x.title,budget:x.budget,status:x.status,
   started_on:x.startedOn,ended_on:x.endedOn,version:x.version
  })))[1].status,"active");
