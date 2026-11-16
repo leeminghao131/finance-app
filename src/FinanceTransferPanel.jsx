@@ -1,6 +1,6 @@
 import { localizedFinanceAlert, localizedFinanceConfirm, useFinanceLanguage } from "./FinanceLanguageLayer.jsx";
-import FinanceAccountReconciliation from "./FinanceAccountReconciliation.jsx";
-import React, { useMemo, useState } from "react";
+import FinanceOverlay from "./FinanceOverlay.jsx";
+import React, { useMemo, useRef, useState } from "react";
 import { requireCalendarDate } from "./financeCalendar.js";
 
 const money = (value) => new Intl.NumberFormat("en-MY", {style:"currency",currency:"MYR"}).format(Number(value || 0));
@@ -10,12 +10,13 @@ const buttonStyle = "rounded-xl border border-slate-300 bg-white px-3 py-2 text-
 export default function FinanceTransferPanel({
   transferForm, setTransferForm, methodOptions, transfers, deletedTransfers,
   onTransfer, onUpdateTransfer, onDeleteTransfer, onRestoreTransfer, undoTransfer,
-  balances=[],records=[],checks=[],onSaveChecks,onPrefillRecord,onExecuteTransfers,
-  activeTab="transfer",onTabChange=()=>{},selectedAccountMethod=null,accountNavigationKey=0,disabled=false,
+  disabled=false,
 }) {
   const {language}=useFinanceLanguage();
   const t=(cn,en)=>language==="zh"?cn:en;
-  const [showAll, setShowAll] = useState(false);
+  const [showAll, setShowAll] = useState(true);
+  const [historyOpen,setHistoryOpen] = useState(false);
+  const historyTriggerRef=useRef(null);
   const [showTrash, setShowTrash] = useState(false);
   const [month, setMonth] = useState("all");
   const [from, setFrom] = useState("all");
@@ -63,32 +64,17 @@ export default function FinanceTransferPanel({
           <h2 className="text-xl font-bold">Money Transfer</h2>
           <p className="mt-1 text-sm text-slate-500">Move money between accounts. This never counts as income or expense.</p>
         </div>
-        <span className="rounded-2xl bg-blue-50 px-3 py-2 text-xl">🔁</span>
+        <div className="flex items-center gap-2">
+          <button ref={historyTriggerRef} type="button" disabled={disabled}
+            aria-haspopup="dialog" aria-expanded={historyOpen}
+            onClick={()=>{setShowAll(true);setHistoryOpen(true);}}
+            className="mh-modal-trigger min-h-11 rounded-xl border border-blue-200 bg-blue-50 px-3 py-2 text-sm font-bold text-blue-800 hover:bg-blue-100 disabled:opacity-50">
+            📋 {t("转账历史","Transfer History")} ({transfers.length})
+          </button>
+          <span className="rounded-2xl bg-blue-50 px-3 py-2 text-xl">🔁</span>
+        </div>
       </div>
 
-      <div role="tablist" aria-label={t("资金转移与对账","Transfers and reconciliation")}
-        className="mt-4 grid grid-cols-2 gap-2 rounded-xl bg-slate-100 p-1">
-        <button type="button" role="tab" aria-selected={activeTab==="transfer"}
-          onClick={()=>onTabChange("transfer")}
-          className={"rounded-lg px-3 py-3 text-sm font-bold transition "+
-            (activeTab==="transfer"?"bg-white text-blue-800 shadow-sm":"text-slate-600 hover:bg-white/60")}>
-          🔁 {t("资金转移","Money Transfer")}
-        </button>
-        <button type="button" role="tab" aria-selected={activeTab==="accounts"}
-          onClick={()=>onTabChange("accounts")}
-          className={"rounded-lg px-3 py-3 text-sm font-bold transition "+
-            (activeTab==="accounts"?"bg-white text-blue-800 shadow-sm":"text-slate-600 hover:bg-white/60")}>
-          🏦 {t("余额对账","Balance Check")}
-        </button>
-      </div>
-      {activeTab==="accounts"
-        ? <div role="tabpanel" className="mt-4">
-            <FinanceAccountReconciliation key={"reconcile-"+accountNavigationKey} balances={balances} records={records} transfers={transfers}
-              checks={checks} onSave={onSaveChecks} onPrefillRecord={onPrefillRecord}
-              onExecuteTransfers={onExecuteTransfers}
-              selectedMethod={selectedAccountMethod} disabled={disabled}/>
-          </div>
-        : <div role="tabpanel">
       <form onSubmit={onTransfer} className="mt-4 space-y-3">
         <div className="grid gap-3 sm:grid-cols-2">
           <label className="text-sm text-slate-700">From Method
@@ -134,9 +120,12 @@ export default function FinanceTransferPanel({
         </div>
       )}
 
-      <div className="mt-6 flex flex-wrap items-center justify-between gap-2">
+      <FinanceOverlay open={historyOpen} triggerRef={historyTriggerRef}
+        title={t("转账历史","Transfer History")} widthClass="max-w-4xl"
+        onClose={()=>{if(!pending){setHistoryOpen(false);setEditing(null);setConfirmDelete(null);}}}>
+      <div className="flex flex-wrap items-center justify-between gap-2">
         <div>
-          <h3 className="font-bold">Transfer History</h3>
+          <h3 className="font-bold">{t("转账历史","Transfer History")}</h3>
           <p className="text-xs text-slate-500">{transfers.length} transfers · Latest 5 shown by default</p>
         </div>
         <button type="button" className={buttonStyle} onClick={()=>setShowAll((v)=>!v)}>
@@ -258,7 +247,7 @@ export default function FinanceTransferPanel({
             ))}
         </div>
       )}
-        </div>}
+      </FinanceOverlay>
     </div>
   );
 }
