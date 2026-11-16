@@ -115,6 +115,8 @@
   overflow-x: hidden;
   overscroll-behavior: contain;
   scrollbar-width: thin;
+  /* Room for the floating hover lift without clipping the seven buttons. */
+  padding: 4px 8px 5px 2px;
 }
 .mh-insights-dock__button {
   display: flex;
@@ -130,9 +132,24 @@
   font-size: 13px;
   cursor: pointer;
   text-align: left;
-  transition: background-color 160ms ease;
+  transform: translate3d(0,0,0) scale(1);
+  transform-origin: center center;
+  box-shadow: 0 2px 5px rgba(2,6,23,.10);
+  transition: transform 290ms cubic-bezier(.22,1,.36,1),
+              box-shadow 290ms cubic-bezier(.22,1,.36,1),
+              background-color 220ms ease;
 }
-.mh-insights-dock__button:hover { background: rgba(255,255,255,.17); }
+@media (hover:hover) and (pointer:fine) {
+  .mh-insights-dock__button:not(:disabled):hover {
+    transform: translate3d(3px,-3px,0) scale(1.025);
+    box-shadow: 0 10px 22px rgba(2,6,23,.43), 0 0 0 1px rgba(245,211,144,.34);
+    background: rgba(255,255,255,.20);
+  }
+}
+.mh-insights-dock__button:not(:disabled):focus-visible {
+  transform: translate3d(2px,-2px,0) scale(1.015);
+  background: rgba(255,255,255,.18);
+}
 .mh-insights-dock__button:disabled { opacity: .45; cursor: not-allowed; }
 .mh-insights-dock__label { min-width: 0; white-space: nowrap; }
 .mh-insights-dock__icon {
@@ -154,7 +171,14 @@
   .mh-insights-dock__button { min-height: 54px; }
 }
 @media (prefers-reduced-motion:reduce) {
-  .mh-insights-dock, .mh-insights-dock__button { transition: none !important; }
+  .mh-insights-dock, .mh-insights-dock__button {
+    transition: none !important;
+    transform-origin: center center;
+  }
+  .mh-insights-dock__button:hover,
+  .mh-insights-dock__button:focus-visible {
+    transform: none !important;
+  }
 }
 
 /* Stage 2: independent top-right in-app animated reminders; never reflow cards. */
