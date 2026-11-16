@@ -1,5 +1,6 @@
 import React,{useRef,useState} from "react";
 import FinanceWrapped from "./FinanceWrapped.jsx";
+import FinanceActivityPanel from "./FinanceActivityPanel.jsx";
 import FinanceScenarioSimulator from "./FinanceScenarioSimulator.jsx";
 import FinanceMonthComparison from "./FinanceMonthComparison.jsx";
 import FinanceSavingsGoals from "./FinanceSavingsGoals.jsx";
@@ -32,6 +33,7 @@ export default function FinanceInsightsDock({
   records,monthRows,budgetTemplate,totalBalance,userId,
   goals=[],onSaveSavingsGoals,savingsAvailability,budgetMonth,calculationError,
   disabled=false,onOpenStage2Tool=()=>{},
+  activities=[],activityLinks=[],onCreateActivity,onUpdateActivity,onLinkActivity,onUnlinkActivity,
 }){
   const {language}=useFinanceLanguage();
   const zh=language==="zh";
@@ -48,7 +50,11 @@ export default function FinanceInsightsDock({
       </button>
       <div className="mh-insights-dock__items">
         <FinanceWrapped records={records} monthRows={monthRows}
-          budgetTemplate={budgetTemplate} disabled={disabled} dockButton/>
+          budgetTemplate={budgetTemplate} activities={activities} activityLinks={activityLinks}
+          disabled={disabled} dockButton/>
+        <FinanceActivityPanel activities={activities} links={activityLinks}
+          records={records} onCreate={onCreateActivity} onUpdate={onUpdateActivity}
+          onLink={onLinkActivity} onUnlink={onUnlinkActivity} disabled={disabled} dockButton/>
         <FinanceScenarioSimulator records={records} totalBalance={totalBalance}
           userId={userId} disabled={disabled} dockButton/>
         <DockCardPopup title={zh?"月度财务对比":"Month Comparison"} icon="📊" disabled={disabled}>
