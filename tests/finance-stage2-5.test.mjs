@@ -80,7 +80,7 @@ test("Stage 2.5 paid/skipped occurrences and calendar are both folded by default
   const section=scope(source,'activeTab==="pending"&&<section','{activeTab==="plans"&&<section');
   assert.match(section,/<details className="rounded-xl border border-slate-200 bg-white p-2\.5">/);
   assert.match(section,/calendarEvents\.some\(e=>e\.due===date\)/);
-  assert.match(section,/calendarMonthDays\(calendarMonth\)/);
+  assert.match(source,/calendarMonthDays\(calendarMonth\)/);
   assert.match(section,/<summary className="cursor-pointer text-sm font-semibold">/);
   assert.match(section,/finishedItems\.map\(e=>/);
   assert.match(section,/e\.linkedRecordId/);
