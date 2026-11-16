@@ -2439,7 +2439,8 @@ return (
     ? <p role="alert" className="mt-3 rounded-xl bg-red-50 p-3 text-sm text-red-700">{advancedResults.error}</p>
     : <FinanceAdvancedResults rows={advancedResults.rows} EditableCell={EditableCell}
         onUpdate={updateRecord} onDelete={deleteRecord}
-        categoryOptionsFor={categoryOptionsFor} methodOptionsFor={methodOptionsFor}/>)}
+        categoryOptionsFor={categoryOptionsFor} methodOptionsFor={methodOptionsFor}
+        getActivityLabel={id=>activityOfRecord(id,activityLinks,activities)?.title||""}/>)}
   {!advancedFilter && <div className="mt-5 space-y-3">
     {groupedTransactionRecords.length === 0 && (
       <div className="rounded-2xl bg-slate-50 p-8 text-center text-sm text-slate-400 ring-1 ring-slate-100">
