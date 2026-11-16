@@ -27,6 +27,8 @@ const links=[
  {id:"77777777-7777-4777-8777-777777777777",userId:owner,activityId:actId,recordId:"4",removedAt:null,version:1},
 ];
 test("Stage3 valid Activity names, RM budgets and status/date constraints",()=>{
+ const raw={id:actId,user_id:owner,title:"成都旅行",budget:"1500.00",
+   status:"active",started_on:"2026-11-10",ended_on:null,version:1};
  assert.equal(validActivityTitle("  Chengdu  "),"Chengdu");
  assert.equal(validActivityBudget("0.01"),.01);
  assert.equal(validActivityBudget("1500.50"),1500.5);
@@ -34,19 +36,18 @@ test("Stage3 valid Activity names, RM budgets and status/date constraints",()=>{
  assert.throws(()=>validActivityTitle(" "),/1–90/);
  assert.throws(()=>validActivityBudget("1.234"),/valid activity budget/);
  assert.throws(()=>validActivityBudget("0"),/positive/);
- assert.throws(()=>normalizeActivity({...activity,id:actId,status:"finished",ended_on:null}),/Inconsistent/);
- assert.throws(()=>normalizeActivity({...activity,id:actId,status:"finished",ended_on:"2026-11-01"}),/Inconsistent/);
- assert.throws(()=>normalizeActivity({...activity,id:actId,status:"invalid"}),/status/);
+ assert.throws(()=>normalizeActivity({...raw,status:"finished"}),/Inconsistent/);
+ assert.throws(()=>normalizeActivity({...raw,status:"finished",ended_on:"2026-11-01"}),/Inconsistent/);
+ assert.throws(()=>normalizeActivity({...raw,status:"invalid"}),/status/);
 });
 test("Stage3 owner only one automatic active Activity and unique IDs",()=>{
+ const raw={id:actId,user_id:owner,title:"成都旅行",budget:"1500.00",
+   status:"active",started_on:"2026-11-10",ended_on:null,version:1};
  assert.equal(activeActivity([activity]).id,actId);
  assert.equal(activeActivity([{...activity,status:"paused"}]),null);
- assert.throws(()=>validateActivities([activity,{...activity,id:other}]),/Multiple active/);
- assert.throws(()=>validateActivities([activity,activity]),/Duplicate Activity/);
- assert.equal(validateActivities([{...activity,id:other,status:"paused"},activity].map(x=>({
-  id:x.id,user_id:x.userId,title:x.title,budget:x.budget,status:x.status,
-  started_on:x.startedOn,ended_on:x.endedOn,version:x.version
- })))[1].status,"active");
+ assert.throws(()=>validateActivities([raw,{...raw,id:other}]),/Multiple active/);
+ assert.throws(()=>validateActivities([raw,raw]),/Duplicate Activity/);
+ assert.equal(validateActivities([{...raw,id:other,status:"paused"},raw])[1].status,"active");
 });
 test("Stage3 activity aggregates linked Expense cents only, not Income, transfers or outside records",()=>{
  const a=activitySummary(activity,records,links,"2026-11-16");
@@ -93,7 +94,7 @@ test("Stage3 activity reports remain independent of Dashboard filters and previo
  const sum=activitySummary(activity,records,links,"2026-11-16");
  const monthly=financeWrapped(records,{mode:"monthly",month:"2026-11",asOfDate:"2026-11-16"});
  assert.equal(sum.total,45.75);
- assert.equal(monthly.current.expense,245.74);
+ assert.equal(monthly.current.expense,145.74); // soft-deleted RM100 is excluded
  assert.equal(monthly.current.income,5000);
  assert.equal(monthly.mode,"monthly");
 });
@@ -148,10 +149,10 @@ test("Stage3 finance read completeness and UI badges without changing protected 
 });
 const sql=source("../docs/database/preview_finance_stage3_activities.sql");
 test("Stage3 TEST migration has owner RLS, one-active invariant and soft-only unlink",()=>{
- assert.match(sql,/ENABLE ROW LEVEL SECURITY/g);
- assert.match(sql,/finance_one_active_activity_per_user/);
- assert.match(sql,/UNIQUE \\(user_id,record_id\\)/);
- assert.match(sql,/auth\\.uid\\(\\)/);
- assert.match(sql,/NO DELETE policy/);
- assert.doesNotMatch(sql,/\\bDROP\\s+TABLE\\b|\\bTRUNCATE\\b|\\bDELETE\\s+FROM\\b/i);
+ assert.ok(sql.includes("ENABLE ROW LEVEL SECURITY"));
+ assert.ok(sql.includes("finance_one_active_activity_per_user"));
+ assert.ok(sql.includes("UNIQUE (user_id,record_id)"));
+ assert.ok(sql.includes("auth.uid()"));
+ assert.ok(sql.includes("No DELETE policy"));
+ assert.ok(!/\\b(?:DROP\\s+TABLE|TRUNCATE|DELETE\\s+FROM)\\b/i.test(sql));
 });
