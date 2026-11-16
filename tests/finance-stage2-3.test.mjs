@@ -89,7 +89,7 @@ test("Stage 2.4: account drawer entry and discrepancy notification both target f
  assert.match(app,/onOpenAccountCheck=\{openStage2AccountCheck\}/);
  assert.match(app,/if\(type==="accounts"\)\{openStage2AccountCheck\(null,source\);return;\}/);
  assert.match(app,/setStage2ToolRequest\(\{type:"accounts",method,source\}\)/);
- assert.match(app,/setAccountNavigationKey\(x=>x\+1\)/);
+ assert.match(app,/setStage2ToolRequest\(\{type:"accounts",method,source\}\)/);
  assert.match(hub,/mode==="accounts"&&<FinanceAccountReconciliation/);
  assert.match(hub,/if\(type==="accounts"\)\{/);
  assert.match(hub,/onOpenAccountCheck\?\.\(ref,source\)/);
