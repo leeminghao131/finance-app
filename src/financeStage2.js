@@ -41,7 +41,7 @@ export function validateBills(raw){
     const cycle=String(b.cycle||"monthly");
     if(!["weekly","monthly","quarterly","yearly"].includes(cycle))throw Error("Invalid bill cycle.");
     const anchorDate=iso(b.anchorDate);
-    const leadDays=Number(b.leadDays??3);
+    const leadDays=Number(b.leadDays??0);
     if(!Number.isInteger(leadDays)||leadDays<0||leadDays>30)throw Error("Reminder lead days must be 0–30.");
     const occurrences=b.occurrences??[];
     if(!Array.isArray(occurrences)||occurrences.length>160)throw Error("Too many bill confirmations. Archive in a future revision.");
