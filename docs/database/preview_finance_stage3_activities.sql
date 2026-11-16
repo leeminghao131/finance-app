@@ -57,12 +57,14 @@ CREATE POLICY finance_activity_links_owner_insert ON public.finance_activity_lin
     (select auth.uid())=user_id
     AND EXISTS (
       SELECT 1 FROM public.records r
-      WHERE r.id=record_id AND r.user_id=user_id
+      WHERE r.id=public.finance_activity_links.record_id
+        AND r.user_id=public.finance_activity_links.user_id
         AND r.type='expense' AND r.deleted_at IS NULL
     )
     AND EXISTS (
       SELECT 1 FROM public.finance_activities a
-      WHERE a.id=activity_id AND a.user_id=user_id
+      WHERE a.id=public.finance_activity_links.activity_id
+        AND a.user_id=public.finance_activity_links.user_id
     )
   );
 CREATE POLICY finance_activity_links_owner_update ON public.finance_activity_links
@@ -72,11 +74,15 @@ CREATE POLICY finance_activity_links_owner_update ON public.finance_activity_lin
     (select auth.uid())=user_id
     AND EXISTS (
       SELECT 1 FROM public.records r
-      WHERE r.id=record_id AND r.user_id=user_id AND r.type='expense'
+      WHERE r.id=public.finance_activity_links.record_id
+        AND r.user_id=public.finance_activity_links.user_id
+        AND (public.finance_activity_links.removed_at IS NOT NULL OR
+          (r.type='expense' AND r.deleted_at IS NULL))
     )
     AND EXISTS (
       SELECT 1 FROM public.finance_activities a
-      WHERE a.id=activity_id AND a.user_id=user_id
+      WHERE a.id=public.finance_activity_links.activity_id
+        AND a.user_id=public.finance_activity_links.user_id
     )
   );
 -- No DELETE policy: unlink is soft-only (removed_at), finance rows never deleted.
