@@ -156,12 +156,12 @@ test("Stage 2.1 review popup switches are controlled by per-owner cloud setting 
 });
 test("Stage 2.1 Balance Reconciliation is a tab inside Money Transfer, not a separate popup",()=>{
   const transfer=src("FinanceTransferPanel.jsx"),hub=src("FinanceStage2Hub.jsx"),app=src("App.jsx");
-  assert.match(transfer,/FinanceAccountReconciliation/);
-  assert.match(transfer,/activeTab==="transfer"/);
-  assert.match(transfer,/activeTab==="accounts"/);
+  assert.match(hub,/FinanceAccountReconciliation/);
+  assert.match(transfer,/onTransfer/);
+  assert.match(hub,/mode==="accounts"&&<FinanceAccountReconciliation/);
   assert.match(app,/onTransfer=\{addTransfer\}/); // App still uses original transfer handler
-  assert.ok(!hub.includes("<FinanceAccountReconciliation"));
-  assert.match(hub,/onOpenAccountCheck\?\.\(ref\)/);
+  assert.ok(!transfer.includes("<FinanceAccountReconciliation"));
+  assert.match(hub,/onOpenAccountCheck\?\.\(ref,source\)/);
   assert.match(app,/onOpenAccountCheck=\{openStage2AccountCheck\}/);
   assert.match(app,/onSaveChecks=\{\(next,baseline\)=>saveStage2Field\("account_checks",next,baseline\)\}/);
 });

@@ -2,6 +2,7 @@ import React,{useEffect,useMemo,useRef,useState} from "react";
 import FinanceOverlay from "./FinanceOverlay.jsx";
 import FinanceRecurringBills from "./FinanceRecurringBills.jsx";
 import FinanceReviewInbox from "./FinanceReviewInbox.jsx";
+import FinanceAccountReconciliation from "./FinanceAccountReconciliation.jsx";
 import {billOccurrences,findReviewCandidates} from "./financeStage2.js";
 import {localDateMY} from "./financeCalendar.js";
 import {useFinanceLanguage} from "./FinanceLanguageLayer.jsx";
@@ -11,11 +12,13 @@ export default function FinanceStage2Hub({
   bills=[],reviewState={threshold:500,decisions:[]},checks=[],
   records=[],transfers=[],balances=[],categories=[],methods=[],
   onSaveBills,onConfirmBillPayment,onSaveReview,onUpdateRecord,onOpenAccountCheck,
+  onSaveChecks,onExecuteTransfers,onPrefillRecord,
   optionsFor,disabled=false,toolRequest=null,
 }){
   const {language}=useFinanceLanguage(),zh=language==="zh",t=(cn,en)=>zh?cn:en;
   const [mode,setMode]=useState(""),[selectedBillId,setSelectedBillId]=useState(null);
   const [selectedRecordId,setSelectedRecordId]=useState(null),[menu,setMenu]=useState(false);
+  const [selectedAccountMethod,setSelectedAccountMethod]=useState(null);
   const triggerRef=useRef(null);
   const handledRequestRef=useRef(null);
   const today=localDateMY();
@@ -43,10 +46,10 @@ export default function FinanceStage2Hub({
   const open=(type,ref=null,source=null)=>{
     if(disabled)return;
     if(type==="accounts"){
-      // Keep the existing discrepancy notification, but open the unified
-      // Money Transfer > Balance Check tab instead of a second popup.
+      // A specific discrepancy notice opens the SAME reconciliation popup
+      // as the dock, preselected to that Method. No second page card.
       setMenu(false);
-      onOpenAccountCheck?.(ref);
+      onOpenAccountCheck?.(ref,source);
       return;
     }
     if(source)triggerRef.current=source;
@@ -60,15 +63,27 @@ export default function FinanceStage2Hub({
   useEffect(()=>{
     if(!toolRequest || handledRequestRef.current===toolRequest)return;
     handledRequestRef.current=toolRequest;
-    if(disabled || !["bill","review"].includes(toolRequest.type))return;
+    if(disabled || !["bill","review","accounts"].includes(toolRequest.type))return;
     triggerRef.current=toolRequest.source||null;
     setMode(toolRequest.type);
     setSelectedBillId(null);
     setSelectedRecordId(null);
+    setSelectedAccountMethod(toolRequest.type==="accounts"?(toolRequest.method||null):null);
     setMenu(false);
   },[toolRequest,disabled]);
-  const close=()=>{setMode("");setSelectedBillId(null);setSelectedRecordId(null);};
+  const close=()=>{
+    setMode("");setSelectedBillId(null);setSelectedRecordId(null);
+    setSelectedAccountMethod(null);
+  };
+  const prefillAndClose=record=>{
+    // Reconciliation still only fills the UNSAVED Income/Expense form.
+    // Close the popup first so its focus/scroll lock cannot block the form.
+    const ok=onPrefillRecord?.(record);
+    if(ok)close();
+    return ok;
+  };
   const title=mode==="bill"?t("固定账单提醒","Recurring Bills")
+    :mode==="accounts"?t("余额对账","Balance Reconciliation")
     :t("异常记录复查","Review Transactions");
   return <>
     <div className="mh-stage2-notifications" aria-label={t("财务动态通知","Financial notifications")}>
@@ -125,6 +140,12 @@ export default function FinanceStage2Hub({
       {mode==="review"&&<FinanceReviewInbox records={records} reviewState={reviewState}
         onSave={onSaveReview} optionsFor={optionsFor} onUpdateRecord={onUpdateRecord}
         selectedId={selectedRecordId} disabled={disabled}/>}
+      {mode==="accounts"&&<FinanceAccountReconciliation
+        records={records} transfers={transfers} balances={balances} checks={checks}
+        onSave={onSaveChecks} onExecuteTransfers={onExecuteTransfers}
+        onPrefillRecord={prefillAndClose}
+        selectedMethod={selectedAccountMethod} disabled={disabled}/>}
+
     </FinanceOverlay>
   </>;
 }
