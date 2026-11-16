@@ -78,7 +78,7 @@ export default function FinanceMobileRecords({ records, onUpdate, onDelete, cate
           <div className="mt-3 min-w-0 border-t border-slate-100 pt-3">
             <p className="text-xs text-slate-500">Note</p>
             <p className="whitespace-pre-wrap break-words text-sm text-slate-700" data-i18n-ignore>{item.note || "—"}</p>
-            {getActivityLabel(item.id)&&<span data-i18n-ignore
+            {item.type==="expense"&&getActivityLabel(item.id)&&<span data-i18n-ignore
               className="mt-1 inline-flex max-w-full break-words rounded-full bg-amber-100 px-2 py-1 text-xs font-semibold text-amber-900">
               🎒 {getActivityLabel(item.id)}
             </span>}
