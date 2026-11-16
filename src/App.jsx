@@ -1078,6 +1078,22 @@ useEffect(() => {
         setSyncStatus("Bill Expense saved; bill status not confirmed. Refresh before retry.");
         return {completed:false,recordSaved:true,recordId:String(record.id)};
       }
+      // A fixed bill is also a real Expense. During an active trip, attach
+      // its existing record ID; never create an additional Expense.
+      const billActivity=activeActivity(activities);
+      if(billActivity){
+        try{
+          const stillActive=await currentActiveActivity(supabase,accountId,billActivity.id);
+          if(stillActive&&liveUserIdRef.current===accountId){
+            const tag=await linkFinanceExpense(supabase,accountId,String(record.id),billActivity.id);
+            if(liveUserIdRef.current===accountId)
+              setActivityLinks(rows=>[...rows.filter(r=>r.recordId!==tag.recordId),tag]);
+          }
+        }catch(tagError){
+          if(liveUserIdRef.current===accountId)
+            localizedFinanceAlert("Bill Expense was saved, but Activity tag failed. Attach that saved Expense manually in Activity Mode; do not confirm the payment again.");
+        }
+      }
       setSyncStatus("Recurring bill paid and Expense saved to cloud");
       return {completed:true,recordSaved:true,recordId:String(record.id)};
     }catch(error){
