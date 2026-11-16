@@ -126,7 +126,7 @@ export default function FinanceTransferPanel({
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div>
           <h3 className="font-bold">{t("转账历史","Transfer History")}</h3>
-          <p className="text-xs text-slate-500">{transfers.length} transfers · Latest 5 shown by default</p>
+          <p className="text-xs text-slate-500">{transfers.length} {t("笔转账 · 支持筛选及编辑","transfers · Filter and edit records")}</p>
         </div>
         <button type="button" className={buttonStyle} onClick={()=>setShowAll((v)=>!v)}>
           {showAll?"Show Latest 5":"View All Transfers"}
