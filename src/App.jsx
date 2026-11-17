@@ -652,6 +652,10 @@ function FinanceVisualizerAppContent() {
   const [fxForeignAmount,setFxForeignAmount]=useState("");
   const [fxQuote,setFxQuote]=useState(null);
   const [fxEditingId,setFxEditingId]=useState(null);
+  // Clear unfinished FX details between signed-in accounts, never leak a draft.
+  useEffect(()=>{
+    setFxCurrency("MYR");setFxForeignAmount("");setFxQuote(null);setFxEditingId(null);
+  },[user?.id]);
   const fxEditTriggerRef=useRef(null);
   const openFxEdit=(record,trigger)=>{fxEditTriggerRef.current=trigger||null;setFxEditingId(record.id);};
   const [transferForm, setTransferForm] = useState({
@@ -1965,7 +1969,7 @@ async function addRecord(e) {
 
   async function updateForeignRecord(original,change){
     const current=records.find(row=>row.id===original?.id);
-    if(!user||!current?.fx_currency||pendingRecordsRef.current.has(current.id))return false;
+    if(!user||!initialDataReady||dataLoading||!current?.fx_currency||pendingRecordsRef.current.has(current.id))return false;
     let safe;
     try{
       safe=makeFxSnapshot({currency:change.fx_currency,foreignAmount:change.fx_amount,

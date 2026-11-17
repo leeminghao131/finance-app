@@ -66,7 +66,7 @@ export function buildFinanceWorkbook({
     safeExcelText(r.category),safeExcelText(r.method),
     rm(cents(r.amount)),safeExcelText(r.note),Number(r.version||1),
     safeExcelText(r.updated_at),safeExcelText(r.fx_currency||""),
-    r.fx_currency?Number(r.fx_amount):"",r.fx_currency?Number(r.fx_rate):"",
+    r.fx_currency?safeExcelText(r.fx_amount):"",r.fx_currency?safeExcelText(r.fx_rate):"",
     safeExcelText(r.fx_rate_date||""),safeExcelText(r.fx_provider||""),
   ]);
   const transferRows=validTransfers.map(r=>[
@@ -123,8 +123,8 @@ export function buildFinanceWorkbook({
       safeExcelText(r.id),excelDateNumber(r.date),safeExcelText(r.type),
       safeExcelText(r.category),safeExcelText(r.method),rm(cents(r.amount)),
       safeExcelText(r.note),safeExcelText(r.deleted_at),
-      safeExcelText(r.fx_currency||""),r.fx_currency?Number(r.fx_amount):"",
-      r.fx_currency?Number(r.fx_rate):"",safeExcelText(r.fx_rate_date||""),
+      safeExcelText(r.fx_currency||""),r.fx_currency?safeExcelText(r.fx_amount):"",
+      r.fx_currency?safeExcelText(r.fx_rate):"",safeExcelText(r.fx_rate_date||""),
       safeExcelText(r.fx_provider||""),
     ]);
     makeSheet(wb,"Recycle Bin",

@@ -88,8 +88,8 @@ test("Stage4 Excel exports original FX fields without corrupting RM totals",()=>
   const {workbook,stats}=buildFinanceWorkbook({records:[sample],scope:"all"});
   const sheet=workbook.Sheets["Finance Records"];
   assert.equal(sheet["J2"].v,"JPY");
-  assert.equal(sheet["K2"].v,3000);
-  assert.equal(sheet["L2"].v,0.03);
+  assert.equal(sheet["K2"].v,"3000");
+  assert.equal(sheet["L2"].v,"0.03");
   assert.equal(sheet["F2"].v,90);
   assert.ok(verifyFinanceWorkbook(workbook,stats).byteLength>100);
 });
