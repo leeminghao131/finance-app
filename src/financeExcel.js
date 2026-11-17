@@ -3,7 +3,7 @@ import { requireCalendarDate, localDateMY } from "./financeCalendar.js";
 import { openingTotal, parseOpeningAmount } from "./financeOpeningBalance.js";
 
 const HEADERS = {
-  records: ["Record ID","Date","Type","Category","Method","Amount (RM)","Note","Version","Updated At"],
+  records: ["Record ID","Date","Type","Category","Method","Amount (RM)","Note","Version","Updated At","Original Currency","Original Amount","Reference Rate (to RM)","Rate Date","Rate Source"],
   transfers: ["Transfer ID","Date","From Method","To Method","Amount (RM)","Note","Version","Updated At"],
   budgets: ["Month","Category","Budget (RM)","Snapshot Version"],
   template: ["Category","Default Budget (RM)"],
@@ -65,7 +65,9 @@ export function buildFinanceWorkbook({
     safeExcelText(r.id),excelDateNumber(r.date),safeExcelText(r.type),
     safeExcelText(r.category),safeExcelText(r.method),
     rm(cents(r.amount)),safeExcelText(r.note),Number(r.version||1),
-    safeExcelText(r.updated_at),
+    safeExcelText(r.updated_at),safeExcelText(r.fx_currency||""),
+    r.fx_currency?Number(r.fx_amount):"",r.fx_currency?Number(r.fx_rate):"",
+    safeExcelText(r.fx_rate_date||""),safeExcelText(r.fx_provider||""),
   ]);
   const transferRows=validTransfers.map(r=>[
     safeExcelText(r.id),excelDateNumber(r.date),
@@ -121,9 +123,12 @@ export function buildFinanceWorkbook({
       safeExcelText(r.id),excelDateNumber(r.date),safeExcelText(r.type),
       safeExcelText(r.category),safeExcelText(r.method),rm(cents(r.amount)),
       safeExcelText(r.note),safeExcelText(r.deleted_at),
+      safeExcelText(r.fx_currency||""),r.fx_currency?Number(r.fx_amount):"",
+      r.fx_currency?Number(r.fx_rate):"",safeExcelText(r.fx_rate_date||""),
+      safeExcelText(r.fx_provider||""),
     ]);
     makeSheet(wb,"Recycle Bin",
-      ["Record ID","Date","Type","Category","Method","Amount (RM)","Note","Deleted At"],
+      ["Record ID","Date","Type","Category","Method","Amount (RM)","Note","Deleted At","Original Currency","Original Amount","Reference Rate (to RM)","Rate Date","Rate Source"],
       oldRecords,[1],[5]);
     const oldTransfers=deletedTransfers.filter(r=>inMonth(r,scope,month)).map(r=>[
       safeExcelText(r.id),excelDateNumber(r.date),safeExcelText(r.fromMethod),

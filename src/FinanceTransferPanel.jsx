@@ -1,5 +1,6 @@
 import { localizedFinanceAlert, localizedFinanceConfirm, useFinanceLanguage } from "./FinanceLanguageLayer.jsx";
 import FinanceOverlay from "./FinanceOverlay.jsx";
+import FinanceTransferCorners from "./FinanceTransferCorners.jsx";
 import React, { useMemo, useRef, useState } from "react";
 import { requireCalendarDate } from "./financeCalendar.js";
 
@@ -76,6 +77,10 @@ export default function FinanceTransferPanel({
       </div>
 
       <form onSubmit={onTransfer} className="mt-4 space-y-3">
+        <FinanceTransferCorners methods={methodOptions} fromMethod={transferForm.fromMethod}
+          toMethod={transferForm.toMethod} disabled={disabled}
+          onFrom={method=>setTransferForm(old=>({...old,fromMethod:method}))}
+          onTo={method=>setTransferForm(old=>({...old,toMethod:method}))}/>
         <div className="grid gap-3 sm:grid-cols-2">
           <label className="text-sm text-slate-700">From Method
             <select className={inputStyle} value={transferForm.fromMethod}

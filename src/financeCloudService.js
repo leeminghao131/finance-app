@@ -9,7 +9,7 @@ export async function fetchFinanceSnapshot(client,userId,onProgress) {
   if(!userId)throw new Error("Authentication is required to fetch finance data.");
   const recordRows=await loadEveryOwnedRow(
     client,"records",
-    "id,type,amount,category,method,note,date,created_at,updated_at,version,deleted_at",
+    "id,type,amount,category,method,note,date,created_at,updated_at,version,deleted_at,fx_currency,fx_amount,fx_rate,fx_rate_date,fx_provider",
     userId,onProgress,
   );
   const transferRows=await loadEveryOwnedRow(

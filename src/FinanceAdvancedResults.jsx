@@ -2,7 +2,7 @@ import React,{useEffect,useMemo,useState} from "react";
 import FinanceMobileRecords from "./FinanceMobileRecords.jsx";
 import {money,cents,rm} from "./financeStage1Analytics.js";
 
-export default function FinanceAdvancedResults({rows=[],EditableCell,onUpdate,onDelete,categoryOptionsFor,methodOptionsFor,getActivityLabel=()=>""}){
+export default function FinanceAdvancedResults({rows=[],EditableCell,onUpdate,onDelete,onEditFx=()=>{},categoryOptionsFor,methodOptionsFor,getActivityLabel=()=>""}){
   const [visible,setVisible]=useState(100),[confirmId,setConfirmId]=useState(null);
   useEffect(()=>{setVisible(100);setConfirmId(null);},[rows]);
   const summary=useMemo(()=>{
@@ -33,7 +33,10 @@ export default function FinanceAdvancedResults({rows=[],EditableCell,onUpdate,on
           <td className="p-2">{r.type}</td>
           <td className="p-2">{editable(r,"category",r.category)}</td>
           <td className="p-2">{editable(r,"method",r.method)}</td>
-          <td className="p-2 font-semibold">{editable(r,"amount",r.amount)}</td>
+          <td className="p-2 font-semibold">{editable(r,"amount",r.amount)}
+            {r.fx_currency&&<span className="block text-xs text-slate-500" data-i18n-ignore>{r.fx_currency} {r.fx_amount}</span>}
+            {r.fx_currency&&<button type="button" onClick={ev=>onEditFx(r,ev.currentTarget)} className="mt-1 text-xs text-blue-700 underline">FX Edit</button>}
+          </td>
           <td className="p-2">{editable(r,"note",r.note||"")}
             {r.type==="expense"&&getActivityLabel(r.id)&&<span className="ml-1 rounded-full bg-amber-100 px-2 py-0.5 text-xs text-amber-900" data-i18n-ignore>🎒 {getActivityLabel(r.id)}</span>}
           </td>
@@ -47,7 +50,7 @@ export default function FinanceAdvancedResults({rows=[],EditableCell,onUpdate,on
       </table>}
     </div>
     <div className="md:hidden"><FinanceMobileRecords records={shown}
-      onUpdate={onUpdate} onDelete={onDelete}
+      onUpdate={onUpdate} onDelete={onDelete} onEditFx={onEditFx}
       categoryOptionsFor={categoryOptionsFor} methodOptionsFor={methodOptionsFor} getActivityLabel={getActivityLabel}/></div>
     {visible<rows.length&&<button type="button" onClick={()=>setVisible(n=>n+100)}
       className="mt-3 rounded-xl border border-slate-300 bg-white px-4 py-3 text-sm font-bold">Show more ({shown.length}/{rows.length})</button>}
