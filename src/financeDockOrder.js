@@ -14,7 +14,8 @@ export function moveDockItem(order,source,target){
   const normalized=normalizeDockOrder(order);
   if(source===target||!normalized.includes(source)||!normalized.includes(target))return normalized;
   const next=normalized.filter(id=>id!==source);
-  next.splice(next.indexOf(target),0,source);
+  // Insert at original target index: supports dragging to the very bottom.
+  next.splice(normalized.indexOf(target),0,source);
   return next;
 }
 const storageKey=userId=>"mh-finance-dock-order:v1:"+userId;

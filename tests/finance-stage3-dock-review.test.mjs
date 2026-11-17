@@ -9,6 +9,7 @@ test("drawer order retains all eight tools, ignores duplicates/obsolete IDs and 
   assert.deepEqual(normalizeDockOrder(["review","review","unknown","activity"]).slice(0,2),["review","activity"]);
   assert.equal(new Set(normalizeDockOrder(["review"])).size,8);
   assert.equal(moveDockItem(FINANCE_DOCK_IDS,"accounts","wrapped")[0],"accounts");
+  assert.equal(moveDockItem(FINANCE_DOCK_IDS,"wrapped","accounts").at(-1),"wrapped");
   assert.deepEqual(moveDockItem(FINANCE_DOCK_IDS,"none","wrapped"),[...FINANCE_DOCK_IDS]);
 });
 
