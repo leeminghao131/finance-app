@@ -1696,10 +1696,13 @@ async function addRecord(e) {
   try {
     let amount,fxMeta=null;
     try{
-      fxMeta=fxCurrency==="MYR"?null:makeFxSnapshot({
-        currency:fxCurrency,foreignAmount:fxForeignAmount,quote:fxQuote,recordDate:form.date,
-      });
-      amount=fxMeta?fxMeta.amount:parseEditedAmount(form.amount);
+      if(typeof fxCurrency==="undefined"||fxCurrency==="MYR"){
+        amount = parseEditedAmount(form.amount);
+      }else{
+        fxMeta=makeFxSnapshot({currency:fxCurrency,foreignAmount:fxForeignAmount,
+          quote:fxQuote,recordDate:form.date});
+        amount=fxMeta.amount;
+      }
     }catch(error){localizedFinanceAlert(error.message);return;}
     const pendingActivity=form.type==="expense"?activeActivity(activities):null;
     const payload={...toRecordPayload({...form,amount,note:form.note.trim()},user.id),...(fxMeta||{})};
@@ -1726,7 +1729,7 @@ async function addRecord(e) {
     const insertedRecord = normalizeRecord(data);
     setRecords((p) => p.some(row => row.id === insertedRecord.id) ? p : [insertedRecord, ...p]);
     setForm((p) => ({ ...p, amount: amountEntryMode === "rm" ? "" : "0.00", note: "", date: today() }));
-    setFxForeignAmount("");
+    if(typeof setFxForeignAmount==="function")setFxForeignAmount("");
     // This secondary association is not a second Expense. Never report a
     // saved Expense as lost if Activity tagging needs manual recovery.
     if(insertedRecord.type==="expense"&&pendingActivity){
@@ -2597,7 +2600,7 @@ categoryOptionsFor={categoryOptionsFor}
   {record.fx_currency
     ? <span className="font-semibold">{money(record.amount)}</span>
     : <EditableCell value={record.amount} field="amount" recordType={record.type}
-        onSave={(v)=>updateRecord(record.id,"amount",v)}
+        onSave={(v) => updateRecord(record.id, "amount", v)}
         categoryOptionsFor={categoryOptionsFor} methodOptionsFor={methodOptionsFor}/>}
   {record.fx_currency&&<div className="mt-1 text-xs text-slate-500" data-i18n-ignore>
     {record.fx_currency} {record.fx_amount} · 1 {record.fx_currency} = RM{record.fx_rate}
