@@ -116,7 +116,7 @@ test("Stage4 currency catalog dynamically includes supported non-favorite ISO co
   await assert.rejects(()=>getSupportedFxCurrencies(async()=>({ok:false})),/unavailable/);
 });
 
-test("Stage4 assistant uses existing forecast and budget calculators and savings progress",()=>{
+test("Stage4 assistant uses existing forecast and budget calculators and savings progress",async()=>{
   const today=await import("../src/financeCalendar.js").then(m=>m.localDateMY());
   const ctx={ready:true,records:[{id:1,type:"expense",amount:30,category:"饮食",date:today}],
     totalBalance:500,openingBalanceTotal:500,forecastPlans:[],monthRows:[],
