@@ -346,3 +346,56 @@
 @media (prefers-reduced-motion:reduce) {
   .mh-stage2-notifications__toast { animation: none !important; }
 }
+
+
+/* Stage 4 assistant: a small anchored overlay, never a permanent dashboard card. */
+.mh-rule-assistant {
+  position: fixed;
+  z-index: 59;
+  right: max(15px, env(safe-area-inset-right));
+  bottom: max(15px, env(safe-area-inset-bottom));
+  pointer-events: none;
+  font-family: Inter, "Segoe UI", Arial, "Noto Sans SC", sans-serif;
+}
+.mh-rule-assistant > * { pointer-events: auto; }
+.mh-rule-assistant__launcher {
+  display: block;
+  margin-left: auto;
+  min-height: 50px;
+  padding: 10px 16px;
+  border: 1px solid #caa364;
+  border-radius: 16px;
+  color: #f8fafc;
+  background: linear-gradient(132deg,#202a37,#3a2932);
+  box-shadow: 0 8px 26px #0f172a60;
+  font-weight: 700;
+  font-size: 13px;
+}
+.mh-rule-assistant__launcher > span { font-size: 22px; margin-right: 5px; }
+.mh-rule-assistant__launcher:focus-visible,
+.mh-rule-assistant__sheet button:focus-visible,
+.mh-rule-assistant__sheet input:focus-visible {
+  outline: 3px solid #caa364;
+  outline-offset: 2px;
+}
+.mh-rule-assistant__sheet {
+  position: absolute;
+  right: 0;
+  bottom: calc(100% + 9px);
+  display: flex;
+  flex-direction: column;
+  width: min(380px, calc(100vw - 28px));
+  max-height: min(76dvh, 650px);
+  overflow: hidden;
+  border: 1px solid #64748b;
+  border-radius: 16px;
+  background: white;
+  box-shadow: 0 18px 48px #02061755;
+}
+@media(max-width:767px) {
+  .mh-rule-assistant {right: max(11px,env(safe-area-inset-right));bottom:max(11px,env(safe-area-inset-bottom));}
+  .mh-rule-assistant__sheet {max-height: 72dvh;}
+}
+@media(prefers-reduced-motion:reduce) {
+  .mh-rule-assistant__launcher {transition: none!important;}
+}

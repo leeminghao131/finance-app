@@ -20,7 +20,11 @@ export default function FinanceTransferCorners({methods=[],fromMethod,toMethod,o
   };
   const pointerDown=(e,method)=>{
     if(disabled||e.button!==0||e.isPrimary===false)return;
-    dragRef.current={pointerId:e.pointerId,method,x:e.clientX,y:e.clientY,moved:false};
+    const area=areaRef.current?.getBoundingClientRect(),target=e.currentTarget.getBoundingClientRect();
+    dragRef.current={pointerId:e.pointerId,method,x:e.clientX,y:e.clientY,moved:false,
+      originX:area?target.left+target.width/2-area.left:0,
+      originY:area?target.top+target.height/2-area.top:0};
+    try{e.currentTarget.setPointerCapture(e.pointerId);}catch{/* Browser handles ordinary tapping without capture. */}
   };
   const pointerMove=e=>{
     const d=dragRef.current;
@@ -28,7 +32,7 @@ export default function FinanceTransferCorners({methods=[],fromMethod,toMethod,o
     if(!d.moved&&Math.hypot(e.clientX-d.x,e.clientY-d.y)<7)return;
     d.moved=true;onFrom(d.method);
     const rect=areaRef.current?.getBoundingClientRect();
-    if(rect)setDrag({x:e.clientX-rect.left,y:e.clientY-rect.top,method:d.method});
+    if(rect)setDrag({x:e.clientX-rect.left,y:e.clientY-rect.top,originX:d.originX,originY:d.originY,method:d.method});
     if(e.cancelable)e.preventDefault();
   };
   const pointerEnd=e=>{
@@ -73,7 +77,7 @@ export default function FinanceTransferCorners({methods=[],fromMethod,toMethod,o
         </span>
       </div>
       {drag&&<svg aria-hidden="true" className="pointer-events-none absolute inset-0 z-10 h-full w-full" style={{overflow:"visible"}}>
-        <line x1="50%" y1="50%" x2={drag.x} y2={drag.y} stroke="#d97706" strokeWidth="4" strokeLinecap="round" strokeDasharray="6 4"/>
+        <line x1={drag.originX} y1={drag.originY} x2={drag.x} y2={drag.y} stroke="#d97706" strokeWidth="4" strokeLinecap="round" strokeDasharray="6 4"/>
         <circle cx={drag.x} cy={drag.y} r="7" fill="#d97706"/>
       </svg>}
     </div>
