@@ -106,7 +106,7 @@ $function$
  OR v_fx_currency='MYR' THEN
         RAISE EXCEPTION 'Invalid FX currency in CSV record';
       END IF;
-      IF coalesce(v_row->>'fx_amount','') !~ '^[0-9]{1,12}(\\.[0-9]{1,3})?
+      IF coalesce(v_row->>'fx_amount','') !~ '^[0-9]{1,12}(\.[0-9]{1,3})?
 
     v_marker_id := NULL;
     INSERT INTO public.finance_import_items(user_id, file_sha256, source_row)
@@ -131,7 +131,7 @@ $function$
 END;
 $function$
 
-         OR coalesce(v_row->>'fx_rate','') !~ '^[0-9]{1,9}(\\.[0-9]{1,12})?
+         OR coalesce(v_row->>'fx_rate','') !~ '^[0-9]{1,9}(\.[0-9]{1,12})?
 
     v_marker_id := NULL;
     INSERT INTO public.finance_import_items(user_id, file_sha256, source_row)
