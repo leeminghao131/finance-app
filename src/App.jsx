@@ -2123,6 +2123,7 @@ return (
   onPrefillRecord={prefillStage2Record}
   onUpdateRecord={updateRecord}
   onDeleteRecord={deleteRecord}
+  onEditFx={openFxEdit}
   optionsFor={type=>({categories:categoryOptionsFor(type),methods:methodOptionsFor(type)})}
   disabled={!initialDataReady||dataLoading}
 />
