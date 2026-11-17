@@ -4,6 +4,10 @@ import { parseEditedAmount } from "./financeData";
 import { localDateMY, localMonthMY, localYearMY, shiftCalendarDay, calendarDaysRange, previousCalendarDays, calendarMonthDays, requireCalendarDate } from "./financeCalendar";
 import { normalizeBudgetsInput } from "./financeInsights.js";
 import FinanceTransferPanel from "./FinanceTransferPanel.jsx";
+import FinanceCurrencyInput from "./FinanceCurrencyInput.jsx";
+import FinanceFxRecordEditor from "./FinanceFxRecordEditor.jsx";
+import FinanceRuleAssistant from "./FinanceRuleAssistant.jsx";
+import {makeFxSnapshot} from "./financeFx.js";
 import FinanceBudgetPanel from "./FinanceBudgetPanel.jsx";
 import FinanceForecastPanel from "./FinanceForecastPanel.jsx";
 import FinanceOpeningBalancePanel from "./FinanceOpeningBalancePanel.jsx";
@@ -644,6 +648,12 @@ function FinanceVisualizerAppContent() {
   const [budgets, setBudgets] = useState(DEFAULT_BUDGETS);
   const [customOptions, setCustomOptions] = useState(DEFAULT_CUSTOM_OPTIONS);
   const [form, setForm] = useState({ type: "expense", amount: "", category: "饮食", method: "TNG", note: "", date: today() });
+  const [fxCurrency,setFxCurrency]=useState("MYR");
+  const [fxForeignAmount,setFxForeignAmount]=useState("");
+  const [fxQuote,setFxQuote]=useState(null);
+  const [fxEditingId,setFxEditingId]=useState(null);
+  const fxEditTriggerRef=useRef(null);
+  const openFxEdit=(record,trigger)=>{fxEditTriggerRef.current=trigger||null;setFxEditingId(record.id);};
   const [transferForm, setTransferForm] = useState({
   fromMethod: "BANK",
   toMethod: "TNG",
@@ -1684,16 +1694,17 @@ async function addRecord(e) {
   if (recordCreationPendingRef.current) return;
   recordCreationPendingRef.current = true;
   try {
-    let amount;
-    try { amount = parseEditedAmount(form.amount); }
-    catch(error) { localizedFinanceAlert(error.message); return; }
+    let amount,fxMeta=null;
+    try{
+      fxMeta=fxCurrency==="MYR"?null:makeFxSnapshot({
+        currency:fxCurrency,foreignAmount:fxForeignAmount,quote:fxQuote,recordDate:form.date,
+      });
+      amount=fxMeta?fxMeta.amount:parseEditedAmount(form.amount);
+    }catch(error){localizedFinanceAlert(error.message);return;}
     const pendingActivity=form.type==="expense"?activeActivity(activities):null;
-    const payload = toRecordPayload(
-      { ...form, amount, note: form.note.trim() },
-      user.id
-    );
+    const payload={...toRecordPayload({...form,amount,note:form.note.trim()},user.id),...(fxMeta||{})};
     const requestId = await getRecordRequestId(user.id, payload, sessionStorage, crypto);
-    const columns = "id,type,amount,category,method,note,date,created_at,updated_at,version,deleted_at";
+    const columns = "id,type,amount,category,method,note,date,created_at,updated_at,version,deleted_at,fx_currency,fx_amount,fx_rate,fx_rate_date,fx_provider";
     let { data, error } = await supabase
       .from("records")
       .insert({ ...payload, client_request_id: requestId })
@@ -1715,6 +1726,7 @@ async function addRecord(e) {
     const insertedRecord = normalizeRecord(data);
     setRecords((p) => p.some(row => row.id === insertedRecord.id) ? p : [insertedRecord, ...p]);
     setForm((p) => ({ ...p, amount: amountEntryMode === "rm" ? "" : "0.00", note: "", date: today() }));
+    setFxForeignAmount("");
     // This secondary association is not a second Expense. Never report a
     // saved Expense as lost if Activity tagging needs manual recovery.
     if(insertedRecord.type==="expense"&&pendingActivity){
@@ -1905,6 +1917,10 @@ async function addRecord(e) {
     const current = records.find((row) => row.id === recordId);
     if (!current || !user) return;
     if (pendingRecordsRef.current.has(recordId)) return;
+    if(current.fx_currency&&(field==="amount"||field==="date")){
+      localizedFinanceAlert("Use FX Edit to update the original foreign amount/date safely.");
+      return false;
+    }
     let updates;
     try {
       updates = field === "type"
@@ -1924,7 +1940,7 @@ async function addRecord(e) {
         .eq("user_id", user.id)
         .eq("version", current.version)
         .is("deleted_at", null)
-        .select("id,type,amount,category,method,note,date,created_at,updated_at,version,deleted_at")
+        .select("id,type,amount,category,method,note,date,created_at,updated_at,version,deleted_at,fx_currency,fx_amount,fx_rate,fx_rate_date,fx_provider")
         .maybeSingle();
       if (error) throw error;
       if (!data) {
@@ -1944,6 +1960,35 @@ async function addRecord(e) {
     }
   }
 
+  async function updateForeignRecord(original,change){
+    const current=records.find(row=>row.id===original?.id);
+    if(!user||!current?.fx_currency||pendingRecordsRef.current.has(current.id))return false;
+    let safe;
+    try{
+      safe=makeFxSnapshot({currency:change.fx_currency,foreignAmount:change.fx_amount,
+        recordDate:change.date,quote:{currency:change.fx_currency,requestedDate:change.date,
+          rate:change.fx_rate,date:change.fx_rate_date,source:change.fx_provider}});
+      requireCalendarDate(change.date);
+    }catch(e){localizedFinanceAlert(e.message);return false;}
+    pendingRecordsRef.current.add(current.id);
+    try{
+      const columns="id,type,amount,category,method,note,date,created_at,updated_at,version,deleted_at,fx_currency,fx_amount,fx_rate,fx_rate_date,fx_provider";
+      const {data,error}=await supabase.from("records").update({...safe,date:change.date})
+        .eq("id",current.id).eq("user_id",user.id).eq("version",current.version)
+        .is("deleted_at",null).select(columns).maybeSingle();
+      if(error)throw error;
+      if(!data){
+        await loadCloudData({background:true});
+        throw Error("FX changed on another device; nothing overwritten.");
+      }
+      if(liveUserIdRef.current!==user.id)return false;
+      const result=normalizeRecord(data);
+      setRecords(rows=>rows.map(row=>row.id===result.id?result:row));
+      setSyncStatus("FX transaction saved to cloud");return true;
+    }catch(e){localizedFinanceAlert(e.message||String(e));return false;}
+    finally{pendingRecordsRef.current.delete(current.id);}
+  }
+
   async function deleteRecord(recordId) {
     const current = records.find((row) => row.id === recordId);
     if (!current || !user || pendingRecordsRef.current.has(recordId)) return;
@@ -1953,7 +1998,7 @@ async function addRecord(e) {
         .update({ deleted_at: new Date().toISOString() })
         .eq("id", recordId).eq("user_id", user.id)
         .eq("version", current.version).is("deleted_at", null)
-        .select("id,type,amount,category,method,note,date,created_at,updated_at,version,deleted_at")
+        .select("id,type,amount,category,method,note,date,created_at,updated_at,version,deleted_at,fx_currency,fx_amount,fx_rate,fx_rate_date,fx_provider")
         .maybeSingle();
       if (error) throw error;
       if (!data) {
@@ -1986,7 +2031,7 @@ async function addRecord(e) {
         .update({ deleted_at: null })
         .eq("id", recordId).eq("user_id", user.id)
         .eq("version", current.version).not("deleted_at", "is", null)
-        .select("id,type,amount,category,method,note,date,created_at,updated_at,version,deleted_at")
+        .select("id,type,amount,category,method,note,date,created_at,updated_at,version,deleted_at,fx_currency,fx_amount,fx_rate,fx_rate_date,fx_provider")
         .maybeSingle();
       if (error) throw error;
       if (!data) {
@@ -2176,7 +2221,11 @@ return (
 >
   💰 Income
 </button></div>
-<label className="block">
+<FinanceCurrencyInput date={form.date} currency={fxCurrency}
+  onCurrency={code=>{setFxCurrency(code);setFxQuote(null);setFxForeignAmount("");}}
+  foreignAmount={fxForeignAmount} onForeignAmount={setFxForeignAmount}
+  quote={fxQuote} onQuote={setFxQuote} disabled={!initialDataReady||dataLoading}/>
+<label className={fxCurrency==="MYR"?"block":"hidden"}>
   <span className="flex flex-wrap items-center justify-between gap-2 text-sm font-medium text-slate-600">
     <span>Amount (RM)</span>
     <span className="inline-flex rounded-lg bg-slate-100 p-1 text-xs" role="group" aria-label="Amount input mode">
@@ -2455,7 +2504,7 @@ return (
   {advancedFilter && (advancedResults.error
     ? <p role="alert" className="mt-3 rounded-xl bg-red-50 p-3 text-sm text-red-700">{advancedResults.error}</p>
     : <FinanceAdvancedResults rows={advancedResults.rows} EditableCell={EditableCell}
-        onUpdate={updateRecord} onDelete={deleteRecord}
+        onUpdate={updateRecord} onDelete={deleteRecord} onEditFx={openFxEdit}
         categoryOptionsFor={categoryOptionsFor} methodOptionsFor={methodOptionsFor}
         getActivityLabel={id=>activityOfRecord(id,activityLinks,activities)?.title||""}/>)}
   {!advancedFilter && <div className="mt-5 space-y-3">
@@ -2545,14 +2594,16 @@ categoryOptionsFor={categoryOptionsFor}
 
 <td className={`py-3 pr-4 font-bold ${recordTypeStyle(record.type).amount}`}>
   <span className="mr-1">{recordTypeStyle(record.type).sign}</span>
-  <EditableCell
-    value={record.amount}
-    field="amount"
-    recordType={record.type}
-    onSave={(v) => updateRecord(record.id, "amount", v)}
-    categoryOptionsFor={categoryOptionsFor}
-    methodOptionsFor={methodOptionsFor}
-  />
+  {record.fx_currency
+    ? <span className="font-semibold">{money(record.amount)}</span>
+    : <EditableCell value={record.amount} field="amount" recordType={record.type}
+        onSave={(v)=>updateRecord(record.id,"amount",v)}
+        categoryOptionsFor={categoryOptionsFor} methodOptionsFor={methodOptionsFor}/>}
+  {record.fx_currency&&<div className="mt-1 text-xs text-slate-500" data-i18n-ignore>
+    {record.fx_currency} {record.fx_amount} · 1 {record.fx_currency} = RM{record.fx_rate}
+  </div>}
+  {record.fx_currency&&<button type="button" onClick={e=>openFxEdit(record,e.currentTarget)}
+    className="mt-1 rounded-lg border border-blue-200 px-2 py-1 text-xs font-bold text-blue-700">FX Edit</button>}
 </td>
 
                       <td className="py-3 pr-4 text-slate-500">
@@ -2593,6 +2644,7 @@ categoryOptionsFor={categoryOptionsFor}
                 methodOptionsFor={methodOptionsFor}
                 onUpdate={updateRecord}
                 onDelete={deleteRecord}
+                onEditFx={openFxEdit}
                 getActivityLabel={id=>activityOfRecord(id,activityLinks,activities)?.title||""}
               />
             </div>
@@ -2669,6 +2721,12 @@ categoryOptionsFor={categoryOptionsFor}
           disabled={!initialDataReady||dataLoading}
         />
 
+        <FinanceFxRecordEditor record={records.find(r=>r.id===fxEditingId)||null}
+          onSave={updateForeignRecord} onClose={()=>setFxEditingId(null)} triggerRef={fxEditTriggerRef}/>
+        <FinanceRuleAssistant userId={user?.id} onOpenTool={openStage2DockTool}
+          ctx={{ready:initialDataReady&&!dataLoading,records,totalBalance,
+            methods:methodBalances,monthRows,budgets,reviewState,bills:recurringBills,
+            activities,activityLinks,goals:savingsGoals}}/>
         <footer className="pb-6 text-center text-xs text-slate-400">记账可视化软件 · Data synced with Supabase cloud · {records.length} total records</footer>
       </div>
     </div>
