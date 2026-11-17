@@ -1,6 +1,7 @@
 import { localizedFinanceConfirm } from "./FinanceLanguageLayer.jsx";
 import React, { useMemo, useRef, useState } from "react";
 import { CSV_MAX_BYTES, inspectCsvText } from "./financeCsv.js";
+import {resolveImportedFxRows} from "./financeFxImport.js";
 import { findImportedSourceRows, importReviewedCsvRows } from "./financeImportService.js";
 
 const btn="rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm font-bold text-slate-800 hover:bg-slate-50 disabled:opacity-50";
@@ -37,7 +38,7 @@ export default function FinanceCsvImportPanel({
       const hashBuffer=await crypto.subtle.digest("SHA-256",buffer);
       const sha=Array.from(new Uint8Array(hashBuffer),b=>b.toString(16).padStart(2,"0")).join("");
       const csvText=new TextDecoder("utf-8",{fatal:true}).decode(buffer);
-      const inspected=inspectCsvText(csvText,existingRecords);
+      const inspected=await resolveImportedFxRows(inspectCsvText(csvText,existingRecords));
       const already=await findImportedSourceRows(supabase,user.id,sha);
       setFileName(file.name);setFileHash(sha);
       setRows(inspected);setPreviouslyImported(already);
@@ -101,7 +102,7 @@ export default function FinanceCsvImportPanel({
           onChange={e=>inspect(e.target.files?.[0])}/>
       </label>
       <p className="mt-2 text-xs text-slate-500">
-        Required headers: Date, Type, Category, Method, Amount, Note. Quoted commas, escaped quotes and multiline notes are supported.
+        Required: Date, Type, Category, Method, Amount, Note. Optional FX pair: Currency + Foreign_Amount (leave Amount blank for FX rows); reference rates load automatically before preview. Quoted commas and multiline notes supported.
       </p>
       {fileName && <p className="mt-3 break-all text-sm font-semibold text-slate-800">{fileName}</p>}
       {rows.length>0&&(
@@ -132,7 +133,7 @@ export default function FinanceCsvImportPanel({
                     checked={selected.has(item.sourceRow)&&!imported} onChange={()=>toggle(item.sourceRow)}/>
                   <span className="min-w-0 flex-1 break-words">
                     <span className="font-semibold">CSV row {item.sourceRow}</span>
-                    {item.record&&<span> · {item.record.date} · {item.record.type} · {item.record.category} · RM{item.record.amount}</span>}
+                    {item.record&&<span> · {item.record.date} · {item.record.type} · {item.record.category} · RM{item.record.amount}{item.record.fx_currency?" · "+item.record.fx_currency+" "+item.record.fx_amount:""}</span>}
                     {imported?<span className="block text-xs font-bold text-slate-600">Already imported from this identical file — safely skipped</span>:
                       item.issue&&<span className={"block text-xs font-semibold "+(item.invalid?"text-red-700":"text-amber-700")}>{item.issue}</span>}
                     {item.record?.note&&<span className="block text-xs text-slate-500"><span data-i18n-ignore>{item.record.note.slice(0,180)}</span></span>}

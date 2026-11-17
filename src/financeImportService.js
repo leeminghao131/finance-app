@@ -24,7 +24,8 @@ export async function importReviewedCsvRows(client,fileSha256,selectedRecords,on
   let inserted=0,alreadyImported=0,processed=0;
   for(let start=0;start<selectedRecords.length;start+=CHUNK_SIZE) {
     const batch=selectedRecords.slice(start,start+CHUNK_SIZE);
-    const {data,error}=await client.rpc("finance_import_csv_rows",{
+    const rpc=batch.some(row=>row.fx_currency)?"finance_import_fx_csv_rows":"finance_import_csv_rows";
+    const {data,error}=await client.rpc(rpc,{
       p_file_sha256:fileSha256,p_rows:batch,
     });
     if(error)throw new Error("Import stopped after "+processed+" of "+selectedRecords.length+

@@ -1,5 +1,6 @@
 import { requireCalendarDate } from "./financeCalendar.js";
 import { parseEditedAmount } from "./financeData.js";
+import {normalizeFxInput} from "./financeFx.js";
 
 const EXPECTED_HEADERS = ["date","type","category","method","amount","note"];
 const MAX_CSV_ROWS = 20000;
@@ -78,6 +79,11 @@ export function inspectCsvText(csvText,existingRecords=[]) {
   const rows=parseRFC4180Csv(csvText);
   const header=rows[0].map(x=>x.trim().replace(/^\uFEFF/,"").toLowerCase());
   const indices={};
+  const hasCurrency=header.includes("currency");
+  const hasForeign=header.includes("foreign_amount");
+  if(hasCurrency!==hasForeign)throw Error("Optional FX CSV headers require both currency and foreign_amount.");
+  if(hasCurrency&&(header.filter(h=>h==="currency").length!==1||header.filter(h=>h==="foreign_amount").length!==1))
+    throw Error("Duplicate FX CSV header.");
   for(const col of EXPECTED_HEADERS) {
     if(header.filter(x=>x===col).length!==1)
       throw new Error("CSV must have exactly one '" + col + "' column.");
@@ -101,11 +107,18 @@ export function inspectCsvText(csvText,existingRecords=[]) {
       const category=read("category").trim(), method=read("method").trim();
       if(!category || category.length>100)throw new Error("Category is missing or too long");
       if(!method || method.length>100)throw new Error("Method is missing or too long");
-      const amount=normalizedAmount(read("amount"));
+      const currency=hasCurrency?String(cells[header.indexOf("currency")]||"").trim().toUpperCase():"MYR";
+      const foreignAmount=hasForeign?String(cells[header.indexOf("foreign_amount")]||"").trim():"";
+      if(!/^[A-Z]{3}$/.test(currency))throw Error("Invalid CSV currency code.");
+      const foreign=currency!=="MYR"?normalizeFxInput(foreignAmount,currency):null;
+      if(currency==="MYR"&&foreignAmount)throw Error("Normal MYR row cannot contain foreign_amount.");
+      if(foreign&&read("amount").trim())throw Error("Leave Amount blank for FX CSV; automatic dated reference rate will fill RM.");
+      const amount=foreign?0:normalizedAmount(read("amount"));
       if(amount>999999999999.99)throw new Error("Amount exceeds safe import range");
       const note=read("note");
       if(note.length>2000)throw new Error("Note exceeds 2,000 characters");
-      const record={source_row:sourceRow,date,type,category,method,amount:amount.toFixed(2),note};
+      const record={source_row:sourceRow,date,type,category,method,amount:amount.toFixed(2),note,
+        ...(foreign?{fx_currency:currency,fx_amount:foreign}:{})};
       const key=csvRecordFingerprint(record);
       const reason=known.has(key)?"Similar transaction already exists"
         :internal.has(key)?"Similar transaction appears earlier in this CSV":null;
