@@ -1,11 +1,19 @@
 import React,{useEffect,useState} from "react";
 import FinanceOverlay from "./FinanceOverlay.jsx";
 import {useFinanceLanguage} from "./FinanceLanguageLayer.jsx";
-import {FX_FAVORITES,FX_SOURCE,makeFxSnapshot,getReferenceFxRate} from "./financeFx.js";
+import {FX_FAVORITES,FX_SOURCE,makeFxSnapshot,getReferenceFxRate,getSupportedFxCurrencies} from "./financeFx.js";
 /** Dedicated atomic foreign-amount + RM editor. Never edits the MYR amount in isolation. */
 export default function FinanceFxRecordEditor({record,onSave,onClose,triggerRef}){
   const {language}=useFinanceLanguage(),zh=language==="zh",t=(cn,en)=>zh?cn:en;
   const [currency,setCurrency]=useState("USD"),[foreignAmount,setForeignAmount]=useState("");
+  const [currencies,setCurrencies]=useState(FX_FAVORITES);
+  useEffect(()=>{
+    const ctrl=new AbortController();
+    getSupportedFxCurrencies(fetch,ctrl.signal).then(list=>{
+      if(!ctrl.signal.aborted)setCurrencies(list);
+    }).catch(()=>{/* Existing currency remains selectable offline. */});
+    return ()=>ctrl.abort();
+  },[]);
   const [date,setDate]=useState(""),[quote,setQuote]=useState(null);
   const [loading,setLoading]=useState(false),[saving,setSaving]=useState(false);
   const [error,setError]=useState("");
@@ -47,7 +55,7 @@ export default function FinanceFxRecordEditor({record,onSave,onClose,triggerRef}
       <label className="block text-sm font-semibold">{t("币种","Currency")}
         <select className="mt-1 w-full rounded-xl border p-3" value={currency}
           onChange={e=>setCurrency(e.target.value)} disabled={saving}>
-          {Array.from(new Set([...FX_FAVORITES,record.fx_currency])).filter(c=>c!=="MYR").map(c=><option key={c}>{c}</option>)}
+          {Array.from(new Set([...currencies,record.fx_currency])).filter(c=>c!=="MYR").map(c=><option key={c}>{c}</option>)}
         </select>
       </label>
       <label className="block text-sm font-semibold">{t("外币金额","Foreign amount")} ({currency})

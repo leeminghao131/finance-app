@@ -7,6 +7,16 @@ export function currencyDigits(code){
   try{return new Intl.NumberFormat("en",{style:"currency",currency:code}).resolvedOptions().maximumFractionDigits;}
   catch{throw Error("Unsupported currency code.");}
 }
+export async function getSupportedFxCurrencies(fetcher=fetch,signal){
+  const response=await fetcher("https://api.frankfurter.dev/v2/currencies",{signal});
+  if(!response?.ok)throw Error("Currency catalog unavailable.");
+  const data=await response.json();
+  if(!Array.isArray(data))throw Error("Invalid reference currency catalog.");
+  const others=data.map(item=>String(item?.iso_code||"").toUpperCase())
+    .filter(code=>/^[A-Z]{3}$/.test(code)&&code!=="MYR");
+  if(!others.length)throw Error("Empty reference currency catalog.");
+  return [...new Set([...FX_FAVORITES,...others])];
+}
 export function normalizeFxInput(amount,code){
   const raw=String(amount??"").trim();
   const digits=currencyDigits(code);

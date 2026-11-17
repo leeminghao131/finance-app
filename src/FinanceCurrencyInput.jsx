@@ -1,10 +1,18 @@
 import React,{useEffect,useState} from "react";
-import {FX_FAVORITES,normalizeFxInput,convertForeignToMYR,getReferenceFxRate} from "./financeFx.js";
+import {FX_FAVORITES,normalizeFxInput,convertForeignToMYR,getReferenceFxRate,getSupportedFxCurrencies} from "./financeFx.js";
 import {useFinanceLanguage} from "./FinanceLanguageLayer.jsx";
 /** Never allows manual exchange-rate substitution or pretending a live bank debit. */
 export default function FinanceCurrencyInput({date,currency,onCurrency,foreignAmount,onForeignAmount,quote,onQuote,disabled=false}){
   const {language}=useFinanceLanguage(),zh=language==="zh";
   const [busy,setBusy]=useState(false),[error,setError]=useState("");
+  const [currencies,setCurrencies]=useState(FX_FAVORITES);
+  useEffect(()=>{
+    const ctrl=new AbortController();
+    getSupportedFxCurrencies(fetch,ctrl.signal)
+      .then(list=>{if(!ctrl.signal.aborted)setCurrencies(list);})
+      .catch(()=>{/* Favorites remain available if catalog is offline. */});
+    return ()=>ctrl.abort();
+  },[]);
   useEffect(()=>{
     if(currency==="MYR"){onQuote(null);setError("");return;}
     const ctrl=new AbortController();
@@ -25,7 +33,7 @@ export default function FinanceCurrencyInput({date,currency,onCurrency,foreignAm
     <label className="text-sm font-semibold text-slate-700">{zh?"交易货币":"Transaction currency"}
       <select aria-label={zh?"交易货币":"Transaction currency"} value={currency} disabled={disabled}
         onChange={e=>onCurrency(e.target.value)} className="mt-1 w-full rounded-xl border border-slate-300 bg-white px-3 py-2.5">
-        {FX_FAVORITES.map(code=><option key={code} value={code}>{code}{code==="MYR"?" · RM":""}</option>)}
+        {[...new Set([...currencies,currency])].map(code=><option key={code} value={code}>{code}{code==="MYR"?" · RM":""}</option>)}
       </select>
     </label>
     {currency!=="MYR"&&<div className="mt-3 space-y-2">

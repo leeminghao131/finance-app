@@ -38,7 +38,7 @@ export default function FinanceCsvImportPanel({
       const hashBuffer=await crypto.subtle.digest("SHA-256",buffer);
       const sha=Array.from(new Uint8Array(hashBuffer),b=>b.toString(16).padStart(2,"0")).join("");
       const csvText=new TextDecoder("utf-8",{fatal:true}).decode(buffer);
-      const inspected=await resolveImportedFxRows(inspectCsvText(csvText,existingRecords));
+      const inspected=await resolveImportedFxRows(inspectCsvText(csvText,existingRecords),undefined,existingRecords);
       const already=await findImportedSourceRows(supabase,user.id,sha);
       setFileName(file.name);setFileHash(sha);
       setRows(inspected);setPreviouslyImported(already);

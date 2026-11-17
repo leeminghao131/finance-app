@@ -1,6 +1,8 @@
 import {localDateMY,localMonthMY} from "./financeCalendar.js";
 import {findReviewCandidates,billOccurrences} from "./financeStage2.js";
 import {activitySummary,activeActivity} from "./financeActivity.js";
+import {calculateCashForecast,summarizeMonthlyBudget} from "./financeInsights.js";
+import {savingsGoalProgress} from "./financePlanning.js";
 const sum=(rows,type)=>rows.filter(x=>x.type===type).reduce((n,x)=>n+Math.round(Number(x.amount||0)*100),0)/100;
 const money=n=>"RM"+Number(n||0).toFixed(2);
 export const ASSISTANT_SUGGESTIONS=[
@@ -42,9 +44,14 @@ export function answerFinanceQuestion(question,ctx,zh=true){
     return {answer:t("当前有 ","There are ")+due.length+t(" 个可见的账单提醒。"," due bill reminders.")+(due.length?" "+due.slice(0,3).map(x=>x.title+" "+x.due).join("；"):""),action:"bill"};
   }
   if(/预算|budget/.test(q)){
-    const monthBudget=(ctx.monthRows||[]).find(m=>m.month===month)?.category_budgets||ctx.budgets||{};
-    let total=0;for(const v of Object.values(monthBudget)){const n=Number(v);if(Number.isFinite(n)&&n>0)total+=n;}
-    return {answer:t("本月分类预算合计 ","This month's category budgets total ")+money(total)+t("；本月支出 ","; expenses so far ")+money(spent)+t("；简单差额 ","; simple difference ")+money(total-spent)+t("。未设预算类别仍可能有支出。"," (some spending may be in unbudgeted categories).")};
+    try{
+      const monthBudget=(ctx.monthRows||[]).find(m=>m.month===month)?.category_budgets||ctx.budgets||{};
+      const result=summarizeMonthlyBudget(records,monthBudget,month);
+      return {answer:t("本月已设分类预算 ","Monthly planned category budgets ")+money(result.totalBudget)
+        +t("；预算内支出 ","; tracked spending ")+money(result.trackedExpense)
+        +t("；预算剩余 ","; remaining budget ")+money(result.remaining)
+        +t("；未设预算分类支出 ","; unbudgeted spending ")+money(result.unbudgetedExpense)+"。"};
+    }catch(e){return {answer:t("预算数据暂无法验证：","Budget could not be verified: ")+e.message};}
   }
   if(/分类|类别|最多|category|top spend|biggest spend/.test(q)){
     const totals={};for(const r of expenses)totals[r.category]=(totals[r.category]||0)+Number(r.amount);
@@ -64,10 +71,26 @@ export function answerFinanceQuestion(question,ctx,zh=true){
     return {answer:t("本月实际 Expense 合计：","Actual expenses this month: ")+money(spent)+t("，共 "," across ")+expenses.length+t(" 笔。"," transactions.")};
   }
   if(/储蓄|目标|saving|goal/.test(q)){
-    return {answer:t("目前有 ","You have ")+(ctx.goals||[]).length+t(" 个储蓄目标。储蓄目标不代表真实资金转账。"," savings goals. Goals are plans, not actual transfers.")};
+    try{
+      const goals=ctx.goals||[];
+      if(!goals.length)return {answer:t("目前没有储蓄目标。","No savings goals yet.")};
+      const details=goals.slice(0,6).map(goal=>{
+        const p=savingsGoalProgress(goal);
+        return goal.title+": "+p.percent+"% ("+money(goal.saved)+"/"+money(goal.target)+")";
+      });
+      return {answer:t("储蓄目标进度（仅计划，不代表真实转账）：","Savings goal progress (plans, not actual transfers): ")+details.join("；")};
+    }catch(e){return {answer:t("储蓄目标数据暂无法验证：","Savings goals could not be verified: ")+e.message};}
   }
   if(/预测|月底|forecast|predict/.test(q)){
-    return {answer:t("请查看 Cash Flow Forecast 的未来预测。Expected Income 仅参与预测，不计入真实收入；本助手不会自行编造预测数值。","Use Cash Flow Forecast for its computed projection. Expected Income only affects forecasts, not actual income; this assistant does not invent projections.")};
+    try{
+      const f=calculateCashForecast(records,{asOfDate:localDateMY(),selectedMonth:localMonthMY(),
+        horizon:"monthEnd",trailingDays:30,plannedIncomes:ctx.forecastPlans||[],
+        openingBalanceTotal:ctx.openingBalanceTotal||0});
+      return {answer:t("沿用 Cash Flow Forecast 的本月底预测：","Month-end estimate from Cash Flow Forecast: ")
+        +money(f.predictedBalance)+t("；预计未来支出 ","; forecast expenses ")+money(f.expectedExpense)
+        +t("，预计收入 ","; planned income ")+money(f.expectedIncome)
+        +t("。只是账本预测，不代表银行实际余额。",". Ledger estimate only, not a verified bank balance.")};
+    }catch(e){return {answer:t("预测数据暂无法验证：","Forecast could not be verified: ")+e.message};}
   }
   return {answer:t("我只支持只读财务问题，例如本月收支、余额、最大消费分类、预算、账单、异常记录、活动、转账、外汇及预测入口。","I answer read-only questions about income, expenses, balance, categories, budgets, bills, review, activities, transfers, FX and forecast guidance.")};
 }

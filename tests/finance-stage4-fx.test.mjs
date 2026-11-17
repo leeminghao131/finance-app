@@ -107,3 +107,22 @@ test("Stage4 source keeps transfer accounting, existing record save, and fail-cl
   assert.match(src("financeImportService.js"),/finance_import_fx_csv_rows/);
   assert.ok(!src("FinanceRuleAssistant.jsx").includes("supabase.from("));
 });
+
+
+test("Stage4 currency catalog dynamically includes supported non-favorite ISO codes",async()=>{
+  const {getSupportedFxCurrencies}=await import("../src/financeFx.js");
+  const all=await getSupportedFxCurrencies(async()=>({ok:true,json:async()=>[{iso_code:"ZAR"},{iso_code:"PHP"}]}));
+  assert.ok(all.includes("MYR")&&all.includes("JPY")&&all.includes("ZAR")&&all.includes("PHP"));
+  await assert.rejects(()=>getSupportedFxCurrencies(async()=>({ok:false})),/unavailable/);
+});
+
+test("Stage4 assistant uses existing forecast and budget calculators and savings progress",()=>{
+  const today=await import("../src/financeCalendar.js").then(m=>m.localDateMY());
+  const ctx={ready:true,records:[{id:1,type:"expense",amount:30,category:"饮食",date:today}],
+    totalBalance:500,openingBalanceTotal:500,forecastPlans:[],monthRows:[],
+    budgets:{"饮食":"100"},goals:[{id:"goal-12345678",title:"Holiday",target:1000,saved:250,deadline:""}],
+    bills:[],activities:[],activityLinks:[],reviewState:{threshold:500,decisions:[]}};
+  assert.match(answerFinanceQuestion("本月预算还剩多少？",ctx,true).answer,/RM70.00/);
+  assert.match(answerFinanceQuestion("储蓄目标进度？",ctx,true).answer,/25%/);
+  assert.match(answerFinanceQuestion("月底预测？",ctx,true).answer,/RM/);
+});
