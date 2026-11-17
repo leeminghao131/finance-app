@@ -120,7 +120,7 @@ BEGIN
     RETURN QUERY SELECT v_source_row, 'inserted'::text, v_record_id;
   END LOOP;
 END;
-$function$
+$function$;
 
 REVOKE ALL ON FUNCTION public.finance_import_fx_csv_rows(text,jsonb) FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION public.finance_import_fx_csv_rows(text,jsonb) TO authenticated;
