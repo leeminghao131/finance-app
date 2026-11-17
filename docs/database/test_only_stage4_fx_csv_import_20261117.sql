@@ -123,4 +123,5 @@ END;
 $function$;
 
 REVOKE ALL ON FUNCTION public.finance_import_fx_csv_rows(text,jsonb) FROM PUBLIC;
+REVOKE ALL ON FUNCTION public.finance_import_fx_csv_rows(text,jsonb) FROM anon;
 GRANT EXECUTE ON FUNCTION public.finance_import_fx_csv_rows(text,jsonb) TO authenticated;
