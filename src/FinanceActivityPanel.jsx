@@ -5,7 +5,7 @@ import {useFinanceLanguage} from "./FinanceLanguageLayer.jsx";
 
 const money=n=>new Intl.NumberFormat("en-MY",{style:"currency",currency:"MYR"}).format(n);
 const input="w-full min-w-0 rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm";
-const button="min-h-10 rounded-xl border border-slate-300 px-3 py-2 text-xs font-bold disabled:opacity-40";
+const button="min-h-12 min-w-16 touch-manipulation rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-sm font-bold active:scale-[.98] disabled:opacity-40";
 export default function FinanceActivityPanel({
   activities=[],links=[],records=[],onCreate,onUpdate,onLink,onUnlink,
   disabled=false,dockButton=false,
@@ -15,7 +15,8 @@ export default function FinanceActivityPanel({
   const [title,setTitle]=useState(""),[budget,setBudget]=useState("");
   const [editing,setEditing]=useState(false),[draftTitle,setDraftTitle]=useState(""),[draftBudget,setDraftBudget]=useState("");
   const [search,setSearch]=useState(""),[recordId,setRecordId]=useState("");
-  const [busy,setBusy]=useState(false),[error,setError]=useState(""),[success,setSuccess]=useState("");
+  const [busy,setBusy]=useState(false),[busyAction,setBusyAction]=useState(""),[error,setError]=useState(""),[success,setSuccess]=useState("");
+  const pendingRef=useRef(false);
   const triggerRef=useRef(null);
   const active=activeActivity(activities);
   const selected=activities.find(a=>a.id===selectedId)||active||activities[0]||null;
@@ -30,37 +31,40 @@ export default function FinanceActivityPanel({
       !links.some(l=>l.recordId===String(r.id)&&!l.removedAt) &&
       (!term||[r.date,r.category,r.method,r.note,r.amount].some(v=>String(v||"").toLocaleLowerCase().includes(term))));
   },[records,links,search]);
-  const run=async fn=>{
-    if(busy||disabled)return;
-    setBusy(true);setError("");setSuccess("");
+  const run=async (action,fn)=>{
+    if(pendingRef.current||disabled)return;
+    pendingRef.current=true;
+    setBusy(true);setBusyAction(action);setError("");setSuccess("");
     try{await fn();setSuccess(t("已安全保存到云端。","Saved to cloud."));}
     catch(e){setError(e.message||String(e));}
-    finally{setBusy(false);}
+    finally{pendingRef.current=false;setBusy(false);setBusyAction("");}
   };
-  const create=()=>run(async()=>{
+  const create=()=>run("create",async()=>{
     const created=await onCreate({title,budget});
     if(!created)throw Error(t("未确认保存，请刷新云端再重试。","Save not confirmed. Reload cloud first."));
     setTitle("");setBudget("");setSelectedId(created.id);
   });
-  const status=next=>run(async()=>{
-    if(!selected)return;
+  const status=next=>{
+    if(!selected||pendingRef.current||disabled)return;
     if(next==="finished"&&!window.confirm(t("结束后不会再自动关联新支出。结束的活动保留全部历史。确认结束？",
       "End this Activity? Its history stays, but no future Expenses are automatically linked.")))return;
-    if(!await onUpdate(selected,{status:next}))
-      throw Error(t("活动状态未保存，请先刷新。","Activity state was not saved. Refresh first."));
-  });
-  const updateDetails=()=>run(async()=>{
+    return run(next,async()=>{
+      if(!await onUpdate(selected,{status:next}))
+        throw Error(t("活动状态未保存，请先刷新。","Activity state was not saved. Refresh first."));
+    });
+  };
+  const updateDetails=()=>run("edit",async()=>{
     if(!await onUpdate(selected,{title:draftTitle,budget:draftBudget}))
       throw Error(t("活动修改未保存，请刷新重试。","Activity edits were not saved."));
     setEditing(false);
   });
-  const attach=()=>run(async()=>{
+  const attach=()=>run("link",async()=>{
     if(!selected||!recordId)throw Error(t("请选择一笔 Expense。","Choose an Expense."));
     if(!await onLink(recordId,selected.id))
       throw Error(t("关联未确认，请刷新记录后重试。","Link not confirmed; refresh first."));
     setRecordId("");
   });
-  const detach=link=>run(async()=>{
+  const detach=link=>run("unlink",async()=>{
     if(!window.confirm(t("只移除活动关联，不删除原本的 Expense。确认？",
       "Remove only the Activity tag? The original Expense will remain.")))return;
     if(!await onUnlink(link))throw Error(t("解除关联未确认，请刷新后重试。","Unlink not confirmed; refresh."));
@@ -77,6 +81,14 @@ export default function FinanceActivityPanel({
       title={t("旅行／活动记账","Travel & Activity Mode")} triggerRef={triggerRef} widthClass="max-w-5xl">
       <p className="text-xs text-slate-500">{t("开启期间，新保存的 Expense 自动关联活动；Income、Transfer 和预计收入不会计入活动消费。",
         "While an Activity is active, newly saved Expenses are linked. Income, Transfers and expected income are excluded.")}</p>
+      {busyAction&&<p role="status" aria-live="polite" className="mt-2 rounded-lg bg-blue-50 px-3 py-2 text-sm font-semibold text-blue-800">
+        ⏳ {({create:t("正在新建活动…","Creating Activity…"),active:t("正在继续活动…","Resuming Activity…"),
+          paused:t("正在暂停活动…","Pausing Activity…"),finished:t("正在结束活动…","Finishing Activity…"),
+          edit:t("正在保存修改…","Saving changes…"),link:t("正在关联记录…","Linking Expense…"),
+          unlink:t("正在取消关联…","Unlinking Expense…")})[busyAction]}
+      </p>}
+      {error&&<p role="alert" className="mt-2 rounded-lg bg-red-50 p-3 text-sm text-red-700">{error}</p>}
+      {success&&<p role="status" className="mt-2 rounded-lg bg-emerald-50 p-3 text-sm text-emerald-800">{success}</p>
       <div className="mt-3 grid gap-3 md:grid-cols-[minmax(0,1fr)_minmax(0,2fr)]">
         <section className="rounded-xl border border-slate-200 p-3">
           <h3 className="font-bold">{t("新建活动","Start an Activity")}</h3>
@@ -99,7 +111,7 @@ export default function FinanceActivityPanel({
           <h3 className="mt-4 text-sm font-bold">{t("我的活动","My Activities")}</h3>
           <div className="mt-2 max-h-56 space-y-1 overflow-y-auto">
             {activities.slice().sort((a,b)=>b.startedOn.localeCompare(a.startedOn)).map(a=>
-              <button key={a.id} type="button" onClick={()=>{setSelectedId(a.id);setEditing(false);}}
+              <button key={a.id} type="button" disabled={busy} onClick={()=>{setSelectedId(a.id);setEditing(false);}}
                 className={"w-full rounded-lg border px-3 py-2 text-left text-sm "+
                   (selected?.id===a.id?"border-teal-500 bg-teal-50":"border-slate-200")}>
                 <span className="block break-words font-semibold" data-i18n-ignore>{a.title}</span>
@@ -115,10 +127,10 @@ export default function FinanceActivityPanel({
               <div><h3 className="break-words text-base font-bold" data-i18n-ignore>🎒 {selected.title}</h3>
                 <p className="text-xs text-slate-500">{selected.startedOn}{selected.endedOn?" — "+selected.endedOn:""} · {selected.status}</p>
               </div>
-              <div className="flex flex-wrap gap-1.5">
-                {selected.status==="active"&&<button disabled={busy} type="button" onClick={()=>status("paused")} className={button}>{t("暂停","Pause")}</button>}
-                {selected.status==="paused"&&<button disabled={busy||!!active} type="button" onClick={()=>status("active")} className={button}>{t("继续","Resume")}</button>}
-                {selected.status!=="finished"&&<button disabled={busy} type="button" onClick={()=>status("finished")} className={button}>{t("结束","Finish")}</button>}
+              <div className="flex flex-wrap gap-2">
+                {selected.status==="active"&&<button disabled={busy} type="button" onClick={()=>status("paused")} className={button}>{busyAction==="paused"?t("暂停中…","Pausing…"):t("暂停","Pause")}</button>}
+                {selected.status==="paused"&&<button disabled={busy||!!active} type="button" onClick={()=>status("active")} className={button}>{busyAction==="active"?t("继续中…","Resuming…"):t("继续","Resume")}</button>}
+                {selected.status!=="finished"&&<button disabled={busy} type="button" onClick={()=>status("finished")} className={button}>{busyAction==="finished"?t("结束中…","Finishing…"):t("结束","Finish")}</button>}
                 <button type="button" disabled={busy} onClick={()=>{
                   setDraftTitle(selected.title);setDraftBudget(selected.budget===null?"":String(selected.budget));
                   setEditing(v=>!v);
@@ -186,8 +198,6 @@ export default function FinanceActivityPanel({
           </div>}
         </section>
       </div>
-      {error&&<p role="alert" className="mt-3 rounded-xl bg-red-50 p-3 text-sm text-red-700">{error}</p>}
-      {success&&<p role="status" className="mt-3 rounded-xl bg-emerald-50 p-3 text-sm text-emerald-800">{success}</p>}
     </FinanceOverlay>
   </>;
 }

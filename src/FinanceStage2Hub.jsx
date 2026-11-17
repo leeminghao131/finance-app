@@ -11,7 +11,7 @@ import {useFinanceLanguage} from "./FinanceLanguageLayer.jsx";
 export default function FinanceStage2Hub({
   bills=[],reviewState={threshold:500,decisions:[]},checks=[],
   records=[],transfers=[],balances=[],categories=[],methods=[],
-  onSaveBills,onConfirmBillPayment,onSaveReview,onUpdateRecord,onOpenAccountCheck,
+  onSaveBills,onConfirmBillPayment,onSaveReview,onUpdateRecord,onDeleteRecord,onOpenAccountCheck,
   onSaveChecks,onExecuteTransfers,onPrefillRecord,
   optionsFor,disabled=false,toolRequest=null,
 }){
@@ -124,7 +124,7 @@ export default function FinanceStage2Hub({
         onSave={onSaveBills} onConfirmPayment={onConfirmBillPayment}
         disabled={disabled} selectedBillId={selectedBillId}/>}
       {mode==="review"&&<FinanceReviewInbox records={records} reviewState={reviewState}
-        onSave={onSaveReview} optionsFor={optionsFor} onUpdateRecord={onUpdateRecord}
+        onSave={onSaveReview} optionsFor={optionsFor} onUpdateRecord={onUpdateRecord} onDeleteRecord={onDeleteRecord}
         selectedId={selectedRecordId} disabled={disabled}/>}
       {mode==="accounts"&&<FinanceAccountReconciliation
         records={records} transfers={transfers} balances={balances} checks={checks}
