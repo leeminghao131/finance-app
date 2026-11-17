@@ -88,7 +88,7 @@ export default function FinanceActivityPanel({
           unlink:t("正在取消关联…","Unlinking Expense…")})[busyAction]}
       </p>}
       {error&&<p role="alert" className="mt-2 rounded-lg bg-red-50 p-3 text-sm text-red-700">{error}</p>}
-      {success&&<p role="status" className="mt-2 rounded-lg bg-emerald-50 p-3 text-sm text-emerald-800">{success}</p>
+      {success&&<p role="status" className="mt-2 rounded-lg bg-emerald-50 p-3 text-sm text-emerald-800">{success}</p>}
       <div className="mt-3 grid gap-3 md:grid-cols-[minmax(0,1fr)_minmax(0,2fr)]">
         <section className="rounded-xl border border-slate-200 p-3">
           <h3 className="font-bold">{t("新建活动","Start an Activity")}</h3>
