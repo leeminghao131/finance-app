@@ -12,7 +12,7 @@ const labels={
 };
 export default function FinanceReviewInbox({
   records=[],reviewState={threshold:500,decisions:[]},onSave,optionsFor,
-  onUpdateRecord,open=false,selectedId=null,disabled=false,onClose=()=>{},
+  onUpdateRecord,onDeleteRecord,open=false,selectedId=null,disabled=false,onClose=()=>{},
 }){
   const {language}=useFinanceLanguage(),zh=language==="zh";
   const t=(cn,en)=>zh?cn:en;
@@ -58,6 +58,17 @@ export default function FinanceReviewInbox({
       setMessage(t("记录已保存。若仍符合异常规则，会继续等待确认。","Record saved. Remaining flags still require review."));
     }catch(e){setError(e.message);}finally{setBusy(false);}
   };
+  const removeRecord=async c=>{
+    if(busy||disabled||!onDeleteRecord)return;
+    if(!window.confirm(t("确定把这笔记录移到回收站？不会永久删除，之后可以 Restore。",
+      "Move this record to Recycle Bin? This is not permanent and can be restored.")))return;
+    setBusy(true);setError("");setMessage("");
+    try{
+      // Route through the SAME owner/version-guarded soft-delete as Transaction Records.
+      // Do not claim success here: App reports errors and displays Undo on acknowledgement.
+      await onDeleteRecord(c.record.id);
+    }catch(e){setError(e.message||String(e));}finally{setBusy(false);}
+  };
   const adjustThreshold=async e=>{
     e.preventDefault();
     const v=String(e.currentTarget.elements.threshold.value);
@@ -70,8 +81,8 @@ export default function FinanceReviewInbox({
   return <>
     <div className="flex flex-wrap items-start justify-between gap-2">
       <div><h2 className="text-lg font-bold">{t("异常记录复查中心","Transaction Review Inbox")}</h2>
-        <p className="mt-1 text-xs text-slate-500">{t("只提示可能的问题，不会自动改动或删除记录。已确认的记录修改后会重新检查。",
-          "Suggestions only; records are never auto-edited or deleted. Edited records are checked again.")}</p></div>
+        <p className="mt-1 text-xs text-slate-500">{t("只提示可能的问题；仅在你主动确认删除时移入回收站。已确认的记录修改后会重新检查。",
+          "Suggestions only; deletion requires your confirmation and uses Recycle Bin. Edited records are checked again.")}</p></div>
       <span className="rounded-full bg-amber-100 px-3 py-1.5 text-sm font-bold text-amber-800">
         {candidates.filter(c=>!c.confirmed).length} {t("待确认","pending")}
       </span>
@@ -158,6 +169,9 @@ export default function FinanceReviewInbox({
             {t("确认无误","Confirm correct")}</button>
           <button type="button" disabled={disabled||busy} onClick={()=>startEdit(c)}
             className="rounded-lg border border-slate-300 px-3 py-2.5 text-xs font-bold">{t("修改对应记录","Edit transaction")}</button>
+          <button type="button" disabled={disabled||busy||!onDeleteRecord} onClick={()=>removeRecord(c)}
+            className="min-h-11 rounded-lg border border-red-300 bg-red-50 px-3 py-2.5 text-xs font-bold text-red-700 disabled:opacity-50">
+            {t("删除记录","Delete transaction")}</button>
         </div>}
       </article>)}
       {!displayed.length&&<p className="rounded-xl bg-slate-50 p-4 text-sm text-slate-500">

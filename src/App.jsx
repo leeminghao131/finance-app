@@ -2070,6 +2070,7 @@ return (
   onOpenAccountCheck={openStage2AccountCheck}
   onPrefillRecord={prefillStage2Record}
   onUpdateRecord={updateRecord}
+  onDeleteRecord={deleteRecord}
   optionsFor={type=>({categories:categoryOptionsFor(type),methods:methodOptionsFor(type)})}
   disabled={!initialDataReady||dataLoading}
 />
