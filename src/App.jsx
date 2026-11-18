@@ -2529,7 +2529,91 @@ return (
   </div>
 
   <div className="space-y-6">
-            <Card><div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between"><h2 className="text-xl font-bold">Filters</h2><div className="flex flex-col gap-3 md:flex-row md:flex-wrap md:justify-end"><select value={filterMode} onChange={(e) => setFilterMode(e.target.value)} className="rounded-2xl border border-slate-200 px-4 py-3 outline-none"><option value="all">全部</option><option value="month">按月份</option><option value="year">按年份</option><option value="recent30">最近 30 天</option><option value="recent7">最近 7 天</option><option value="recent3">最近 3 天</option></select>{filterMode === "month" && <input type="month" value={selectedMonth} onChange={(e) => setSelectedMonth(e.target.value)} className="rounded-2xl border border-slate-200 px-4 py-3 outline-none" />}{filterMode === "year" && <input type="number" value={selectedYear} onChange={(e) => setSelectedYear(e.target.value)} className="rounded-2xl border border-slate-200 px-4 py-3 outline-none" />}<input value={keyword} onChange={(e) => setKeyword(e.target.value)} placeholder="Search category, method or note" className="rounded-2xl border border-slate-200 px-4 py-3 outline-none" /></div></div></Card>
+            <Card>
+              <div className="mh-analysis-filter flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+                <h2 className="text-xl font-bold">{isChinese ? "筛选" : "Filters"}</h2>
+                <div className="mh-analysis-filter__controls flex flex-wrap items-center gap-2">
+                  <select value={filterMode} onChange={event => setFilterMode(event.target.value)}
+                    aria-label={isChinese ? "筛选时间范围" : "Date range"}
+                    className="rounded-2xl border border-slate-200 px-3 py-3 outline-none">
+                    <option value="all">{isChinese ? "全部" : "All Time"}</option>
+                    <option value="month">{isChinese ? "按月份" : "By Month"}</option>
+                    <option value="year">{isChinese ? "按年份" : "By Year"}</option>
+                    <option value="recent30">{isChinese ? "最近 30 天" : "Last 30 Days"}</option>
+                    <option value="recent7">{isChinese ? "最近 7 天" : "Last 7 Days"}</option>
+                    <option value="recent3">{isChinese ? "最近 3 天" : "Last 3 Days"}</option>
+                  </select>
+                  {filterMode === "month" && <input type="month" value={selectedMonth}
+                    onChange={event => setSelectedMonth(event.target.value)}
+                    aria-label={isChinese ? "选择月份" : "Choose month"}
+                    className="rounded-2xl border border-slate-200 px-3 py-3 outline-none" />}
+                  {filterMode === "year" && <input type="number" value={selectedYear}
+                    onChange={event => setSelectedYear(event.target.value)}
+                    aria-label={isChinese ? "选择年份" : "Choose year"}
+                    className="rounded-2xl border border-slate-200 px-3 py-3 outline-none" />}
+                  <button type="button" ref={categoryPickerTriggerRef} aria-haspopup="dialog"
+                    aria-expanded={categoryPickerOpen} aria-label={isChinese ? "选择分析分类" : "Choose analysis category"}
+                    onClick={() => setCategoryPickerOpen(true)}
+                    className="mh-modal-trigger mh-analysis-filter__category rounded-2xl border border-slate-200 bg-white px-3 py-3 text-sm font-semibold text-slate-700">
+                    <span aria-hidden="true">◈</span>
+                    <span className="min-w-0 truncate" data-i18n-ignore={!!selectedCategoryFilter}>
+                      {selectedCategoryFilter ? formatCategoryLabel(selectedCategoryFilter.category) : (isChinese ? "选择 Category" : "Select Category")}
+                    </span>
+                    <span aria-hidden="true">⌄</span>
+                  </button>
+                  <button type="button" onClick={() => setTextSearchOpen(v => !v)}
+                    aria-expanded={textSearchOpen} aria-label={isChinese ? "文字搜索" : "Text search"}
+                    title={isChinese ? "文字搜索" : "Text search"}
+                    className={"mh-analysis-filter__search rounded-2xl border px-3 py-3 text-lg "+
+                      (keyword ? "border-blue-400 bg-blue-50 text-blue-700" : "border-slate-200 bg-white text-slate-700")}>
+                    <span aria-hidden="true">⌕</span>
+                  </button>
+                </div>
+              </div>
+              {(textSearchOpen || keyword) && (
+                <div className="mh-analysis-filter__keyword mt-3 flex items-center gap-2">
+                  <input value={keyword} onChange={event => setKeyword(event.target.value)}
+                    autoFocus={textSearchOpen}
+                    aria-label={isChinese ? "搜索分类、支付方式或备注" : "Search category, method or note"}
+                    placeholder={isChinese ? "搜索分类、付款方式或备注" : "Search category, method or note"}
+                    className="min-w-0 flex-1 rounded-xl border border-slate-200 px-3 py-2.5 outline-none" />
+                  <button type="button" onClick={() => { setKeyword(""); setTextSearchOpen(false); }}
+                    className="min-h-11 rounded-xl border border-slate-200 px-3 text-sm font-semibold text-slate-600">
+                    {isChinese ? "清除" : "Clear"}
+                  </button>
+                </div>
+              )}
+              {selectedCategoryFilter && (
+                <div className="mh-analysis-filter__scope mt-2 flex flex-wrap items-center gap-2 text-xs">
+                  <span className="font-semibold text-slate-600">
+                    {isChinese ? "当前分类：" : "Category: "}
+                    <span data-i18n-ignore>{formatCategoryLabel(selectedCategoryFilter.category)}</span>
+                  </span>
+                  <button type="button" onClick={() => setCategoryFilterKey("all")}
+                    className="rounded-full border border-slate-200 bg-slate-50 px-2 py-1 font-semibold text-slate-700">
+                    {isChinese ? "全部分类" : "All Categories"} ×
+                  </button>
+                  <span className="text-slate-500">
+                    {isChinese ? "真实期间余额不受分类筛选影响" : "Real period balance is not category-filtered"}
+                  </span>
+                </div>
+              )}
+            </Card>
+            <FinanceOverlay open={categoryPickerOpen}
+              title={isChinese ? "选择分类" : "Select Category"}
+              widthClass="max-w-lg" triggerRef={categoryPickerTriggerRef}
+              onClose={() => setCategoryPickerOpen(false)}>
+              <FinanceCategoryFilterPicker choices={categoryChoices}
+                selectedKey={selectedCategoryFilter?.key || "all"}
+                formatCategoryLabel={formatCategoryLabel} isChinese={isChinese}
+                onSelect={key => {
+                  setCategoryFilterKey(key);
+                  setTrendCategory("all");
+                  setTopExpenseCategory("all");
+                  setCategoryPickerOpen(false);
+                }}
+              />
+            </FinanceOverlay>
             <section className="grid gap-4 md:grid-cols-3">
               <StatCard title="Filtered Income" value={money(filteredIncome)} icon="📈" desc={"Current filter: " + filterLabel} />
               <StatCard title="Filtered Expense" value={money(filteredExpense)} icon="📉" desc={"Current filter: " + filterLabel}
