@@ -19,6 +19,8 @@ test("PR47 fix: FX transactions with identical rounded RM but distinct foreign o
   const first=await getRecordRequestId(user,fx("USD","10.00","4.0"),cache,webcrypto);
   const retry=await getRecordRequestId(user,fx("USD","10.00","4.0"),cache,webcrypto);
   assert.equal(first,retry);
+  const sameDecimals=await getRecordRequestId(user,fx("USD","10.0","4.000"),cache,webcrypto);
+  assert.equal(sameDecimals,first,"numeric formatting alone must not duplicate a pending FX entry");
   const other=await getRecordRequestId(user,fx("USD","8.00","5.0"),cache,webcrypto);
   assert.notEqual(first,other);
   const another=await getRecordRequestId(user,fx("EUR","8.00","5.0"),cache,webcrypto);
@@ -70,6 +72,10 @@ test("PR47 fix: recovered Transfers with edited source/target, date, note or amo
 
 test("PR47 fix: automated safety workflow covers UI branches, keeps strict full high/critical audit",()=>{
   const flow=readFileSync(new URL("../.github/workflows/finance-safety.yml",import.meta.url),"utf8");
+  const app=readFileSync(new URL("../src/App.jsx",import.meta.url),"utf8");
+  assert.match(app,/assertRecoveredRecordMatchesPayload\(resolved\.data,payload\)/);
+  assert.match(app,/assertRecoveredTransferMatchesPayload\(found\.data,payload\)/);
+
   assert.match(flow,/- "ui\/\*\*"/);
   assert.match(flow,/npm audit --omit=dev --audit-level=high/);
   assert.match(flow,/npm audit --json/);
