@@ -73,7 +73,7 @@ export default function FinanceBudgetPanel({
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <h2 className="text-xl font-bold">Monthly Budget / 分类预算</h2>
-          <p className="mt-1 text-sm text-slate-500">Uses calendar months only — unaffected by the Transaction Filter.</p>
+          
         </div>
         <label className="text-xs font-bold text-slate-600">Budget Month
           <input type="month" className="mt-1 block rounded-xl border border-slate-300 px-3 py-2 text-sm"
@@ -141,9 +141,7 @@ export default function FinanceBudgetPanel({
           Set as default template
         </button>
       </div>
-      <p className="mt-3 text-xs text-slate-500">
-        Each saved month stays independent. The default template applies only to months without a saved snapshot. Historical months without a snapshot are labeled as such.
-      </p>
+      
       </>}
     </div>
   );
