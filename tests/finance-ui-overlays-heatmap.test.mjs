@@ -8,7 +8,8 @@ const overlay = source("FinanceOverlay.jsx");
 
 test("UI: transaction records move to an overlay without losing original fields or actions", () => {
   assert.match(app, /const \[recordsOpen, setRecordsOpen\] = useState\(false\)/);
-  assert.match(app, /onClick=\{\(\) => setRecordsOpen\(true\)\}/);
+  assert.match(app, /onClick=\{\(\) => \{ setRecordsOpenSource\("card"\); setRecordsOpen\(true\); \}\}/);
+  assert.match(app, /onClick=\{\(\) => \{ setRecordsOpenSource\("nav"\); setRecordsOpen\(true\); \}\}/);
   assert.match(app, /<FinanceOverlay open=\{recordsOpen\} title="Transaction Records"/);
   assert.match(app, /widthClass="max-w-6xl" showTitle=\{false\}/);
   const start = app.indexOf('<FinanceOverlay open={recordsOpen}');
