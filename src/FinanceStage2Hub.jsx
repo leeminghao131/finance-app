@@ -1,5 +1,6 @@
 import React,{useEffect,useMemo,useRef,useState} from "react";
 import FinanceOverlay from "./FinanceOverlay.jsx";
+import FinanceNotificationEmblem from "./FinanceNotificationEmblem.jsx";
 // Deferred until the owner opens a specific Stage 2 tool; finance handlers stay in the parent.
 const FinanceRecurringBills = React.lazy(() => import("./FinanceRecurringBills.jsx"));
 const FinanceReviewInbox = React.lazy(() => import("./FinanceReviewInbox.jsx"));
@@ -76,7 +77,7 @@ export default function FinanceStage2Hub({
     <div className="mh-stage2-notifications" aria-label={t("财务动态通知","Financial notifications")}>
       <button type="button" disabled={disabled} aria-expanded={menu} aria-label={t("查看财务提醒","Open finance reminders")}
         onClick={()=>setMenu(x=>!x)} className="mh-stage2-notifications__bell">
-        🔔 <span>{t("提醒","Alerts")}</span>
+        <FinanceNotificationEmblem active={alertCount>0} /> <span>{t("提醒","Alerts")}</span>
         {alertCount>0&&<span className="mh-stage2-notifications__count">{alertCount>99?"99+":alertCount}</span>}
       </button>
       {menu&&<div className="mh-stage2-notifications__menu"
