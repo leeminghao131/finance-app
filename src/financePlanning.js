@@ -88,7 +88,7 @@ export function savingsGoalProgress(goal) {
  * The current month's saved budget snapshot (or default template) is reserved
  * once. Do not write this calculated figure to any record or goal row.
  */
-export function calculateSavingsAvailable(totalBalance, monthlyBudgets = {}) {
+export function calculateSavingsAvailable(totalBalance, monthlyBudgets = {}, currentMonthExpenses = []) {
   const balanceSen = Math.round(Number(totalBalance) * 100);
   if (!Number.isFinite(Number(totalBalance)) || !Number.isSafeInteger(balanceSen)) {
     throw new Error("Invalid total balance for Savings Goals.");
@@ -96,8 +96,23 @@ export function calculateSavingsAvailable(totalBalance, monthlyBudgets = {}) {
   if (!monthlyBudgets || typeof monthlyBudgets !== "object" || Array.isArray(monthlyBudgets)) {
     throw new Error("Invalid monthly budget for Savings Goals.");
   }
-  let budgetSen = 0;
-  for (const value of Object.values(monthlyBudgets)) {
+  if (!Array.isArray(currentMonthExpenses)) throw new Error("Current month expenses are not verified.");
+  // The current ledger balance has ALREADY deducted recorded expenses. Reserve
+  // only the portion of each budget that has not yet been spent; never deduct it twice.
+  const spent = new Map();
+  for (const entry of currentMonthExpenses) {
+    if (entry.deleted_at || entry.type !== "expense") continue;
+    const amountSen = Math.round(Number(entry.amount) * 100);
+    if (!Number.isFinite(Number(entry.amount)) || !Number.isSafeInteger(amountSen) || amountSen < 0) {
+      throw new Error("Invalid current-month Expense amount.");
+    }
+    const name = String(entry.category ?? "");
+    const next = (spent.get(name) || 0) + amountSen;
+    if (!Number.isSafeInteger(next)) throw new Error("Expense total exceeds safe precision.");
+    spent.set(name, next);
+  }
+  let budgetSen = 0, reservedSen = 0, spentAgainstBudgetSen = 0;
+  for (const [category, value] of Object.entries(monthlyBudgets)) {
     const raw = String(value ?? "").trim();
     if (!raw) continue;
     if (!/^[0-9]+(?:[.][0-9]{1,2})?$/.test(raw)) {
@@ -105,21 +120,22 @@ export function calculateSavingsAvailable(totalBalance, monthlyBudgets = {}) {
     }
     const [whole, decimals = ""] = raw.split(".");
     const amountSen = Number(whole) * 100 + Number(decimals.padEnd(2, "0"));
-    if (!Number.isSafeInteger(amountSen)) {
-      throw new Error("Monthly budget amount exceeds safe precision.");
-    }
+    if (!Number.isSafeInteger(amountSen)) throw new Error("Monthly budget amount exceeds safe precision.");
     budgetSen += amountSen;
-    if (!Number.isSafeInteger(budgetSen)) {
+    const used = spent.get(category) || 0;
+    spentAgainstBudgetSen += Math.min(amountSen,used);
+    reservedSen += Math.max(0, amountSen - used);
+    if (![budgetSen,spentAgainstBudgetSen,reservedSen].every(Number.isSafeInteger)) {
       throw new Error("Monthly budget total exceeds safe precision.");
     }
   }
-  const netSen = balanceSen - budgetSen;
-  if (!Number.isSafeInteger(netSen)) {
-    throw new Error("Savings availability exceeds safe precision.");
-  }
+  const netSen = balanceSen - reservedSen;
+  if (!Number.isSafeInteger(netSen)) throw new Error("Savings availability exceeds safe precision.");
   return {
     totalBalance: balanceSen / 100,
-    monthlyBudget: budgetSen / 100,
+    monthlyBudget: reservedSen / 100,
+    monthlyBudgetTotal: budgetSen / 100,
+    spentAgainstBudget: spentAgainstBudgetSen / 100,
     available: Math.max(0, netSen) / 100,
     shortfall: Math.max(0, -netSen) / 100,
     netAfterBudget: netSen / 100,
