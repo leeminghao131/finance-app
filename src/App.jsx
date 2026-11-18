@@ -2186,6 +2186,22 @@ return (
             <p className="mh-dashboard-eyebrow hidden text-xs font-medium text-slate-300 sm:block">Personal Finance Dashboard</p>
             <h1 className="truncate text-base font-bold sm:mt-0.5 sm:text-xl md:text-2xl">记账可视化软件</h1>
           </div>
+          <div className="mh-dashboard-today" role="region" aria-label={(isChinese ? "今日摘要 · " : "Today Summary · ") + localToday}>
+            <div className="mh-dashboard-today__track" tabIndex={0} title={localToday}>
+              {[
+                {key:"income",label:isChinese?"收入":"Income",value:money(todaySummaryStats.income),tone:"income"},
+                {key:"expense",label:isChinese?"支出":"Expense",value:money(todaySummaryStats.expense),tone:"expense"},
+                {key:"net",label:isChinese?"余额":"Net",value:money(todaySummaryStats.income-todaySummaryStats.expense),tone:todaySummaryStats.income-todaySummaryStats.expense<0?"expense":"income"},
+                {key:"count",label:isChinese?"记录":"Records",value:String(todaySummaryStats.count),tone:"neutral"},
+                {key:"category",label:isChinese?"主要分类":"Top Category",value:todaySummaryStats.topCategory?formatCategoryLabel(todaySummaryStats.topCategory):(isChinese?"无消费":"None"),tone:"neutral"},
+              ].map(item => (
+                <div key={item.key} className={"mh-dashboard-today__metric mh-dashboard-today__metric--"+item.tone}>
+                  <span>{item.label}</span>
+                  <strong data-i18n-ignore>{initialDataReady && !dataLoading ? item.value : "—"}</strong>
+                </div>
+              ))}
+            </div>
+          </div>
           <div className="mh-dashboard-actions flex shrink-0 items-center gap-1.5 sm:gap-2">
             <button type="button" aria-label={isChinese ? (soundEnabled ? "关闭声音" : "开启声音") : (soundEnabled ? "Mute sound" : "Enable sound")}
               title={soundEnabled ? "Sound on" : "Sound off"}
@@ -2495,7 +2511,6 @@ return (
       />
     </FinanceOverlay>
 
-    <TodaySummaryCard stats={todaySummaryStats} />
 
 <FinanceTransferPanel
   transferForm={transferForm}
