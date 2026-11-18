@@ -627,6 +627,7 @@ function FinanceVisualizerAppContent() {
   const [initialDataReady, setInitialDataReady] = useState(false);
   const [importOpen, setImportOpen] = useState(false);
   const [exportOpen, setExportOpen] = useState(false);
+  const dataToolTriggerRef=useRef(null);
   const budgetsRef = useRef(DEFAULT_BUDGETS);
   const settingsVersionRef = useRef(null);
   const settingsQueueRef = useRef(Promise.resolve());
@@ -2131,23 +2132,32 @@ return (
       <div className="mx-auto max-w-7xl space-y-6">
         <header className="flex flex-col gap-4 rounded-3xl bg-slate-900 p-6 text-white md:flex-row md:items-center md:justify-between">
           <div><p className="text-sm font-medium text-slate-300">Personal Finance Dashboard</p><h1 className="mt-2 text-3xl font-bold md:text-4xl">记账可视化软件</h1><p className="mt-2 text-sm text-slate-300">记录收入与支出，自动生成统计、分类比例、每日趋势和预算使用情况。</p></div>
-          <div className="flex flex-wrap gap-3"><button onClick={() => setSoundEnabled((v) => !v)} className="rounded-2xl bg-slate-800 px-4 py-3 text-sm font-semibold text-white ring-1 ring-slate-600">{soundEnabled ? "🔊" : "🔇"} Sound</button><FinanceLanguageButton /><button type="button" disabled={!initialDataReady || dataLoading} onClick={() => { setExportOpen((v) => !v); setImportOpen(false); }} className="rounded-2xl bg-white px-4 py-3 text-sm font-semibold text-slate-900 disabled:opacity-50">⬇ Export Excel</button><button type="button" disabled={!initialDataReady || dataLoading} onClick={() => { setImportOpen((v) => !v); setExportOpen(false); }} className="rounded-2xl bg-slate-700 px-4 py-3 text-sm font-semibold text-white ring-1 ring-slate-600 disabled:opacity-50">⬆ Import CSV</button><button onClick={signOut} className="rounded-2xl bg-white px-4 py-3 text-sm font-semibold text-slate-900">Sign out</button></div>
+          <div className="flex flex-wrap gap-3"><button onClick={() => setSoundEnabled((v) => !v)} className="rounded-2xl bg-slate-800 px-4 py-3 text-sm font-semibold text-white ring-1 ring-slate-600">{soundEnabled ? "🔊" : "🔇"} Sound</button><FinanceLanguageButton /><button onClick={signOut} className="rounded-2xl bg-white px-4 py-3 text-sm font-semibold text-slate-900">Sign out</button></div>
         </header>
-        <React.Suspense fallback={<div role="status" className="rounded-2xl bg-white p-4 text-sm text-slate-600">Loading...</div>}>
-        {importOpen && <FinanceCsvImportPanel
-          supabase={supabase} user={user}
-          existingRecords={[...records,...deletedRecords]}
-          onClose={() => setImportOpen(false)}
-          onImported={() => loadCloudData({background:true})}
-        />}
-        {exportOpen && <FinanceExcelExportPanel
-          records={records} deletedRecords={deletedRecords}
-          transfers={transfers} deletedTransfers={deletedTransfers}
-          monthRows={monthRows} budgetTemplate={budgets}
-          forecastPlans={forecastPlans} openingBalances={openingBalances} dataReady={initialDataReady}
-          dataLoading={dataLoading} onClose={() => setExportOpen(false)}
-        />}
-        </React.Suspense>
+        <FinanceOverlay open={importOpen} title="CSV Import / 导入"
+          widthClass="max-w-4xl" showTitle={false} triggerRef={dataToolTriggerRef}
+          onClose={()=>setImportOpen(false)}>
+          <React.Suspense fallback={<div role="status" className="p-4 text-sm text-slate-600">Loading...</div>}>
+            {importOpen&&<FinanceCsvImportPanel
+              supabase={supabase} user={user}
+              existingRecords={[...records,...deletedRecords]}
+              onClose={()=>setImportOpen(false)}
+              onImported={()=>loadCloudData({background:true})}/>}
+          </React.Suspense>
+        </FinanceOverlay>
+        <FinanceOverlay open={exportOpen} title="Excel Export / 导出"
+          widthClass="max-w-4xl" showTitle={false} triggerRef={dataToolTriggerRef}
+          onClose={()=>setExportOpen(false)}>
+          <React.Suspense fallback={<div role="status" className="p-4 text-sm text-slate-600">Loading...</div>}>
+            {exportOpen&&<FinanceExcelExportPanel
+              records={records} deletedRecords={deletedRecords}
+              transfers={transfers} deletedTransfers={deletedTransfers}
+              monthRows={monthRows} budgetTemplate={budgets}
+              forecastPlans={forecastPlans} openingBalances={openingBalances}
+              dataReady={initialDataReady} dataLoading={dataLoading}
+              onClose={()=>setExportOpen(false)}/>}
+          </React.Suspense>
+        </FinanceOverlay>
         <div className="rounded-2xl bg-white px-4 py-3 text-sm text-slate-600 ring-1 ring-slate-200">
           Signed in as <b data-i18n-ignore>{user?.email}</b> · {dataLoading ? "Syncing..." : syncStatus || "Cloud ready"}
           {syncProgress && <span className="ml-2 font-semibold text-blue-700">{syncProgress}</span>}
@@ -2723,6 +2733,11 @@ categoryOptionsFor={categoryOptionsFor}
           calculationError={savingsCalculation.error}
           budgetMonth={savingsBudgetMonth}
           onOpenStage2Tool={openStage2DockTool}
+          onOpenDataTool={(kind,trigger)=>{
+            if(!initialDataReady||dataLoading)return;
+            dataToolTriggerRef.current=trigger;
+            setImportOpen(kind==="import");setExportOpen(kind==="export");
+          }}
           activities={activities} activityLinks={activityLinks}
           onCreateActivity={startActivity} onUpdateActivity={changeActivity}
           onLinkActivity={associateActivityExpense} onUnlinkActivity={detachActivityExpense}
