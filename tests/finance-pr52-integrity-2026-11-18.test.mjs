@@ -101,4 +101,5 @@ test("PR52: failed automatic budget changes cannot appear as verified, and offer
   assert.match(app,/setBudgetTemplateSaveStatus\("saved"\)/);
   assert.match(app,/saveBudgets\(draft\)/);
   assert.match(app,/budgetTemplateSaveStatus !== "saved"/);
+  assert.match(app,/JSON\.stringify\(budgetsRef\.current\)!==JSON\.stringify\(pendingBudgetBaselineRef\.current\)/);
 });
