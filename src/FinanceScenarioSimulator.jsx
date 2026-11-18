@@ -6,7 +6,7 @@ import {localDateMY} from "./financeCalendar.js";
 import {useFinanceLanguage} from "./FinanceLanguageLayer.jsx";
 
 const field="mt-1 w-full rounded-xl border border-slate-300 bg-white px-3 py-2.5 text-base";
-const blank=(language="en")=>({name:language==="zh"?"我的方案":"My Scenario",months:12,incomeDelta:"300",spendingDelta:"-200"});
+const blank=(language="en")=>({name:language==="zh"?"我的方案":"My Scenario",months:12,incomeDelta:"",spendingDelta:""});
 const safeRead=userId=>{
   if(!userId)return [];
   try{
@@ -21,7 +21,7 @@ export default function FinanceScenarioSimulator({records=[],totalBalance=0,user
   const zh=language==="zh";
   const t=(cn,en)=>zh?cn:en;
   const [open,setOpen]=useState(false),[form,setForm]=useState(()=>blank(language)),[saved,setSaved]=useState([]);
-  const [goal,setGoal]=useState("10000"),[error,setError]=useState("");
+  const [goal,setGoal]=useState(""),[error,setError]=useState("");
   const triggerRef=useRef(null);
   useEffect(()=>{setSaved(safeRead(userId));setForm(blank(language));setError("");},[userId]);
 
