@@ -85,7 +85,7 @@ export default function FinanceMonthComparison({records=[]}) {
         {!value.categories.length&&<p className="p-3 text-sm text-slate-500">No expenses in either month.</p>}
         </div>
       </FinanceOverlay>
-      <p className="mt-3 text-xs text-slate-500">Records: {firstMonth} ({value.first.count}) · {secondMonth} ({value.second.count}). Positive expense change means more spending.</p>
+      <p className="mt-3 text-xs text-slate-500">Records: {firstMonth} ({value.first.count}) · {secondMonth} ({value.second.count})</p>
     </>}
   </section>;
 }
