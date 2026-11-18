@@ -40,6 +40,8 @@ jobs:
         run: npm ci --no-audit --no-fund --ignore-scripts
       - name: Finance logic and safety regression tests (synthetic data only)
         run: npm test
+      - name: Audit shipped browser dependencies (block high/critical)
+        run: npm audit --omit=dev --audit-level=high
       - name: Production build (no deployment)
         run: npm run build
       - name: Audit all dependencies including build tools (block high/critical)
