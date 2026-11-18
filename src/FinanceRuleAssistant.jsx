@@ -1,6 +1,7 @@
 import React,{useEffect,useRef,useState} from "react";
 import {useFinanceLanguage} from "./FinanceLanguageLayer.jsx";
 import {answerFinanceQuestion,ASSISTANT_SUGGESTIONS} from "./financeAssistantRules.js";
+import FinanceAssistantEmblem from "./FinanceAssistantEmblem.jsx";
 
 /** Stage 4 guided FAQ: preset buttons only, never accepts arbitrary typed questions. */
 export default function FinanceRuleAssistant({ctx,userId,onOpenTool=()=>{}}){
@@ -18,15 +19,14 @@ export default function FinanceRuleAssistant({ctx,userId,onOpenTool=()=>{}}){
   return <div className="mh-rule-assistant">
     <button ref={trigger} className="mh-rule-assistant__launcher" type="button"
       aria-haspopup="dialog" aria-expanded={open} onClick={()=>setOpen(value=>!value)}
-      aria-label={zh?"财务小助手":"Finance assistant"}>
-      <span aria-hidden="true">🤖</span> {zh?"财务助手":"Assistant"}
+      aria-label={zh?"财务小助手":"Finance assistant"} title={zh?"财务小助手":"Finance assistant"}>
+      <FinanceAssistantEmblem />
     </button>
     {open&&<section role="dialog" aria-modal="false"
       aria-label={zh?"规则式财务助手":"Rule-based finance assistant"}
       className="mh-rule-assistant__sheet">
       <header className="flex items-center justify-between gap-3 rounded-t-xl bg-slate-900 p-3 text-white">
-        <div><h2 className="font-bold">🤖 {zh?"财务小助手":"Finance Assistant"}</h2>
-</div>
+        <div className="flex min-w-0 items-center gap-2"><FinanceAssistantEmblem compact /><h2 className="font-bold">{zh?"财务小助手":"Finance Assistant"}</h2></div>
         <button type="button" className="min-h-10 rounded-lg border border-slate-600 px-3"
           onClick={()=>setOpen(false)} aria-label={zh?"关闭助手":"Close assistant"}>✕</button>
       </header>
