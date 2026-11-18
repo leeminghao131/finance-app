@@ -116,3 +116,17 @@ test("Excel includes saved-mode and X, retaining the unchanged stored manual amo
   assert.deepEqual(JSON.parse(json),[g]);
   assert.ok(verifyFinanceWorkbook(workbook,stats).byteLength>100);
 });
+
+test("assistant uses the same live auto saved progress and never reports stale manual saved as auto",async()=>{
+  const {answerFinanceQuestion}=await import("../src/financeAssistantRules.js");
+  const {localMonthMY}=await import("../src/financeCalendar.js");
+  const g={...base,saved:50,savedMode:"auto",budgetMultiplier:2};
+  const result=answerFinanceQuestion("储蓄目标",{
+    ready:true,records:[],totalBalance:8000,goals:[g],
+    monthRows:[{month:localMonthMY(),category_budgets:{Food:1000}}],
+    budgets:{Food:1000},methods:[],
+  },true);
+  assert.match(result.answer,/RM6000\.00/);
+  assert.doesNotMatch(result.answer,/RM50\.00/);
+  assert.equal(g.saved,50,"assistant never rewrites saved manual balance");
+});
