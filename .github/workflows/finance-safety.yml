@@ -36,24 +36,17 @@ jobs:
           package-manager-cache: false
       - name: Verify lockfile exists
         run: test -f package-lock.json
-      # Temporary diagnostic: regenerate a reviewed lockfile in CI without writing to the repository.
-      - name: Generate lockfile for security repair (temporary, TEST branch only)
-        run: |
-          npm install --package-lock-only --ignore-scripts --no-audit --no-fund
-          echo BEGIN_FINANCE_LOCK
-          sed 's/^/FINANCE_LOCK_PART:/' package-lock.json
-          echo END_FINANCE_LOCK
       - name: Reproducible install without lifecycle scripts
         run: npm ci --no-audit --no-fund --ignore-scripts
       - name: Finance logic and safety regression tests (synthetic data only)
         run: npm test
       - name: Production build (no deployment)
         run: npm run build
-      - name: Audit production dependencies (report advisories; block critical)
+      - name: Audit all dependencies including build tools (block high/critical)
         shell: bash
         run: |
           set -euo pipefail
-          npm audit --omit=dev --json > npm-audit-report.json || true
+          npm audit --json > npm-audit-report.json || true
           node --input-type=module <<'NODE'
           import { readFileSync } from 'node:fs';
           const report = JSON.parse(readFileSync('npm-audit-report.json', 'utf8'));
@@ -65,10 +58,12 @@ jobs:
           console.log('Dependency audit counts:', JSON.stringify(counts));
           for (const [name, vuln] of Object.entries(report.vulnerabilities || {})) {
             if (vuln.severity === 'high' || vuln.severity === 'critical')
-              console.log('Vulnerability requires review:', name, vuln.severity, 'Fix available:', JSON.stringify(vuln.fixAvailable));
+              console.log('Vulnerability requires review:', name, vuln.severity,
+                'Range:', vuln.range, 'Via:', JSON.stringify(vuln.via),
+                'Fix available:', JSON.stringify(vuln.fixAvailable));
           }
           if (Number(counts.high || 0) > 0 || Number(counts.critical || 0) > 0) {
-            console.error('High or critical production dependency advisories block merging');
+            console.error('High or critical dependencies block merging');
             process.exit(1);
           }
           NODE
