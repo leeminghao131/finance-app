@@ -134,8 +134,16 @@ export function buildFinanceWorkbook({
   for (const [key,value] of supplemental) {
     const json=JSON.stringify(value);
     if (typeof json !== "string") throw new Error("Unable to export "+key);
-    for(let index=0,part=1;index<json.length||part===1;index+=25000,part++)
-      jsonRows.push([key,part,"json:"+json.slice(index,index+25000)]);
+    for(let index=0,part=1;index<json.length||part===1;part++) {
+      let end=Math.min(json.length,index+25000);
+      // Avoid splitting a Unicode surrogate pair in two XLSX cells.
+      if(end<json.length && end>index) {
+        const previous=json.charCodeAt(end-1);
+        if(previous>=0xD800 && previous<=0xDBFF)end--;
+      }
+      jsonRows.push([key,part,"json:"+json.slice(index,end)]);
+      index=end;
+    }
   }
   makeSheet(wb,"Cloud Settings JSON",["Setting","Part","JSON fragment (remove json: prefix and concatenate)"],jsonRows);
   makeSheet(wb,"Savings Goals",
