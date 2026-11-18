@@ -11,7 +11,7 @@ export function readFxCurrencyPreference(userId,storage){
   }catch{return "MYR";}
 }
 export function writeFxCurrencyPreference(userId,currency,storage){
-  if(!validOwner(userId)||!validCode(currency))return false;
+  if(!validOwner(userId)||!validCode(currency)||typeof storage?.setItem!=="function")return false;
   try{
     storage?.setItem?.(FX_CURRENCY_PREFERENCE_PREFIX+userId,currency);
     return true;
