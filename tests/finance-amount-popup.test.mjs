@@ -18,8 +18,8 @@ test("01: edited amounts are RM amounts, and normal add-form entry no longer con
   assert.match(app,/amount = parseEditedAmount\(form\.amount\)/);
   assert.match(app,/field === "amount" \? parseEditedAmount\(value\) : value/);
   assert.match(app,/field === "amount"\) event\.target\.select\(\)/);
-  assert.match(app,/Normal RM: 100 → RM100\.00/);
-  assert.match(app,/Cents keypad: 2455 → RM24\.55/);
+  assert.match(app,/title=\{amountEntryMode === "cents" \? "2455 means RM24\.55" : "100 means RM100\.00"\}/);
+  assert.match(app,/value=\{form\.amount === "0\.00" \? "" : form\.amount\}/);
 });
 
 test("08: plan editor is only within an overlay and the green summary card has a clickable icon", () => {
