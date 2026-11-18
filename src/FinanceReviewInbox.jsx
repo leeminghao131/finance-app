@@ -162,7 +162,7 @@ export default function FinanceReviewInbox({
             {t("确认无误","Confirm correct")}</button>
           <button type="button" disabled={disabled||busy} onClick={()=>startEdit(c)}
             className="rounded-lg border border-slate-300 px-3 py-2.5 text-xs font-bold">{t("修改对应记录","Edit transaction")}</button>
-          {c.record.fx_currency&&<button type="button" disabled={disabled||busy}
+          {c.record.fx_currency&&<button type="button" disabled={disabled||busy} aria-haspopup="dialog"
             onClick={e=>onEditFx(c.record,e.currentTarget)}
             className="min-h-11 rounded-lg border border-blue-200 bg-blue-50 px-3 py-2.5 text-xs font-bold text-blue-800">
             {t("编辑外币金额","FX Edit")}</button>}
