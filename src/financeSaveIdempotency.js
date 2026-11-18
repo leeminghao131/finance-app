@@ -28,17 +28,19 @@ export async function getRecordRequestId(userId, payload, storage, cryptoProvide
   let saved=null;
   try { saved=JSON.parse(storage.getItem(key(userId)) || "null"); } catch { /* untrusted local cache */ }
   if (saved?.fingerprint===fingerprint && UUID.test(saved?.requestId || "")) {
-    if (fxFingerprint===null && !saved.fxFingerprint) return saved.requestId;
-    if (fxFingerprint!==null && (!saved.fxFingerprint || saved.fxFingerprint===fxFingerprint)) {
-      // Old pending FX requests lack the second fingerprint. Preserve their
-      // request ID for no-duplicate recovery; verify the SERVER row on conflict.
+    if (fxFingerprint===null && !saved.fxFingerprint && saved.intent!=="fx") return saved.requestId;
+    if (fxFingerprint!==null && saved.fxFingerprint===fxFingerprint) return saved.requestId;
+    if (fxFingerprint!==null && !saved.fxFingerprint && !saved.intent) {
+      // Old pending FX requests lack intent metadata. Preserve the old ID
+      // for no-duplicate recovery; verify the SERVER row on conflict.
       return saved.requestId;
     }
   }
   const requestId=cryptoProvider.randomUUID();
   // Store hashes only, NEVER original amounts, notes, rates or currency details.
   storage.setItem(key(userId),JSON.stringify({
-    requestId,fingerprint,...(fxFingerprint===null?{}:{fxFingerprint}),
+    requestId,fingerprint,intent:fxFingerprint===null?"myr":"fx",
+    ...(fxFingerprint===null?{}:{fxFingerprint}),
   }));
   return requestId;
 }
