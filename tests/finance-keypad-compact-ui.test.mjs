@@ -36,7 +36,9 @@ test("keypad offers AC, backspace, decimals and guarded expression building", ()
   assert.equal(keys([".","2"]), "0.2");
   assert.equal(keys(["1",".","2",".","3"]), "1.23");
   assert.equal(keys(["1","+","×","2"]), "1×2");
-  assert.equal(keys([")","1","(","2",")"]), "1");
+  assert.equal(nextCalculatorText("", ")"), "");
+  assert.equal(nextCalculatorText("1", "("), "1");
+  assert.equal(keys(["(","1","+","2",")"]), "(1+2)");
   assert.equal(nextCalculatorText("123", "<script>"), "123");
   assert.equal(nextCalculatorText("7".repeat(100), "8"), "7".repeat(100));
 });
