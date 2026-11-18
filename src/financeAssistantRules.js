@@ -74,10 +74,15 @@ export function answerFinanceQuestion(question,ctx,zh=true){
     try{
       const goals=ctx.goals||[];
       if(!goals.length)return {answer:t("目前没有储蓄目标。","No savings goals yet.")};
-      const monthly=(ctx.monthRows||[]).find(row=>row.month===month)?.category_budgets??ctx.budgets??{};
-      const expenseRows=monthRecords.filter(row=>row.type==="expense"&&row.date<=localDateMY());
-      const estimate=calculateSavingsAvailable(ctx.totalBalance,monthly,expenseRows);
-      const context={totalBalance:ctx.totalBalance,monthlyBudgetTotal:estimate.monthlyBudgetTotal};
+      // Preserve the legacy manual-goal assistant path: it requires no budget
+      // estimate and must not fail when only manual savings are configured.
+      let context;
+      if(goals.some(goal=>goal.savedMode==="auto")){
+        const monthly=(ctx.monthRows||[]).find(row=>row.month===month)?.category_budgets??ctx.budgets??{};
+        const expenseRows=monthRecords.filter(row=>row.type==="expense"&&row.date<=localDateMY());
+        const estimate=calculateSavingsAvailable(ctx.totalBalance,monthly,expenseRows);
+        context={totalBalance:ctx.totalBalance,monthlyBudgetTotal:estimate.monthlyBudgetTotal};
+      }
       const details=goals.slice(0,6).map(goal=>{
         const p=savingsGoalProgress(goal,context);
         return goal.title+": "+p.percent+"% ("+money(p.saved)+"/"+money(goal.target)+")";
