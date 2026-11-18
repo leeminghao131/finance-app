@@ -15,6 +15,8 @@ test("Sticky compact header reuses Sound, Language, Sign out and accessible shor
   assert.match(app, /<FinanceLanguageButton className="mh-dashboard-action" \/>/);
   assert.match(app, /onClick=\{\(\) => setSoundEnabled\(\(v\) => !v\)\}/);
   assert.match(app, /onClick=\{signOut\}/);
+  assert.match(app, /isChinese \? "仪表板快捷导航" : "Dashboard quick navigation"/);
+  assert.match(app, /isChinese \? "交易货币" : "Transaction currency"/);
   assert.match(app, /id="mh-dashboard-statistics"/);
   assert.match(app, /id="mh-stage2-add-record-form"/);
   assert.match(app, /scrollIntoView\(\{ behavior: "smooth", block: "start" \}\)/);
