@@ -7,6 +7,8 @@ const button="rounded-xl border border-slate-300 bg-white px-4 py-2 text-sm font
 export default function FinanceExcelExportPanel({
   records,deletedRecords,transfers,deletedTransfers,
   monthRows,budgetTemplate,forecastPlans,openingBalances={},
+  savingsGoals=[],recurringBills=[],reviewState={},accountChecks=[],savedFilters=[],customOptions={},
+  activities=[],activityLinks=[],
   dataReady,dataLoading,onClose,
 }) {
   const [scope,setScope]=useState("all");
@@ -22,6 +24,8 @@ export default function FinanceExcelExportPanel({
       const {workbook,stats}=buildFinanceWorkbook({
         records,deletedRecords,transfers,deletedTransfers,
         monthRows,budgetTemplate,forecastPlans,openingBalances,
+        savingsGoals,recurringBills,reviewState,accountChecks,savedFilters,customOptions,
+        activities,activityLinks,
         scope,month,includeRecycleBin,
       });
       // Roundtrip-check the file and financial totals before starting a download.
@@ -65,7 +69,9 @@ export default function FinanceExcelExportPanel({
       </div>
       <p className="mt-3 text-sm text-slate-600">
         Sheets: Finance Records, Transfers, Opening Balances, Monthly Budgets, Budget Template,
-        Expected Income, Export Summary
+        Expected Income, Savings Goals, Recurring Bills, Activities, Activity Links,
+        Review Decisions, Account Checks, Saved Filters, Custom Options,
+        Cloud Settings JSON, Export Summary
         {includeRecycleBin?", Recycle Bin and Transfer Trash":""}.
       </p>
       <button type="button" disabled={busy||!dataReady||dataLoading}
@@ -76,7 +82,7 @@ export default function FinanceExcelExportPanel({
         Waiting for all cloud records before enabling exports.</p>:null}
       {message&&<p role="status" className="mt-3 rounded-xl bg-slate-50 p-3 text-sm text-slate-700">{message}</p>}
       <p className="mt-3 text-xs text-slate-500">
-        These are readable finance data, not a full Supabase database backup.
+        This includes cloud finance settings as verified JSON fragments but is not a full Supabase database backup.
         Keep downloaded financial files in your private, encrypted storage.
       </p>
     </section>
