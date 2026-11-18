@@ -12,7 +12,7 @@ test("Sticky compact header reuses Sound, Language, Sign out and accessible shor
   assert.match(app, /<header className="mh-dashboard-header/);
   assert.match(css, /\.mh-ui \.mh-dashboard-header \{[\s\S]*?position: sticky;[\s\S]*?top: env\(safe-area-inset-top, 0px\)/);
   assert.match(css, /\.mh-ui \.mh-dashboard-quick-actions/);
-  assert.match(app, /<FinanceLanguageButton className="mh-dashboard-action" \/>/);
+  assert.match(app, /<FinanceLanguageButton className="mh-dashboard-action" compactOnMobile \/>/);
   assert.match(app, /onClick=\{\(\) => setSoundEnabled\(\(v\) => !v\)\}/);
   assert.match(app, /onClick=\{signOut\}/);
   assert.match(app, /isChinese \? "仪表板快捷导航" : "Dashboard quick navigation"/);

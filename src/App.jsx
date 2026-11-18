@@ -33,6 +33,8 @@ import FinanceTrendSummaryTooltip from "./FinanceTrendSummaryTooltip.jsx";
 import FinanceExpandedTrendOverlay from "./FinanceExpandedTrendOverlay.jsx";
 import FinanceCategoryBubbleChart from "./FinanceCategoryBubbleChart.jsx";
 import FinanceMethodDonutChart from "./FinanceMethodDonutChart.jsx";
+import FinanceCategoryFilterPicker from "./FinanceCategoryFilterPicker.jsx";
+import { makeDashboardCategoryChoices, selectedDashboardCategory, categoryOnlyRows, categoryComparisonRows } from "./financeDashboardCategoryFilter.js";
 import "./financeUi.css";
 // Load import/export tools only when opened; keep spreadsheet parsing out of the dashboard bundle.
 const FinanceCsvImportPanel = React.lazy(() => import("./FinanceCsvImportPanel.jsx"));
@@ -344,7 +346,7 @@ function HeatmapCard({ days, label }) {
   );
 }
 
-function TopExpensesCard({ records, label, category, setCategory, expenseCategoryOptions }) {
+function TopExpensesCard({ records, label, category, setCategory, expenseCategoryOptions, lockedCategory = false }) {
   return (
     <Card>
       <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
@@ -357,6 +359,7 @@ function TopExpensesCard({ records, label, category, setCategory, expenseCategor
 
         <select
           value={category}
+          disabled={lockedCategory}
           onChange={(event) => setCategory(event.target.value)}
           className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-semibold outline-none"
         >
@@ -681,6 +684,10 @@ function FinanceVisualizerAppContent() {
   const [selectedMonth, setSelectedMonth] = useState(monthNow());
   const [selectedYear, setSelectedYear] = useState(yearNow());
   const [keyword, setKeyword] = useState("");
+  const [categoryFilterKey, setCategoryFilterKey] = useState("all");
+  const [categoryPickerOpen, setCategoryPickerOpen] = useState(false);
+  const [textSearchOpen, setTextSearchOpen] = useState(false);
+  const categoryPickerTriggerRef = useRef(null);
   const [selectedPieCategory, setSelectedPieCategory] = useState(null);
   const [trendCategory, setTrendCategory] = useState("all");
   const [expandedTrend, setExpandedTrend] = useState(null);
@@ -1516,17 +1523,34 @@ const incomeMethodOptions = useMemo(
 
 const categoryOptionsFor = (type) => (type === "expense" ? expenseCategoryOptions : incomeCategoryOptions);
 const methodOptionsFor = () => expenseMethodOptions;
-  const filteredRecords = useMemo(() => filterRecords(records, filterMode, selectedMonth, selectedYear, keyword), [records, filterMode, selectedMonth, selectedYear, keyword]);
+  // The time period is the immutable baseline for real period net movement.
+  // Category and text search are read-only analysis filters, not account balances.
+  const periodRecords = useMemo(() => filterRecords(records, filterMode, selectedMonth, selectedYear, ""),
+    [records, filterMode, selectedMonth, selectedYear]);
+  const searchPeriodRecords = useMemo(() => filterRecords(records, filterMode, selectedMonth, selectedYear, keyword),
+    [records, filterMode, selectedMonth, selectedYear, keyword]);
+  const categoryChoices = useMemo(() => makeDashboardCategoryChoices(expenseCategoryOptions, incomeCategoryOptions),
+    [expenseCategoryOptions, incomeCategoryOptions]);
+  const selectedCategoryFilter = useMemo(() => selectedDashboardCategory(categoryChoices, categoryFilterKey),
+    [categoryChoices, categoryFilterKey]);
+  const filteredRecords = useMemo(() => categoryOnlyRows(searchPeriodRecords, selectedCategoryFilter),
+    [searchPeriodRecords, selectedCategoryFilter]);
+  const chartRecords = useMemo(() => categoryComparisonRows(searchPeriodRecords, selectedCategoryFilter),
+    [searchPeriodRecords, selectedCategoryFilter]);
+  const periodIncome = sumType(periodRecords, "income");
+  const periodExpense = sumType(periodRecords, "expense");
+  const transactionFilteredIncome = sumType(filteredRecords, "income");
+  const transactionFilteredExpense = sumType(filteredRecords, "expense");
   const advancedResults = useMemo(() => {
     if (!advancedFilter) return {rows:null,error:""};
     try { return {rows:filterFinanceRecordsAdvanced(records.map(row=>({...row,method:recordMethod(row)})),advancedFilter),error:""}; }
     catch (error) { return {rows:[],error:error.message}; }
   },[records,advancedFilter]);
-  const expenseRecords = filteredRecords.filter((r) => r.type === "expense");
+  const expenseRecords = chartRecords.filter((r) => r.type === "expense");
   const income = sumType(records, "income");
   const expense = sumType(records, "expense");
-  const filteredIncome = sumType(filteredRecords, "income");
-  const filteredExpense = sumType(filteredRecords, "expense");
+  const filteredIncome = sumType(chartRecords, "income");
+  const filteredExpense = sumType(chartRecords, "expense");
   const filterLabel = filterMode === "all" ? "全部" : filterMode === "month" ? selectedMonth : filterMode === "year" ? selectedYear : filterMode === "recent30" ? "最近 30 天" : filterMode === "recent7" ? "最近 7 天" : "最近 3 天";
   const chartLabel = (d) => filterMode === "month" ? d.slice(8) : filterMode === "all" ? d : d.slice(5);
   const categoryData = useMemo(() => group(expenseRecords, (r) => r.category), [expenseRecords]);
@@ -1561,6 +1585,7 @@ const methodBalances = useMemo(() => calculateMethodBalances(
   });
   return map;
 }, [expenseRecords, expenseCategoryOptions]);
+  const activeExpenseCategory = selectedCategoryFilter?.type === "expense" ? selectedCategoryFilter.category : null;
   const selectedCategoryRecords = useMemo(() => selectedPieCategory ? expenseRecords.filter((r) => r.category === selectedPieCategory).sort((a, b) => new Date(a.date) - new Date(b.date)) : [], [expenseRecords, selectedPieCategory]);
   useEffect(() => {
     if (!categoryData.length) setSelectedPieCategory(null);
@@ -1569,20 +1594,29 @@ const methodBalances = useMemo(() => calculateMethodBalances(
 
   const dailyData = useMemo(() => {
     const out = {};
-    filteredRecords.forEach((r) => {
+    chartRecords.forEach((r) => {
       if (!out[r.date]) out[r.date] = { dateKey: r.date, day: chartLabel(r.date), income: 0, expense: 0 };
       out[r.date][r.type] += Number(r.amount || 0);
     });
     return Object.values(out).sort((a, b) => new Date(a.dateKey) - new Date(b.dateKey));
-  }, [filteredRecords, filterMode]);
+  }, [chartRecords, filterMode]);
+  // Daily details in the balance overlay must describe the full period.
+  const periodDailyData = useMemo(() => {
+    const out = {};
+    periodRecords.forEach((r) => {
+      if (!out[r.date]) out[r.date] = { dateKey: r.date, day: chartLabel(r.date), income: 0, expense: 0 };
+      out[r.date][r.type] += Number(r.amount || 0);
+    });
+    return Object.values(out).sort((a, b) => new Date(a.dateKey) - new Date(b.dateKey));
+  }, [periodRecords, filterMode]);
 
   const trendData = useMemo(() => {
     const out = {};
-    filteredRecords.forEach((r) => {
+    periodRecords.forEach((r) => {
       if (!out[r.date]) out[r.date] = { dateKey: r.date, day: chartLabel(r.date), expense: 0, dailyBalance: 0 };
       out[r.date].dailyBalance += r.type === "income" ? Number(r.amount || 0) : -Number(r.amount || 0);
     });
-    expenseRecords.filter((r) => trendCategory === "all" || r.category === trendCategory).forEach((r) => {
+    expenseRecords.filter((r) => selectedCategoryFilter?.type === "expense" || trendCategory === "all" || r.category === trendCategory).forEach((r) => {
       if (!out[r.date]) out[r.date] = { dateKey: r.date, day: chartLabel(r.date), expense: 0, dailyBalance: 0 };
       out[r.date].expense += Number(r.amount || 0);
     });
@@ -1592,7 +1626,7 @@ const methodBalances = useMemo(() => calculateMethodBalances(
 const limit = Number(balanceLimit || 1500);
 return { ...row, balanceGreen: balance > limit ? balance : null, balanceRed: balance <= limit ? balance : null };
     });
-}, [filteredRecords, expenseRecords, trendCategory, filterMode, balanceLimit]);
+}, [periodRecords, expenseRecords, trendCategory, selectedCategoryFilter, filterMode, balanceLimit]);
 
   const forecastMonth = filterMode === "month" ? selectedMonth : monthNow();
   const heatmapDays = useMemo(() => {
@@ -1603,12 +1637,12 @@ return { ...row, balanceGreen: balance > limit ? balance : null, balanceRed: bal
     else if (filterMode === "recent30") dates = dateRange(recentStart(30), 30);
     else if (filterMode === "recent7") dates = dateRange(recentStart(7), 7);
     else if (filterMode === "recent3") dates = dateRange(recentStart(3), 3);
-    else dates = Array.from(new Set(filteredRecords.map((r) => r.date))).sort((a, b) => new Date(a) - new Date(b)).slice(-35);
+    else dates = Array.from(new Set(periodRecords.map((r) => r.date))).sort((a, b) => new Date(a) - new Date(b)).slice(-35);
     return dates.map((date) => ({ date, amount: Number(amounts[date] || 0) }));
-  }, [expenseRecords, filteredRecords, filterMode, selectedMonth]);
+  }, [expenseRecords, periodRecords, filterMode, selectedMonth]);
 
   const topExpenses = useMemo(() => {
-  const source = topExpenseCategory === "all"
+  const source = selectedCategoryFilter?.type === "expense" || topExpenseCategory === "all"
     ? expenseRecords
     : expenseRecords.filter((record) => record.category === topExpenseCategory);
 
@@ -1616,7 +1650,7 @@ return { ...row, balanceGreen: balance > limit ? balance : null, balanceRed: bal
     .slice()
     .sort((a, b) => Number(b.amount || 0) - Number(a.amount || 0))
     .slice(0, 5);
-}, [expenseRecords, topExpenseCategory]);
+}, [expenseRecords, topExpenseCategory, selectedCategoryFilter]);
   const todaySummaryStats = useMemo(() => {
   const todayRecords = records.filter((record) => record.date === today());
   const todayExpenseRecords = todayRecords.filter((record) => record.type === "expense");
@@ -2153,6 +2187,22 @@ return (
             <p className="mh-dashboard-eyebrow hidden text-xs font-medium text-slate-300 sm:block">Personal Finance Dashboard</p>
             <h1 className="truncate text-base font-bold sm:mt-0.5 sm:text-xl md:text-2xl">记账可视化软件</h1>
           </div>
+          <div className="mh-dashboard-today" role="region" aria-label={(isChinese ? "今日摘要 · " : "Today Summary · ") + localToday}>
+            <div className="mh-dashboard-today__track" tabIndex={0} title={localToday}>
+              {[
+                {key:"income",label:isChinese?"收入":"Income",value:money(todaySummaryStats.income),tone:"income"},
+                {key:"expense",label:isChinese?"支出":"Expense",value:money(todaySummaryStats.expense),tone:"expense"},
+                {key:"net",label:isChinese?"余额":"Net",value:money(todaySummaryStats.income-todaySummaryStats.expense),tone:todaySummaryStats.income-todaySummaryStats.expense<0?"expense":"income"},
+                {key:"count",label:isChinese?"记录":"Records",value:String(todaySummaryStats.count),tone:"neutral"},
+                {key:"category",label:isChinese?"主要分类":"Top Category",value:todaySummaryStats.topCategory?formatCategoryLabel(todaySummaryStats.topCategory):(isChinese?"无消费":"None"),tone:"neutral"},
+              ].map(item => (
+                <div key={item.key} className={"mh-dashboard-today__metric mh-dashboard-today__metric--"+item.tone}>
+                  <span>{item.label}</span>
+                  <strong data-i18n-ignore>{initialDataReady && !dataLoading ? item.value : "—"}</strong>
+                </div>
+              ))}
+            </div>
+          </div>
           <div className="mh-dashboard-actions flex shrink-0 items-center gap-1.5 sm:gap-2">
             <button type="button" aria-label={isChinese ? (soundEnabled ? "关闭声音" : "开启声音") : (soundEnabled ? "Mute sound" : "Enable sound")}
               title={soundEnabled ? "Sound on" : "Sound off"}
@@ -2160,7 +2210,7 @@ return (
               className="mh-dashboard-action rounded-xl bg-slate-800 px-2.5 py-2 text-sm font-semibold text-white ring-1 ring-slate-600 sm:px-3">
               <span aria-hidden="true">{soundEnabled ? "🔊" : "🔇"}</span><span className="hidden sm:inline"> Sound</span>
             </button>
-            <FinanceLanguageButton className="mh-dashboard-action" />
+            <FinanceLanguageButton className="mh-dashboard-action" compactOnMobile />
             <button type="button" onClick={signOut} aria-label={isChinese ? "退出登录" : "Sign out"} title={isChinese ? "退出登录" : "Sign out"}
               className="mh-dashboard-action rounded-xl bg-white px-2.5 py-2 text-sm font-semibold text-slate-900 sm:px-3">
               <span className="sm:hidden" aria-hidden="true">↪</span><span className="hidden sm:inline">Sign out</span>
@@ -2462,7 +2512,6 @@ return (
       />
     </FinanceOverlay>
 
-    <TodaySummaryCard stats={todaySummaryStats} />
 
 <FinanceTransferPanel
   transferForm={transferForm}
@@ -2481,7 +2530,94 @@ return (
   </div>
 
   <div className="space-y-6">
-            <Card><div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between"><h2 className="text-xl font-bold">Filters</h2><div className="flex flex-col gap-3 md:flex-row md:flex-wrap md:justify-end"><select value={filterMode} onChange={(e) => setFilterMode(e.target.value)} className="rounded-2xl border border-slate-200 px-4 py-3 outline-none"><option value="all">全部</option><option value="month">按月份</option><option value="year">按年份</option><option value="recent30">最近 30 天</option><option value="recent7">最近 7 天</option><option value="recent3">最近 3 天</option></select>{filterMode === "month" && <input type="month" value={selectedMonth} onChange={(e) => setSelectedMonth(e.target.value)} className="rounded-2xl border border-slate-200 px-4 py-3 outline-none" />}{filterMode === "year" && <input type="number" value={selectedYear} onChange={(e) => setSelectedYear(e.target.value)} className="rounded-2xl border border-slate-200 px-4 py-3 outline-none" />}<input value={keyword} onChange={(e) => setKeyword(e.target.value)} placeholder="Search category, method or note" className="rounded-2xl border border-slate-200 px-4 py-3 outline-none" /></div></div></Card>
+            <Card>
+              <div className="mh-analysis-filter flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+                <h2 className="text-xl font-bold">{isChinese ? "筛选" : "Filters"}</h2>
+                <div className="mh-analysis-filter__controls flex flex-wrap items-center gap-2">
+                  <select value={filterMode} onChange={event => setFilterMode(event.target.value)}
+                    aria-label={isChinese ? "筛选时间范围" : "Date range"}
+                    className="rounded-2xl border border-slate-200 px-3 py-3 outline-none">
+                    <option value="all">{isChinese ? "全部" : "All Time"}</option>
+                    <option value="month">{isChinese ? "按月份" : "By Month"}</option>
+                    <option value="year">{isChinese ? "按年份" : "By Year"}</option>
+                    <option value="recent30">{isChinese ? "最近 30 天" : "Last 30 Days"}</option>
+                    <option value="recent7">{isChinese ? "最近 7 天" : "Last 7 Days"}</option>
+                    <option value="recent3">{isChinese ? "最近 3 天" : "Last 3 Days"}</option>
+                  </select>
+                  {filterMode === "month" && <input type="month" value={selectedMonth}
+                    onChange={event => setSelectedMonth(event.target.value)}
+                    aria-label={isChinese ? "选择月份" : "Choose month"}
+                    className="rounded-2xl border border-slate-200 px-3 py-3 outline-none" />}
+                  {filterMode === "year" && <input type="number" value={selectedYear}
+                    onChange={event => setSelectedYear(event.target.value)}
+                    aria-label={isChinese ? "选择年份" : "Choose year"}
+                    className="rounded-2xl border border-slate-200 px-3 py-3 outline-none" />}
+                  <button type="button" ref={categoryPickerTriggerRef} aria-haspopup="dialog"
+                    aria-expanded={categoryPickerOpen} aria-label={isChinese ? "选择分析分类" : "Choose analysis category"}
+                    onClick={() => setCategoryPickerOpen(true)}
+                    className="mh-modal-trigger mh-analysis-filter__category rounded-2xl border border-slate-200 bg-white px-3 py-3 text-sm font-semibold text-slate-700">
+                    <span aria-hidden="true">◈</span>
+                    <span className="min-w-0 truncate" data-i18n-ignore={!!selectedCategoryFilter}>
+                      {selectedCategoryFilter ? formatCategoryLabel(selectedCategoryFilter.category) : (isChinese ? "选择 Category" : "Select Category")}
+                    </span>
+                    <span aria-hidden="true">⌄</span>
+                  </button>
+                  <button type="button" onClick={() => setTextSearchOpen(v => keyword ? true : !v)}
+                    aria-expanded={textSearchOpen || Boolean(keyword)} aria-label={isChinese ? "文字搜索" : "Text search"}
+                    title={isChinese ? "文字搜索" : "Text search"}
+                    className={"mh-analysis-filter__search rounded-2xl border px-3 py-3 text-lg "+
+                      (keyword ? "border-blue-400 bg-blue-50 text-blue-700" : "border-slate-200 bg-white text-slate-700")}>
+                    <svg aria-hidden="true" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor"
+                      strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <circle cx="10.8" cy="10.8" r="6.8"/><path d="m16 16 5 5"/>
+                    </svg>
+                  </button>
+                </div>
+              </div>
+              {(textSearchOpen || keyword) && (
+                <div className="mh-analysis-filter__keyword mt-3 flex items-center gap-2">
+                  <input value={keyword} onChange={event => setKeyword(event.target.value)}
+                    autoFocus={textSearchOpen}
+                    aria-label={isChinese ? "搜索分类、支付方式或备注" : "Search category, method or note"}
+                    placeholder={isChinese ? "搜索分类、付款方式或备注" : "Search category, method or note"}
+                    className="min-w-0 flex-1 rounded-xl border border-slate-200 px-3 py-2.5 outline-none" />
+                  <button type="button" onClick={() => { setKeyword(""); setTextSearchOpen(false); }}
+                    className="min-h-11 rounded-xl border border-slate-200 px-3 text-sm font-semibold text-slate-600">
+                    {isChinese ? "清除" : "Clear"}
+                  </button>
+                </div>
+              )}
+              {selectedCategoryFilter && (
+                <div className="mh-analysis-filter__scope mt-2 flex flex-wrap items-center gap-2 text-xs">
+                  <span className="font-semibold text-slate-600">
+                    {isChinese ? "当前分类：" : "Category: "}
+                    <span data-i18n-ignore>{formatCategoryLabel(selectedCategoryFilter.category)}</span>
+                  </span>
+                  <button type="button" onClick={() => setCategoryFilterKey("all")}
+                    className="rounded-full border border-slate-200 bg-slate-50 px-2 py-1 font-semibold text-slate-700">
+                    {isChinese ? "全部分类" : "All Categories"} ×
+                  </button>
+                  <span className="text-slate-500">
+                    {isChinese ? "真实期间余额不受分类筛选影响" : "Real period balance is not category-filtered"}
+                  </span>
+                </div>
+              )}
+            </Card>
+            <FinanceOverlay open={categoryPickerOpen}
+              title={isChinese ? "选择分类" : "Select Category"}
+              widthClass="max-w-lg" triggerRef={categoryPickerTriggerRef}
+              onClose={() => setCategoryPickerOpen(false)}>
+              <FinanceCategoryFilterPicker choices={categoryChoices}
+                selectedKey={selectedCategoryFilter?.key || "all"}
+                formatCategoryLabel={formatCategoryLabel} isChinese={isChinese}
+                onSelect={key => {
+                  setCategoryFilterKey(key);
+                  setTrendCategory("all");
+                  setTopExpenseCategory("all");
+                  setCategoryPickerOpen(false);
+                }}
+              />
+            </FinanceOverlay>
             <section className="grid gap-4 md:grid-cols-3">
               <StatCard title="Filtered Income" value={money(filteredIncome)} icon="📈" desc={"Current filter: " + filterLabel} />
               <StatCard title="Filtered Expense" value={money(filteredExpense)} icon="📉" desc={"Current filter: " + filterLabel}
@@ -2492,7 +2628,7 @@ return (
                     📊
                 </button>}
               />
-              <BalanceCard title="Filtered Balance" value={filteredIncome - filteredExpense} desc={"Period net change (Opening Balance excluded): " + filterLabel} limit={balanceLimit} />
+              <BalanceCard title="Filtered Balance" value={periodIncome - periodExpense} desc={"Period net change (Opening Balance excluded): " + filterLabel} limit={balanceLimit} />
             </section>
             <FinanceOverlay open={budgetOpen} title="Monthly Budget / 分类预算"
               onClose={() => {
@@ -2527,14 +2663,16 @@ return (
               <div className="min-w-0">
                 <TopExpensesCard
                   records={topExpenses} label={filterLabel}
-                  category={topExpenseCategory} setCategory={setTopExpenseCategory}
+                  category={activeExpenseCategory || topExpenseCategory} setCategory={setTopExpenseCategory}
+                  lockedCategory={Boolean(activeExpenseCategory)}
                   expenseCategoryOptions={expenseCategoryOptions}
                 />
               </div>
             </section>
             <section className="grid gap-6 xl:grid-cols-2">
               <Card><h2 className="text-xl font-bold">Daily Income vs Expense</h2><p className="mt-1 text-sm text-slate-500">Current range: {filterLabel}</p><div className="mt-4 h-64">{dailyData.length ? <ResponsiveContainer width="100%" height="100%"><BarChart data={dailyData}><CartesianGrid strokeDasharray="3 3" /><XAxis dataKey="day" /><YAxis /><Tooltip formatter={(v) => money(v)} /><Legend /><Bar isAnimationActive={false} dataKey="income" name="Income" fill="#22c55e" /><Bar isAnimationActive={false} dataKey="expense" name="Expense" fill="#ef4444" /></BarChart></ResponsiveContainer> : <div className="flex h-full items-center justify-center text-slate-500">No data.</div>}</div><div className="mt-5 rounded-2xl bg-slate-50 p-3 ring-1 ring-slate-200"><div className="mb-2 flex justify-between gap-2"><p className="text-sm font-bold text-slate-700">消费趋势图</p><select
-  value={trendCategory}
+  value={activeExpenseCategory || trendCategory}
+  disabled={Boolean(activeExpenseCategory)}
   onChange={(e) => setTrendCategory(e.target.value)}
   className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-semibold"
 >
@@ -2576,9 +2714,9 @@ return (
               onKindChange={setExpandedTrend}
               onClose={() => setExpandedTrend(null)}
               data={trendData}
-              dailyData={dailyData}
-              records={filteredRecords}
-              category={trendCategory}
+              dailyData={expandedTrend === "balance" ? periodDailyData : dailyData}
+              records={expandedTrend === "balance" ? periodRecords : chartRecords}
+              category={activeExpenseCategory || trendCategory}
               alertLimit={balanceLimit}
               filterLabel={filterLabel}
             />
@@ -2765,10 +2903,10 @@ categoryOptionsFor={categoryOptionsFor}
       <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
         <p className="font-semibold text-slate-500">Total ({filteredRecords.length} records)</p>
         <div className="flex flex-wrap gap-2">
-          <span className="rounded-xl bg-green-50 px-3 py-2 text-xs font-bold text-green-600">+{money(filteredIncome)}</span>
-          <span className="rounded-xl bg-red-50 px-3 py-2 text-xs font-bold text-red-600">-{money(filteredExpense)}</span>
-          <span className={`rounded-xl px-3 py-2 text-xs font-bold ${filteredIncome - filteredExpense >= 0 ? "bg-white text-slate-900" : "bg-red-100 text-red-700"}`}>
-            = {money(filteredIncome - filteredExpense)}
+          <span className="rounded-xl bg-green-50 px-3 py-2 text-xs font-bold text-green-600">+{money(transactionFilteredIncome)}</span>
+          <span className="rounded-xl bg-red-50 px-3 py-2 text-xs font-bold text-red-600">-{money(transactionFilteredExpense)}</span>
+          <span className={`rounded-xl px-3 py-2 text-xs font-bold ${transactionFilteredIncome - transactionFilteredExpense >= 0 ? "bg-white text-slate-900" : "bg-red-100 text-red-700"}`}>
+            = {money(transactionFilteredIncome - transactionFilteredExpense)}
           </span>
         </div>
       </div>
