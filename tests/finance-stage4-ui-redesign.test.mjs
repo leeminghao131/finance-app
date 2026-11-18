@@ -9,6 +9,7 @@ const src=name=>readFileSync(new URL("../src/"+name,import.meta.url),"utf8");
 test("All custom and builtin methods sit at equally spaced radial positions",()=>{
   const methods=["BANK","TNG","CASH","GRAB PAY","支付宝"];
   const ring=orbitGeometry(methods);
+  assert.ok(ring.radius>=143);
   assert.equal(ring.count,5);
   assert.equal(ring.nodes.length,5);
   assert.deepEqual(ring.nodes.map(node=>node.method),methods);
@@ -66,7 +67,7 @@ test("Circular transfer nodes support both tap and pointer drag with accessible 
   assert.match(orbit,/onFrom\(pendingSource\);onTo\(method\)/);
   assert.match(orbit,/onTo\(""\)/);
   assert.match(orbit,/className="mh-transfer-orbit__amount"/);
-  assert.match(orbit,/scrollLeft=\(viewport\.scrollWidth-viewport\.clientWidth\)\/2/);
+  assert.match(orbit,/scrollLeft=Math\.max\(0,\(viewport\.scrollWidth-viewport\.clientWidth\)\/2\)/);
   assert.match(css,/@media\(prefers-reduced-motion:reduce\)/);
   assert.match(css, /\.mh-transfer-orbit__wire/);
   assert.match(css, /\.mh-transfer-orbit__node\.is-target/);
