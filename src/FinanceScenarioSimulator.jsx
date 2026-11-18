@@ -113,7 +113,7 @@ export default function FinanceScenarioSimulator({records=[],totalBalance=0,user
       <p className={"mt-1 break-words text-base font-bold tabular-nums "+accent}>{money(value)}</p>
     </div>);
   return <>
-    <button ref={triggerRef} type="button" disabled={disabled} onClick={()=>setOpen(true)}
+    <button ref={triggerRef} type="button" disabled={disabled} aria-haspopup="dialog" aria-expanded={open} onClick={()=>setOpen(true)}
       className={dockButton
         ?"mh-insights-dock__button"
         :"mh-modal-trigger rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm font-bold text-slate-800 disabled:opacity-50"}>

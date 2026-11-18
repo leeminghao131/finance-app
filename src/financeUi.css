@@ -43,10 +43,9 @@
   .mh-ui *, .mh-ui *::before, .mh-ui *::after { scroll-behavior: auto !important; transition-duration: .01ms !important; }
 }
 
-/* All clickable controls share a quiet, continuous hover vibration.
-   Independent CSS translate/rotate properties preserve existing transform-based
-   Transfer orbital placement, drawer dragging and overlay animations.
-   Chart zoom surfaces are div[role=button], intentionally not targeted. */
+/* Only buttons that actually open a floating menu/dialog vibrate on desktop hover.
+   Non-button trend zoom surfaces intentionally remain completely still. Do not
+   animate submit/delete/tab/reorder controls. Long press and touch are excluded. */
 @keyframes mh-universal-hover-vibrate {
   0%, 100% { translate: 0 0; rotate: 0deg; }
   25% { translate: -0.8px 0.2px; rotate: -0.2deg; }
@@ -54,16 +53,15 @@
   75% { translate: -0.45px -0.15px; rotate: -0.12deg; }
 }
 @media (hover: hover) and (pointer: fine) {
-  .mh-ui button:not(:disabled):not(:active):hover,
-  [role="dialog"] button:not(:disabled):not(:active):hover,
-  .mh-stage2-notifications button:not(:disabled):not(:active):hover {
+  button:is(.mh-modal-trigger, [aria-haspopup="dialog"], [aria-haspopup="menu"]):not(:disabled):not(:active):hover {
     animation: mh-universal-hover-vibrate .17s linear infinite;
   }
 }
-/* Reduced-motion users and touch interactions are deliberately not animated. */
 @media (prefers-reduced-motion: reduce) {
-  .mh-ui button, [role="dialog"] button, .mh-stage2-notifications button {
-    animation: none !important; translate: none !important; rotate: none !important;
+  button:is(.mh-modal-trigger, [aria-haspopup="dialog"], [aria-haspopup="menu"]) {
+    animation: none !important;
+    translate: none !important;
+    rotate: none !important;
   }
 }
 
@@ -766,4 +764,87 @@
   .mh-notification-emblem__ring,
   .mh-notification-emblem__bell,
   .mh-notification-emblem__signal { animation: none !important; }
+}
+
+/* Icon-only floating launchers: same brass / slate-steel palette as Money Transfer.
+   The notification count stays visible, without any word label on the button. */
+.mh-stage2-notifications__bell {
+  width: 56px;
+  height: 56px;
+  min-height: 56px;
+  padding: 0;
+  gap: 0;
+  border-radius: 17px;
+  position: relative;
+}
+.mh-stage2-notifications__count {
+  position: absolute;
+  top: -5px;
+  right: -5px;
+  z-index: 1;
+  min-width: 20px;
+  min-height: 20px;
+  padding: 2px 4px;
+  font-size: 10px;
+  line-height: 1;
+  pointer-events: none;
+}
+.mh-rule-assistant__launcher {
+  display: grid;
+  place-items: center;
+  width: 58px;
+  height: 58px;
+  min-width: 58px;
+  min-height: 58px;
+  padding: 3px;
+  border-radius: 17px;
+  background: linear-gradient(142deg,#1c2b3c 0%,#30475a 48%,#302728 100%);
+  border: 1px solid #cbaa75;
+  box-shadow: 0 8px 25px #10182765, inset 0 1px 0 #fae5b72c;
+  cursor: pointer;
+}
+.mh-rule-assistant__launcher > .mh-steampunk-assistant-emblem {
+  margin: 0;
+  font-size: inherit;
+}
+.mh-steampunk-assistant-emblem {
+  display: inline-grid;
+  place-items: center;
+  width: 49px;
+  height: 49px;
+  flex: 0 0 auto;
+}
+.mh-steampunk-assistant-emblem svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+}
+.mh-steampunk-assistant-emblem.is-compact {
+  width: 28px;
+  height: 28px;
+}
+.mh-steampunk-assistant-emblem__orbit,
+.mh-steampunk-assistant-emblem__gear {
+  transform-box: view-box;
+  transform-origin: center;
+}
+.mh-steampunk-assistant-emblem__orbit {
+  animation: mh-steampunk-assistant-spin 14s linear infinite;
+}
+.mh-steampunk-assistant-emblem__gear {
+  animation: mh-steampunk-assistant-spin 22s linear infinite reverse;
+}
+.mh-steampunk-assistant-emblem__eyes {
+  animation: mh-steampunk-assistant-glow 3s ease-in-out infinite;
+}
+@keyframes mh-steampunk-assistant-spin { to { transform: rotate(360deg); } }
+@keyframes mh-steampunk-assistant-glow {
+  0%, 100% { opacity: .85; }
+  55% { opacity: 1; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .mh-steampunk-assistant-emblem__orbit,
+  .mh-steampunk-assistant-emblem__gear,
+  .mh-steampunk-assistant-emblem__eyes { animation: none !important; }
 }

@@ -87,7 +87,7 @@ export default function FinanceMobileRecords({ records, onUpdate, onDelete, onEd
             </span>}
           </div>
           <div className="mt-4 flex gap-3 border-t border-slate-100 pt-3">
-            {item.fx_currency&&<button type="button" onClick={e=>onEditFx(item,e.currentTarget)}
+            {item.fx_currency&&<button type="button" aria-haspopup="dialog" onClick={e=>onEditFx(item,e.currentTarget)}
               className="mh-touch rounded-xl border border-blue-300 px-3 text-xs font-bold text-blue-700">FX Edit</button>}
             <button type="button" onClick={event => { editTriggerRef.current = event.currentTarget; startEdit(item); }} className="mh-modal-trigger mh-touch flex-1 rounded-xl bg-slate-900 px-4 py-2.5 text-sm font-bold text-white">Edit</button>
             <button type="button" onClick={() => setConfirmDelete(confirmDelete === item.id ? null : item.id)}

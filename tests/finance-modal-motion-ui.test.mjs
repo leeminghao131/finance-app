@@ -31,8 +31,8 @@ test("Every FinanceOverlay uses the 300ms button-origin animation, reversed on c
   assert.doesNotMatch(overlay, /fullBox|viewportOvershoot|1\.1\) scale\(/);
   assert.match(overlay, /prefers-reduced-motion: reduce/);
   assert.match(ui, /mh-universal-hover-vibrate/);
-  assert.match(ui, /\.mh-ui button:not\(:disabled\):not\(:active\):hover/);
-  assert.match(ui, /\[role="dialog"\] button:not\(:disabled\):not\(:active\):hover/);
+  assert.ok(ui.includes('button:is(.mh-modal-trigger, [aria-haspopup="dialog"], [aria-haspopup="menu"]):not(:disabled):not(:active):hover'));
+  assert.doesNotMatch(ui, /\.mh-ui button:not\(:disabled\):not\(:active\):hover/);
   assert.match(ui, /infinite/);
 });
 

@@ -38,18 +38,43 @@ test("Empty new-entry fields never present a prefilled 0.00; stored historical v
   assert.match(app, /async function deleteRecord\(/);
 });
 
-test("Every desktop button vibrates continuously without shifting the two clickable trends", () => {
+test("Only buttons opening floating dialogs or menus vibrate, never ordinary controls or trends", () => {
   assert.match(css, /@keyframes mh-universal-hover-vibrate/);
-  assert.match(css, /\.mh-ui button:not\(:disabled\):not\(:active\):hover/);
-  assert.match(css, /\[role="dialog"\] button:not\(:disabled\):not\(:active\):hover/);
-  assert.match(css, /\.mh-stage2-notifications button:not\(:disabled\):not\(:active\):hover/);
+  assert.ok(css.includes('button:is(.mh-modal-trigger, [aria-haspopup="dialog"], [aria-haspopup="menu"]):not(:disabled):not(:active):hover'));
+  assert.doesNotMatch(css, /\.mh-ui button:not\(:disabled\):not\(:active\):hover/);
+  assert.doesNotMatch(css, /\[role="dialog"\] button:not\(:disabled\):not\(:active\):hover/);
+  assert.doesNotMatch(css, /\.mh-stage2-notifications button:not\(:disabled\):not\(:active\):hover/);
   assert.match(css, /\.17s linear infinite/);
   assert.match(css, /@media \(hover: hover\) and \(pointer: fine\)/);
   assert.match(css, /@media \(prefers-reduced-motion: reduce\)/);
-  assert.doesNotMatch(css, /\.mh-ui \[role="button"\]:hover/);
   assert.match(app, /aria-label="Expand Spending Trend"/);
   assert.match(app, /aria-label="Expand Filtered Balance Trend"/);
   assert.match(app, /role="button" tabIndex=\{0\} aria-label="Expand Spending Trend"/);
+});
+
+test("Icon-only metallic alerts and steampunk assistant retain accessible names and original popup actions", () => {
+  const assistant = read("FinanceRuleAssistant.jsx");
+  const robot = read("FinanceAssistantEmblem.jsx");
+  const dock = read("FinanceInsightsDock.jsx");
+  assert.match(stage2, /<FinanceNotificationEmblem active=\{alertCount>0\}/);
+  assert.doesNotMatch(stage2, /<span>\{t\("提醒","Alerts"\)\}<\/span>/);
+  assert.match(stage2, /aria-haspopup="menu"/);
+  assert.match(stage2, /aria-label=\{t\("查看财务提醒","Open finance reminders"\)\}/);
+  assert.match(stage2, /mh-stage2-notifications__count/);
+  assert.match(assistant, /<FinanceAssistantEmblem \/>/);
+  assert.match(assistant, /<FinanceAssistantEmblem compact \/>/);
+  assert.doesNotMatch(assistant, /<span aria-hidden="true">🤖<\/span>/);
+  assert.match(assistant, /aria-label=\{zh\?"财务小助手":"Finance assistant"\}/);
+  assert.match(assistant, /aria-haspopup="dialog"/);
+  assert.match(assistant, /ASSISTANT_SUGGESTIONS\.map/);
+  assert.match(robot, /steampunk robot/);
+  assert.match(robot, /<svg viewBox="0 0 64 64"/);
+  assert.match(robot, /mh-steampunk-assistant-emblem__eyes/);
+  assert.match(css, /mh-steampunk-assistant-spin/);
+  assert.match(css, /mh-steampunk-assistant-glow/);
+  assert.match(dock, /aria-haspopup="dialog"/);
+  assert.doesNotMatch(robot, /supabase|fetch\(|localStorage|\.insert\(|\.update\(|\.delete\(/);
+  assert.doesNotMatch(stage2, /supabase\.from\(/);
 });
 
 test("Notification emblem is a decorative animated SVG and reuses existing actionable alerts", () => {
