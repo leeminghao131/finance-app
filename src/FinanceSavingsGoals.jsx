@@ -94,8 +94,8 @@ export default function FinanceSavingsGoals({goals=[],onSave,disabled=false,savi
     {message&&<p role="status" className="mt-3 text-sm text-emerald-700">{message}</p>}
     {error&&<p role="alert" className="mt-3 text-sm text-red-700">{error}</p>}
     <div className="mt-3 rounded-xl bg-slate-50 p-3 text-sm ring-1 ring-slate-200">
-      <p className="font-semibold text-slate-700">Available savings (shared, read-only): <span className="text-slate-900">{money(available)}</span></p>
-      <p className="mt-1 text-xs text-slate-600">Current Balance {money(overallBalance)} − {budgetMonth} Remaining Budget {money(reservedBudget)} = {money(savingsAvailability?.netAfterBudget ?? 0)}</p>
+      <p className="font-semibold text-slate-700">{zh?"共享可用储蓄余额（只读）":"Available savings (shared, read-only)"}: <span className="text-slate-900">{money(available)}</span></p>
+      <p className="mt-1 text-xs text-slate-600">{zh?"当前总余额":"Current Balance"} {money(overallBalance)} − {budgetMonth} {zh?"当月剩余预算":"Unspent monthly budget"} {money(reservedBudget)} = {money(savingsAvailability?.netAfterBudget ?? 0)}</p>
       {shortfall>0&&<p className="mt-1 text-xs font-semibold text-amber-800">Budget exceeds Balance by {money(shortfall)}. Available savings shown as RM0.00.</p>}
       
     </div>
@@ -175,9 +175,9 @@ export default function FinanceSavingsGoals({goals=[],onSave,disabled=false,savi
           </div>}
 
         <div className="rounded-xl bg-slate-50 p-3 text-sm">
-          <p className="text-slate-600">Shared available savings (not goal progress)</p>
+          <p className="text-slate-600">{zh?"共享可用储蓄余额（不等于目标进度）":"Shared available savings (not goal progress)"}</p>
           <p className="mt-1 font-bold text-slate-900">{money(available)}</p>
-          <p className="text-xs text-slate-500">Current Balance − {budgetMonth} unspent budget. Separate from Auto mode, which uses full Monthly Budget × X.</p>
+          <p className="text-xs text-slate-500">{zh?"当前总余额 − "+budgetMonth+" 当月未使用预算；自动模式另外使用当月完整预算 × X。":"Current Balance − "+budgetMonth+" unspent budget. Auto mode separately uses the full monthly budget × X."}</p>
         </div>
         <label className="text-sm">Target date (optional)
           <input type="date" value={draft.deadline} onChange={e=>setDraft(p=>({...p,deadline:e.target.value}))}
