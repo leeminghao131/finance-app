@@ -2404,7 +2404,8 @@ return (
               <label className="mh-entry-note block"><span className="text-sm font-medium text-slate-600">Note</span><input value={form.note} onChange={(e) => setForm((p) => ({ ...p, note: e.target.value }))} className="mt-1 w-full rounded-2xl border border-slate-200 px-4 py-3 outline-none" /></label>
 <div className="mh-entry-category-chips" role="group" aria-label={isChinese ? "常用分类快捷选择" : "Quick category choices"}>
   {[...new Set([...(form.type === "expense" ? ["饮食","交通","日用","娱乐"] : ["Salary","Allowance","Gift","Others"])
-    .filter(category => categoryOptionsFor(form.type).includes(category)),form.category])].map(category => (
+    .filter(category => categoryOptionsFor(form.type).includes(category)),
+    ...(categoryOptionsFor(form.type).includes(form.category) ? [form.category] : [])])].map(category => (
     <button key={category} type="button" aria-pressed={form.category === category}
       onClick={() => { setForm(previous => ({ ...previous, category })); setDeleteOptionPanel({kind:"",type:""}); }}>
       {formatCategoryLabel(category)}
