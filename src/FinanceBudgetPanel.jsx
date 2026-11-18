@@ -123,7 +123,7 @@ export default function FinanceBudgetPanel({
             </div>}
             <label className="mt-3 block text-xs text-slate-600">Budget for {budgetMonth} (RM)
               <input type="text" inputMode="decimal" value={draft[row.category]??""}
-                placeholder="Not set" onChange={e=>change(row.category,e.target.value)}
+                onChange={e=>change(row.category,e.target.value)}
                 className="mt-1 w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm outline-none"/>
             </label>
             {row.hasBudget && <p className="mt-1 text-xs text-slate-500">Remaining {money(row.remaining)}</p>}
