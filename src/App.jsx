@@ -346,7 +346,7 @@ function HeatmapCard({ days, label }) {
   );
 }
 
-function TopExpensesCard({ records, label, category, setCategory, expenseCategoryOptions }) {
+function TopExpensesCard({ records, label, category, setCategory, expenseCategoryOptions, lockedCategory = false }) {
   return (
     <Card>
       <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
@@ -359,6 +359,7 @@ function TopExpensesCard({ records, label, category, setCategory, expenseCategor
 
         <select
           value={category}
+          disabled={lockedCategory}
           onChange={(event) => setCategory(event.target.value)}
           className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-semibold outline-none"
         >
@@ -2624,7 +2625,7 @@ return (
                     📊
                 </button>}
               />
-              <BalanceCard title="Filtered Balance" value={filteredIncome - filteredExpense} desc={"Period net change (Opening Balance excluded): " + filterLabel} limit={balanceLimit} />
+              <BalanceCard title="Filtered Balance" value={periodIncome - periodExpense} desc={"Period net change (Opening Balance excluded): " + filterLabel} limit={balanceLimit} />
             </section>
             <FinanceOverlay open={budgetOpen} title="Monthly Budget / 分类预算"
               onClose={() => {
@@ -2659,14 +2660,16 @@ return (
               <div className="min-w-0">
                 <TopExpensesCard
                   records={topExpenses} label={filterLabel}
-                  category={topExpenseCategory} setCategory={setTopExpenseCategory}
+                  category={activeExpenseCategory || topExpenseCategory} setCategory={setTopExpenseCategory}
+                  lockedCategory={Boolean(activeExpenseCategory)}
                   expenseCategoryOptions={expenseCategoryOptions}
                 />
               </div>
             </section>
             <section className="grid gap-6 xl:grid-cols-2">
               <Card><h2 className="text-xl font-bold">Daily Income vs Expense</h2><p className="mt-1 text-sm text-slate-500">Current range: {filterLabel}</p><div className="mt-4 h-64">{dailyData.length ? <ResponsiveContainer width="100%" height="100%"><BarChart data={dailyData}><CartesianGrid strokeDasharray="3 3" /><XAxis dataKey="day" /><YAxis /><Tooltip formatter={(v) => money(v)} /><Legend /><Bar isAnimationActive={false} dataKey="income" name="Income" fill="#22c55e" /><Bar isAnimationActive={false} dataKey="expense" name="Expense" fill="#ef4444" /></BarChart></ResponsiveContainer> : <div className="flex h-full items-center justify-center text-slate-500">No data.</div>}</div><div className="mt-5 rounded-2xl bg-slate-50 p-3 ring-1 ring-slate-200"><div className="mb-2 flex justify-between gap-2"><p className="text-sm font-bold text-slate-700">消费趋势图</p><select
-  value={trendCategory}
+  value={activeExpenseCategory || trendCategory}
+  disabled={Boolean(activeExpenseCategory)}
   onChange={(e) => setTrendCategory(e.target.value)}
   className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-semibold"
 >
@@ -2708,9 +2711,9 @@ return (
               onKindChange={setExpandedTrend}
               onClose={() => setExpandedTrend(null)}
               data={trendData}
-              dailyData={dailyData}
-              records={filteredRecords}
-              category={trendCategory}
+              dailyData={expandedTrend === "balance" ? periodDailyData : dailyData}
+              records={expandedTrend === "balance" ? periodRecords : chartRecords}
+              category={activeExpenseCategory || trendCategory}
               alertLimit={balanceLimit}
               filterLabel={filterLabel}
             />
@@ -2897,10 +2900,10 @@ categoryOptionsFor={categoryOptionsFor}
       <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
         <p className="font-semibold text-slate-500">Total ({filteredRecords.length} records)</p>
         <div className="flex flex-wrap gap-2">
-          <span className="rounded-xl bg-green-50 px-3 py-2 text-xs font-bold text-green-600">+{money(filteredIncome)}</span>
-          <span className="rounded-xl bg-red-50 px-3 py-2 text-xs font-bold text-red-600">-{money(filteredExpense)}</span>
-          <span className={`rounded-xl px-3 py-2 text-xs font-bold ${filteredIncome - filteredExpense >= 0 ? "bg-white text-slate-900" : "bg-red-100 text-red-700"}`}>
-            = {money(filteredIncome - filteredExpense)}
+          <span className="rounded-xl bg-green-50 px-3 py-2 text-xs font-bold text-green-600">+{money(transactionFilteredIncome)}</span>
+          <span className="rounded-xl bg-red-50 px-3 py-2 text-xs font-bold text-red-600">-{money(transactionFilteredExpense)}</span>
+          <span className={`rounded-xl px-3 py-2 text-xs font-bold ${transactionFilteredIncome - transactionFilteredExpense >= 0 ? "bg-white text-slate-900" : "bg-red-100 text-red-700"}`}>
+            = {money(transactionFilteredIncome - transactionFilteredExpense)}
           </span>
         </div>
       </div>
