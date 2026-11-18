@@ -89,10 +89,10 @@ export function confirmTransferRequest(userId,requestId,storage) {
 function decimalEquivalent(left,right){
   const canon=value=>{
     const raw=String(value??"").trim();
-    if(!/^\\d+(?:\\.\\d+)?$/.test(raw))return null;
+    if(!/^\d+(?:\.\d+)?$/.test(raw))return null;
     const [whole,frac=""]=raw.split(".");
     const suffix=frac.replace(/0+$/,"");
-    return whole.replace(/^0+(?=\\d)/,"")+(suffix?"."+suffix:"");
+    return whole.replace(/^0+(?=\d)/,"")+(suffix?"."+suffix:"");
   };
   const a=canon(left),b=canon(right);
   return a!==null&&b!==null&&a===b;
