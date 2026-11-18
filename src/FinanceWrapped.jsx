@@ -128,11 +128,11 @@ export default function FinanceWrapped({records=[],monthRows=[],budgetTemplate={
     </div>},
     {title:zh?"活动故事完成！":"Activity Wrapped complete!",body:<div className="text-center">
       <p className="text-5xl">✨</p><p className="mt-4 text-xl font-bold">{a.count} {zh?"笔支出":"Expenses"}</p>
-      <p className="mt-4 text-sm text-slate-300">{zh?"活动已保存在你的专属账号。":"Activity history remains linked to your own account."}</p>
+      
     </div>},
   ]:[];
   const slides=cur&&(mode==="activity"?activitySlides:[
-    {title:zh?"你的财务故事":"Your finance story",body:<div className="text-center"><p className="text-sm text-slate-300">MH Finance Wrapped</p><p className="mt-4 text-3xl font-bold text-amber-200">{w.label}</p><p className="mt-4 text-sm">{zh?"从已保存的记录生成":"Made from saved financial records"}</p></div>},
+    {title:zh?"你的财务故事":"Your finance story",body:<div className="text-center"><p className="text-sm text-slate-300">MH Finance Wrapped</p><p className="mt-4 text-3xl font-bold text-amber-200">{w.label}</p></div>},
     {title:zh?"收支总览":"Income & Expense",body:<div className="grid gap-3 sm:grid-cols-2">
       <div className={card}><p>{zh?"总收入":"Income"}</p><p className="mt-1 text-xl font-bold text-emerald-300">{display(cur.income)}</p></div>
       <div className={card}><p>{zh?"总支出":"Expense"}</p><p className="mt-1 text-xl font-bold text-rose-300">{display(cur.expense)}</p></div>
@@ -159,7 +159,7 @@ export default function FinanceWrapped({records=[],monthRows=[],budgetTemplate={
       <p className="text-xs text-slate-300">{zh?"预算额度不等于实际现金。":"Budget allocation is not actual cash."}</p>
     </div>},
     {title:zh?"与上一期间相比":"Compared with prior period",body:<div className="space-y-3">{[["Income",w.changes.income],["Expense",w.changes.expense],["Net",w.changes.net]].map(([name,change])=><div key={name} className="flex justify-between gap-3 rounded-xl bg-white/10 p-3"><span>{name}</span><b>{hideAmounts?"RM ••••":(change>0?"+":"")+money(change)}</b></div>)}<p className="text-xs text-slate-400">Compared with the immediately preceding period of equal length.</p></div>},
-    {title:zh?"下一个目标":"Your next chapter",body:<div className="text-center"><p className="text-3xl">✨</p><p className="mt-4 text-xl font-bold">{cur.count} {zh?"笔收支记录":"recorded transactions"}</p><p className="mt-4 text-sm text-slate-300">{zh?"持续记录，让财务故事更清晰。":"Keep tracking to make your next review more meaningful."}</p></div>},
+    {title:zh?"下一个目标":"Your next chapter",body:<div className="text-center"><p className="text-3xl">✨</p><p className="mt-4 text-xl font-bold">{cur.count} {zh?"笔收支记录":"recorded transactions"}</p></div>},
   ]);
   return <>
     <button ref={triggerRef} type="button" disabled={disabled} onClick={()=>{setSlide(0);setOpen(true);}}
@@ -210,7 +210,7 @@ export default function FinanceWrapped({records=[],monthRows=[],budgetTemplate={
       <div className="mt-3 flex flex-wrap items-center gap-3">
         <button type="button" disabled={!w} onClick={()=>{try{exportStoryImage(w,hideAmounts);setError("");}catch(e){setError(e.message);}}}
           className="rounded-xl bg-slate-900 px-4 py-3 text-sm font-semibold text-white disabled:opacity-50">Save summary as PNG</button>
-        <p className="text-xs text-slate-500">PNG is generated on your device, not uploaded to a server.</p>
+        
       </div>
       {error&&<p role="alert" className="mt-2 text-sm text-red-700">{error}</p>}
       <p className="mt-3 text-xs text-slate-500">{w?.disclaimer||"Only verified records are included."}</p>
