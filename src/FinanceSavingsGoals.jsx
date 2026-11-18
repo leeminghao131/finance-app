@@ -124,6 +124,12 @@ export default function FinanceSavingsGoals({goals=[],onSave,disabled=false,savi
           <input required type="text" inputMode="decimal" value={draft.target} onChange={e=>setDraft(p=>({...p,target:e.target.value}))}
             className="mt-1 w-full rounded-xl border border-slate-300 px-3 py-2"/>
         </label>
+        <label className="text-sm">Saved towards this goal (RM)
+          <input required type="text" inputMode="decimal" value={draft.saved}
+            onChange={e=>setDraft(p=>({...p,saved:e.target.value}))}
+            className="mt-1 w-full rounded-xl border border-slate-300 px-3 py-2"/>
+          <span className="mt-1 block text-xs text-slate-500">Manual progress only; does not create an Income or Transfer.</span>
+        </label>
         <div className="rounded-xl bg-slate-50 p-3 text-sm">
           <p className="text-slate-600">Shared available savings (not goal progress)</p>
           <p className="mt-1 font-bold text-slate-900">{money(available)}</p>
