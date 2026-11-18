@@ -72,7 +72,7 @@ export default function FinanceSavingsGoals({goals=[],onSave,disabled=false,savi
   return <section aria-label="Savings Goals" className="rounded-2xl bg-white p-4 shadow-sm ring-1 ring-slate-200 sm:p-5">
     <div className="flex flex-wrap items-center justify-between gap-3">
       <div><h2 className="text-lg font-bold text-slate-900">Savings Goals</h2>
-        <p className="mt-1 text-xs text-slate-500">Available savings are calculated from total Balance minus the current month budget. Goals do not move money or create transactions.</p>
+        
       </div>
       <button type="button" disabled={disabled||busy||goals.length>=50} onClick={event=>start(null,event.currentTarget)}
         className="mh-modal-trigger min-h-11 rounded-xl bg-slate-900 px-4 py-2 text-sm font-bold text-white disabled:opacity-50">
@@ -85,7 +85,7 @@ export default function FinanceSavingsGoals({goals=[],onSave,disabled=false,savi
       <p className="font-semibold text-slate-700">Available savings (shared): <span className="text-slate-900">{money(available)}</span></p>
       <p className="mt-1 text-xs text-slate-600">Total Balance {money(overallBalance)} − {budgetMonth} Monthly Budget {money(reservedBudget)} = {money(savingsAvailability?.netAfterBudget ?? 0)}</p>
       {shortfall>0&&<p className="mt-1 text-xs font-semibold text-amber-800">Budget exceeds Balance by {money(shortfall)}. Available savings shown as RM0.00.</p>}
-      <p className="mt-1 text-xs text-slate-500">This is one shared amount across all goals, not separate allocations. It is an estimate, not verified bank savings.</p>
+      
     </div>
     {!all.length&&!editor&&<p className="mt-4 rounded-xl bg-slate-50 p-4 text-sm text-slate-500">No Savings Goals yet. Add one to start tracking your progress.</p>}
     <div className="mt-3 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
@@ -134,7 +134,7 @@ export default function FinanceSavingsGoals({goals=[],onSave,disabled=false,savi
             className="mt-1 w-full rounded-xl border border-slate-300 px-3 py-2"/>
         </label>
       </div>
-      <p className="mt-3 text-xs text-amber-800">Available savings update automatically from your ledger and current-month budget. They are shared by all goals; editing goals never changes real transactions.</p>
+      
       <div className="mt-4 flex flex-wrap gap-2">
         <button type="submit" disabled={disabled||busy} className="rounded-xl bg-emerald-700 px-4 py-2 text-sm font-bold text-white disabled:opacity-50">{busy?"Saving...":"Save Goal"}</button>
         <button type="button" disabled={busy} onClick={close} className="rounded-xl border border-slate-300 px-4 py-2 text-sm">Cancel</button>
