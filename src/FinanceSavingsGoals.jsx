@@ -82,21 +82,21 @@ export default function FinanceSavingsGoals({goals=[],onSave,disabled=false,savi
     {message&&<p role="status" className="mt-3 text-sm text-emerald-700">{message}</p>}
     {error&&<p role="alert" className="mt-3 text-sm text-red-700">{error}</p>}
     <div className="mt-3 rounded-xl bg-slate-50 p-3 text-sm ring-1 ring-slate-200">
-      <p className="font-semibold text-slate-700">Available savings (shared): <span className="text-slate-900">{money(available)}</span></p>
-      <p className="mt-1 text-xs text-slate-600">Total Balance {money(overallBalance)} − {budgetMonth} Monthly Budget {money(reservedBudget)} = {money(savingsAvailability?.netAfterBudget ?? 0)}</p>
+      <p className="font-semibold text-slate-700">Available savings (shared, read-only): <span className="text-slate-900">{money(available)}</span></p>
+      <p className="mt-1 text-xs text-slate-600">Current Balance {money(overallBalance)} − {budgetMonth} Remaining Budget {money(reservedBudget)} = {money(savingsAvailability?.netAfterBudget ?? 0)}</p>
       {shortfall>0&&<p className="mt-1 text-xs font-semibold text-amber-800">Budget exceeds Balance by {money(shortfall)}. Available savings shown as RM0.00.</p>}
       
     </div>
     {!all.length&&!editor&&<p className="mt-4 rounded-xl bg-slate-50 p-4 text-sm text-slate-500">No Savings Goals yet. Add one to start tracking your progress.</p>}
     <div className="mt-3 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
       {all.map(g=>{
-        const p=savingsGoalProgress({...g,saved:available});
+        const p=savingsGoalProgress(g);
         return <article key={g.id} className="min-w-0 rounded-xl border border-slate-200 bg-slate-50 p-4">
           <div className="flex items-start justify-between gap-2">
             <h3 className="break-words text-sm font-bold text-slate-900" data-i18n-ignore>{g.title}</h3>
             <span className={"shrink-0 text-xs font-semibold "+(p.completed?"text-emerald-700":"text-slate-500")}>{p.completed?"Completed":"In progress"}</span>
           </div>
-          <p className="mt-2 text-lg font-bold text-slate-900">{money(available)} <span className="text-sm font-normal text-slate-500">/ {money(g.target)}</span></p>
+          <p className="mt-2 text-lg font-bold text-slate-900">{money(g.saved)} <span className="text-sm font-normal text-slate-500">/ {money(g.target)}</span></p>
           <div className="mt-2 h-2 w-full overflow-hidden rounded-full bg-slate-200">
             <div className="h-full rounded-full bg-emerald-600" style={{width:Math.min(100,Math.max(0,p.percent))+"%"}}/>
           </div>
@@ -125,9 +125,9 @@ export default function FinanceSavingsGoals({goals=[],onSave,disabled=false,savi
             className="mt-1 w-full rounded-xl border border-slate-300 px-3 py-2"/>
         </label>
         <div className="rounded-xl bg-slate-50 p-3 text-sm">
-          <p className="text-slate-600">Saved amount (auto)</p>
+          <p className="text-slate-600">Shared available savings (not goal progress)</p>
           <p className="mt-1 font-bold text-slate-900">{money(available)}</p>
-          <p className="text-xs text-slate-500">Total Balance − {budgetMonth} Monthly Budget</p>
+          <p className="text-xs text-slate-500">Current Balance − {budgetMonth} remaining budget. Does not automatically update any goal.</p>
         </div>
         <label className="text-sm">Target date (optional)
           <input type="date" value={draft.deadline} onChange={e=>setDraft(p=>({...p,deadline:e.target.value}))}
