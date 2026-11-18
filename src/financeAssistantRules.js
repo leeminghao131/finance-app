@@ -2,7 +2,7 @@ import {localDateMY,localMonthMY} from "./financeCalendar.js";
 import {findReviewCandidates,billOccurrences} from "./financeStage2.js";
 import {activitySummary,activeActivity} from "./financeActivity.js";
 import {calculateCashForecast,summarizeMonthlyBudget} from "./financeInsights.js";
-import {savingsGoalProgress} from "./financePlanning.js";
+import {savingsGoalProgress,calculateSavingsAvailable} from "./financePlanning.js";
 const sum=(rows,type)=>rows.filter(x=>x.type===type).reduce((n,x)=>n+Math.round(Number(x.amount||0)*100),0)/100;
 const money=n=>"RM"+Number(n||0).toFixed(2);
 export const ASSISTANT_SUGGESTIONS=[
@@ -74,9 +74,13 @@ export function answerFinanceQuestion(question,ctx,zh=true){
     try{
       const goals=ctx.goals||[];
       if(!goals.length)return {answer:t("目前没有储蓄目标。","No savings goals yet.")};
+      const monthly=(ctx.monthRows||[]).find(row=>row.month===month)?.category_budgets??ctx.budgets??{};
+      const expenseRows=monthRecords.filter(row=>row.type==="expense"&&row.date<=localDateMY());
+      const estimate=calculateSavingsAvailable(ctx.totalBalance,monthly,expenseRows);
+      const context={totalBalance:ctx.totalBalance,monthlyBudgetTotal:estimate.monthlyBudgetTotal};
       const details=goals.slice(0,6).map(goal=>{
-        const p=savingsGoalProgress(goal);
-        return goal.title+": "+p.percent+"% ("+money(goal.saved)+"/"+money(goal.target)+")";
+        const p=savingsGoalProgress(goal,context);
+        return goal.title+": "+p.percent+"% ("+money(p.saved)+"/"+money(goal.target)+")";
       });
       return {answer:t("储蓄目标进度（仅计划，不代表真实转账）：","Savings goal progress (plans, not actual transfers): ")+details.join("；")};
     }catch(e){return {answer:t("储蓄目标数据暂无法验证：","Savings goals could not be verified: ")+e.message};}
