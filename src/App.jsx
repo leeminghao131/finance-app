@@ -2434,6 +2434,8 @@ return (
 <section className="mh-entry-calculator">
   <button type="button" ref={calculatorTriggerRef} className="mh-entry-aux-toggle mh-entry-calculator-button mh-modal-trigger"
     aria-haspopup="dialog" aria-expanded={calculatorOpen} aria-label={isChinese ? "打开小计算器" : "Open calculator"}
+    disabled={fxCurrency !== "MYR"}
+    title={fxCurrency !== "MYR" ? (isChinese ? "外币交易请直接填写原始外币金额" : "Enter the original foreign amount in the currency field") : ""}
     onClick={() => setCalculatorOpen(true)}>
     <span aria-hidden="true">▦</span> {isChinese ? "小计算器" : "Calculator"}
     <span className="ml-auto text-base" aria-hidden="true">↗</span>
