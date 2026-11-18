@@ -642,6 +642,7 @@ function FinanceVisualizerAppContent() {
   const settingsVersionRef = useRef(null);
   const settingsQueueRef = useRef(Promise.resolve());
   const budgetSaveTimerRef = useRef(null);
+  const pendingBudgetTemplateRef = useRef(null);
   const recordsLoadCounterRef = useRef(0);
   const liveUserIdRef = useRef(null);
   const undoTimeoutRef = useRef(null);
@@ -657,6 +658,7 @@ function FinanceVisualizerAppContent() {
   const pendingRecordsRef = useRef(new Set());
   const reloadDebounceRef = useRef(null);
   const [budgets, setBudgets] = useState(DEFAULT_BUDGETS);
+  const [budgetTemplateSaveStatus, setBudgetTemplateSaveStatus] = useState("saved");
   const [customOptions, setCustomOptions] = useState(DEFAULT_CUSTOM_OPTIONS);
   const [form, setForm] = useState({ type: "expense", amount: "", category: "饮食", method: "TNG", note: "", date: today() });
   const [fxCurrency,setFxCurrency]=useState("MYR");
@@ -794,6 +796,8 @@ function FinanceVisualizerAppContent() {
       setAccountChecks([]);
       setAdvancedFilter(null);
       setUndoTransfer(null);
+      pendingBudgetTemplateRef.current = null;
+      setBudgetTemplateSaveStatus("saved");
       setBudgets(DEFAULT_BUDGETS);
       confirmedCustomOptionsRef.current = DEFAULT_CUSTOM_OPTIONS;
       setCustomOptions(DEFAULT_CUSTOM_OPTIONS);
@@ -1229,7 +1233,21 @@ useEffect(() => {
   }
 
   function saveBudgets(nextBudgets) {
-    queueSettingsField("category_budgets", nextBudgets);
+    const owner = user?.id;
+    return queueSettingsField("category_budgets", nextBudgets).then(ok => {
+      if (liveUserIdRef.current !== owner) return false;
+      if (pendingBudgetTemplateRef.current !== nextBudgets) return ok;
+      if (ok) {
+        budgetsRef.current = nextBudgets;
+        setBudgets(nextBudgets);
+        pendingBudgetTemplateRef.current = null;
+        setBudgetTemplateSaveStatus("saved");
+      } else {
+        // Keep the confirmed budget on the dashboard; preserve only a retryable draft.
+        setBudgetTemplateSaveStatus("failed");
+      }
+      return ok;
+    });
   }
 
   async function saveCustomOptions(nextOptions) {
@@ -1283,8 +1301,12 @@ useEffect(() => {
   async function saveTemplateBudget(nextBudgets) {
     const clean = normalizeBudgetsInput(nextBudgets);
     const ok = await queueSettingsField("category_budgets",clean);
-    if(ok) {budgetsRef.current = clean;setBudgets(clean);}
-    else localizedFinanceAlert("Default budget template was not saved. Please refresh and try again.");
+    if(ok) {
+      clearTimeout(budgetSaveTimerRef.current);
+      pendingBudgetTemplateRef.current = null;
+      setBudgetTemplateSaveStatus("saved");
+      budgetsRef.current = clean;setBudgets(clean);
+    } else localizedFinanceAlert("Default budget template was not saved. Please refresh and try again.");
     return ok;
   }
 
@@ -1481,9 +1503,10 @@ function renderDeleteCustomOptionPanel(kind, type) {
   );
 }
   function updateBudgets(updater) {
-    const next = typeof updater === "function" ? updater(budgetsRef.current) : updater;
-    budgetsRef.current = next;
-    setBudgets(next);
+    const baseline = pendingBudgetTemplateRef.current || budgetsRef.current;
+    const next = typeof updater === "function" ? updater(baseline) : updater;
+    pendingBudgetTemplateRef.current = next;
+    setBudgetTemplateSaveStatus("pending");
     clearTimeout(budgetSaveTimerRef.current);
     budgetSaveTimerRef.current = setTimeout(() => {
       budgetSaveTimerRef.current = null;
@@ -2299,6 +2322,17 @@ return (
   </div>
 </div>
 
+        {budgetTemplateSaveStatus !== "saved" && <div role="status" className="rounded-xl border border-amber-300 bg-amber-50 p-3 text-sm text-amber-950">
+          {budgetTemplateSaveStatus === "pending" ? (isChinese ? "预算模板更改正在保存，当前仍显示已确认的预算。" : "Saving budget template; the dashboard still shows confirmed values.")
+            : (isChinese ? "预算模板更改尚未保存。已保留待重试草稿，云端预算未被覆盖。" : "Budget template not saved. Retryable draft retained; cloud budget unchanged.")}
+          {budgetTemplateSaveStatus === "failed" && <button type="button" disabled={dataLoading || !initialDataReady}
+            className="ml-3 rounded-lg border border-amber-400 px-3 py-1 font-bold" onClick={() => {
+              const draft = pendingBudgetTemplateRef.current;
+              if (!draft) return;
+              setBudgetTemplateSaveStatus("pending");
+              saveBudgets(draft);
+            }}>{isChinese ? "重试保存" : "Retry save"}</button>}
+        </div>}
         <section id="mh-dashboard-statistics" className="grid gap-4 scroll-mt-24 md:grid-cols-3"><StatCard title="Total Income" value={money(income)} icon="📈" desc="Through today" /><StatCard title="Total Expense" value={money(expense)} icon="📉" desc="Through today" /><BalanceCard
   title="Balance"
   value={totalBalance}
