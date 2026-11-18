@@ -279,9 +279,7 @@ function BalanceCard({ title, value, desc, limit, methodBalances = [], openingBa
           <div className="mb-3 flex items-center justify-between gap-3">
             <div>
               <p className="text-sm font-bold text-slate-900">Method Balance</p>
-              <p className="text-xs text-slate-500">
-                Transfer only moves money between methods.
-              </p>
+              
             </div>
             <div className="rounded-xl bg-emerald-50 px-2 py-1 text-base">🏦</div>
           </div>
@@ -333,7 +331,7 @@ function HeatmapCard({ days, label }) {
   return (
     <Card>
       <h2 className="text-xl font-bold">Spending Heatmap / 消费热力图</h2>
-      <p className="mt-1 text-sm text-slate-500">颜色越深 = 那天花费越高 · {label}</p>
+      
       <div className="mt-4 grid gap-2" style={{ gridTemplateColumns: "repeat(auto-fit, minmax(80px, 1fr))" }}>
         {days.map((d) => {
           const intensity = d.amount > 0 ? 0.18 + (d.amount / max) * 0.72 : 0.06;
@@ -2503,7 +2501,7 @@ return (
       <p className="mt-1 text-sm text-slate-500">
         {advancedFilter
           ? "Showing "+(advancedResults.rows?.length||0)+" advanced-search records · global sort"
-          : "Showing "+filteredRecords.length+" records for "+filterLabel+" · Click a date to expand records"}
+          : "Showing "+filteredRecords.length+" records for "+filterLabel+""}
       </p>
     </div>
 
