@@ -5,6 +5,8 @@ import { localDateMY, localMonthMY, localYearMY, shiftCalendarDay, calendarDaysR
 import { normalizeBudgetsInput } from "./financeInsights.js";
 import FinanceTransferPanel from "./FinanceTransferPanel.jsx";
 import FinanceCurrencyInput from "./FinanceCurrencyInput.jsx";
+import FinanceCalculatorKeypad from "./FinanceCalculatorKeypad.jsx";
+import { nextCalculatorText } from "./financeCalculatorKeypad.js";
 import FinanceFxRecordEditor from "./FinanceFxRecordEditor.jsx";
 import FinanceRuleAssistant from "./FinanceRuleAssistant.jsx";
 import {makeFxSnapshot} from "./financeFx.js";
@@ -606,6 +608,7 @@ function FinanceVisualizerAppContent() {
   const [recordsOpenSource, setRecordsOpenSource] = useState("card");
   const [currencyToolsOpen, setCurrencyToolsOpen] = useState(false);
   const [calculatorOpen, setCalculatorOpen] = useState(false);
+  const calculatorTriggerRef = useRef(null);
   const recordsTriggerRef = useRef(null);
   const recordsNavTriggerRef = useRef(null);
   const budgetTriggerRef = useRef(null);
@@ -1922,7 +1925,18 @@ async function addRecord(e) {
       const total = calculate(calculationText);
       setCalculationResult(total);
       setForm((p) => ({ ...p, amount: total.toFixed(2) }));
-    } catch { localizedFinanceAlert("Invalid calculation. Example: 3.50 + 12.90 + 2*5.40"); }
+      return true;
+    } catch { localizedFinanceAlert("Invalid calculation. Example: 3.50 + 12.90 + 2*5.40"); return false; }
+  }
+
+  function pressCalculatorKey(key) {
+    setCalculationText(previous => nextCalculatorText(previous, key));
+    setCalculationResult(null);
+  }
+
+  function previewCalculatorResult() {
+    try { setCalculationResult(calculate(calculationText)); }
+    catch { setCalculationResult(null); localizedFinanceAlert("Invalid calculation. Example: 3.50 + 12.90 + 2*5.40"); }
   }
 
   async function updateRecord(recordId, field, value) {
@@ -2275,21 +2289,6 @@ return (
 >
   💰 Income
 </button></div>
-<section className={"mh-entry-currency" + (fxCurrency !== "MYR" ? " mh-entry-currency--active" : "")}>
-  <button type="button" className="mh-entry-aux-toggle" aria-expanded={currencyToolsOpen || fxCurrency !== "MYR"}
-    aria-controls="mh-entry-currency-panel" disabled={fxCurrency !== "MYR"}
-    title={fxCurrency !== "MYR" ? (isChinese ? "外币交易需要显示原始外币金额" : "Foreign currency details must remain visible") : ""}
-    onClick={() => setCurrencyToolsOpen(value => !value)}>
-    <span aria-hidden="true">◈</span> {isChinese ? "交易货币" : "Transaction currency"} · {fxCurrency}
-    <span className="ml-auto" aria-hidden="true">{currencyToolsOpen || fxCurrency !== "MYR" ? "⌃" : "⌄"}</span>
-  </button>
-  <div id="mh-entry-currency-panel" className={currencyToolsOpen || fxCurrency !== "MYR" ? "mh-entry-tool-content" : "mh-entry-tool-content mh-entry-tool-content--closed"}>
-    <FinanceCurrencyInput date={form.date} currency={fxCurrency}
-      onCurrency={code=>{setFxCurrency(code);setFxQuote(null);setFxForeignAmount("");}}
-      foreignAmount={fxForeignAmount} onForeignAmount={setFxForeignAmount}
-      quote={fxQuote} onQuote={setFxQuote} disabled={!initialDataReady||dataLoading}/>
-  </div>
-</section>
 <label className={"mh-entry-amount " + (fxCurrency==="MYR"?"block":"hidden")}>
   <span className="flex flex-wrap items-center justify-between gap-2 text-sm font-medium text-slate-600">
     <span>Amount (RM)</span>
@@ -2331,23 +2330,7 @@ return (
   />
 
 </label>
-              <section className="mh-entry-calculator">
-                <button type="button" aria-expanded={calculatorOpen} aria-controls="mh-entry-calculator-panel"
-                  className="mh-entry-aux-toggle" onClick={() => setCalculatorOpen(value => !value)}>
-                  <span aria-hidden="true">▦</span> {isChinese ? "小计算器" : "Calculator"}
-                  <span className="ml-auto" aria-hidden="true">{calculatorOpen ? "⌃" : "⌄"}</span>
-                </button>
-                <div id="mh-entry-calculator-panel" className={calculatorOpen ? "mh-entry-tool-content" : "mh-entry-tool-content mh-entry-tool-content--closed"}>
-                  <div className="rounded-2xl bg-slate-50 p-4 ring-1 ring-slate-200"><p className="text-sm font-bold text-slate-700">小计算器</p><textarea
-                    value={calculationText}
-                    onChange={(event) => setCalculationText(formatCalculatorTyping(event.target.value))}
-                    rows={3}
-                    className="mt-3 w-full rounded-2xl border border-slate-200 px-4 py-3 text-sm outline-none"
-                  /><div className="mt-3 flex items-center justify-between gap-2"><span className="text-sm text-slate-600">{calculationResult !== null ? `Total: ${money(calculationResult)}` : ""}</span><button type="button" onClick={fillCalculation} className="rounded-xl bg-slate-900 px-3 py-2 text-xs font-bold text-white">Calculate & Fill</button></div></div>
-                </div>
-              </section>
-           
-<label className="mh-entry-category block">
+              <label className="mh-entry-category block">
   <span className="text-sm font-medium text-slate-600">Category</span>
   <select
     value={form.category}
@@ -2382,20 +2365,7 @@ return (
 
   {renderDeleteCustomOptionPanel("category", form.type)}
 </label>
-<div className="mh-entry-category-chips" role="group" aria-label={isChinese ? "常用分类快捷选择" : "Quick category choices"}>
-  {[...new Set([...(form.type === "expense" ? ["饮食","交通","日用","娱乐"] : ["Salary","Allowance","Gift","Others"])
-    .filter(category => categoryOptionsFor(form.type).includes(category)),form.category])].map(category => (
-    <button key={category} type="button" aria-pressed={form.category === category}
-      onClick={() => { setForm(previous => ({ ...previous, category })); setDeleteOptionPanel({kind:"",type:""}); }}>
-      {formatCategoryLabel(category)}
-    </button>
-  ))}
-</div>
-<div className="mh-entry-note-quick">
-  <FinanceQuickNotes records={records} type={form.type} category={form.category}
-    onChoose={note=>setForm(previous=>({...previous,note}))} />
-</div>
-              <label className="mh-entry-method block">
+<label className="mh-entry-method block">
   <span className="text-sm font-medium text-slate-600">Method</span>
   <select
     value={form.method}
@@ -2432,11 +2402,65 @@ return (
 </label>
               <label className="mh-entry-date block"><span className="text-sm font-medium text-slate-600">Date</span><DateInput value={form.date} onChange={(date) => setForm((p) => ({ ...p, date }))} /></label>
               <label className="mh-entry-note block"><span className="text-sm font-medium text-slate-600">Note</span><input value={form.note} onChange={(e) => setForm((p) => ({ ...p, note: e.target.value }))} className="mt-1 w-full rounded-2xl border border-slate-200 px-4 py-3 outline-none" /></label>
-              <button type="submit" className={`mh-entry-save w-full rounded-2xl px-4 py-3 text-sm font-bold text-white transition ${addRecordTheme.button}`}>
+<div className="mh-entry-category-chips" role="group" aria-label={isChinese ? "常用分类快捷选择" : "Quick category choices"}>
+  {[...new Set([...(form.type === "expense" ? ["饮食","交通","日用","娱乐"] : ["Salary","Allowance","Gift","Others"])
+    .filter(category => categoryOptionsFor(form.type).includes(category)),
+    ...(categoryOptionsFor(form.type).includes(form.category) ? [form.category] : [])])].map(category => (
+    <button key={category} type="button" aria-pressed={form.category === category}
+      onClick={() => { setForm(previous => ({ ...previous, category })); setDeleteOptionPanel({kind:"",type:""}); }}>
+      {formatCategoryLabel(category)}
+    </button>
+  ))}
+</div>
+<div className="mh-entry-note-quick">
+  <FinanceQuickNotes records={records} type={form.type} category={form.category}
+    onChoose={note=>setForm(previous=>({...previous,note}))} />
+</div>
+<div className="mh-entry-tools">
+<section className={"mh-entry-currency" + (fxCurrency !== "MYR" ? " mh-entry-currency--active" : "")}>
+  <button type="button" className="mh-entry-aux-toggle" aria-expanded={currencyToolsOpen || fxCurrency !== "MYR"}
+    aria-controls="mh-entry-currency-panel" disabled={fxCurrency !== "MYR"}
+    title={fxCurrency !== "MYR" ? (isChinese ? "外币交易需要显示原始外币金额" : "Foreign currency details must remain visible") : ""}
+    onClick={() => setCurrencyToolsOpen(value => !value)}>
+    <span aria-hidden="true">◈</span> {isChinese ? "交易货币" : "Transaction currency"} · {fxCurrency}
+    <span className="ml-auto" aria-hidden="true">{currencyToolsOpen || fxCurrency !== "MYR" ? "⌃" : "⌄"}</span>
+  </button>
+  <div id="mh-entry-currency-panel" className={currencyToolsOpen || fxCurrency !== "MYR" ? "mh-entry-tool-content" : "mh-entry-tool-content mh-entry-tool-content--closed"}>
+    <FinanceCurrencyInput date={form.date} currency={fxCurrency}
+      onCurrency={code=>{setFxCurrency(code);setFxQuote(null);setFxForeignAmount("");}}
+      foreignAmount={fxForeignAmount} onForeignAmount={setFxForeignAmount}
+      quote={fxQuote} onQuote={setFxQuote} disabled={!initialDataReady||dataLoading}/>
+  </div>
+</section>
+<section className="mh-entry-calculator">
+  <button type="button" ref={calculatorTriggerRef} className="mh-entry-aux-toggle mh-entry-calculator-button mh-modal-trigger"
+    aria-haspopup="dialog" aria-expanded={calculatorOpen} aria-label={isChinese ? "打开小计算器" : "Open calculator"}
+    disabled={fxCurrency !== "MYR"}
+    title={fxCurrency !== "MYR" ? (isChinese ? "外币交易请直接填写原始外币金额" : "Enter the original foreign amount in the currency field") : ""}
+    onClick={() => setCalculatorOpen(true)}>
+    <span aria-hidden="true">▦</span> {isChinese ? "小计算器" : "Calculator"}
+    <span className="ml-auto text-base" aria-hidden="true">↗</span>
+  </button>
+</section>
+</div>
+<button type="submit" className={`mh-entry-save w-full rounded-2xl px-4 py-3 text-sm font-bold text-white transition ${addRecordTheme.button}`}>
   {form.type === "income" ? "Add Income" : "Add Expense"}
 </button>
     </form>
     </Card>
+    <FinanceOverlay open={calculatorOpen}
+      title={isChinese ? "小计算器" : "Calculator"}
+      onClose={() => setCalculatorOpen(false)}
+      widthClass="max-w-sm" triggerRef={calculatorTriggerRef}>
+      <FinanceCalculatorKeypad
+        expression={calculationText}
+        result={calculationResult}
+        isChinese={isChinese}
+        onKey={pressCalculatorKey}
+        onEquals={previewCalculatorResult}
+        onFill={() => { if (fillCalculation()) setCalculatorOpen(false); }}
+      />
+    </FinanceOverlay>
 
     <TodaySummaryCard stats={todaySummaryStats} />
 

@@ -1036,3 +1036,253 @@
 @media (min-width: 768px) {
   .mh-ui .mh-entry-tool-content--closed { display: block !important; }
 }
+
+/* Compact Add Expense / Income on BOTH desktop and phone. Calculator now opens in
+   FinanceOverlay, so the form has no inline calculator textarea or empty card. */
+.mh-ui .mh-add-card {
+  min-width: 0;
+  padding: 14px 14px 16px;
+  border-radius: 18px;
+}
+.mh-ui .mh-add-header {
+  overflow: hidden;
+  margin: -14px -14px 10px;
+  padding: 11px 13px;
+  border-radius: 17px 17px 0 0;
+}
+.mh-ui .mh-add-header__main {
+  display: flex;
+  min-width: 0;
+  width: 100%;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+.mh-ui .mh-add-header h2 { font-size: 17px; line-height: 1.3; white-space: nowrap; }
+.mh-ui .mh-add-header__icon { display: none; }
+.mh-ui .mh-add-header .mh-add-records-link {
+  margin-top: 0;
+  min-height: 37px;
+  padding: 7px 9px;
+  gap: 5px;
+  font-size: 11px;
+  white-space: nowrap;
+}
+.mh-ui .mh-add-form {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-areas:
+    "type type"
+    "amount amount"
+    "category method"
+    "chips chips"
+    "date note"
+    "quicknotes quicknotes"
+    "tools tools"
+    "save save";
+  column-gap: 10px;
+  row-gap: 9px;
+  margin-top: 10px;
+  min-width: 0;
+}
+.mh-ui .mh-add-form > * { min-width: 0; margin-top: 0 !important; }
+.mh-ui .mh-entry-type { grid-area: type; order: initial; gap: 5px; border-radius: 12px; }
+.mh-ui .mh-entry-type button { min-height: 38px; padding: 6px 9px; }
+.mh-ui .mh-entry-amount { grid-area: amount; order: initial; }
+.mh-ui .mh-entry-amount > span { gap: 4px; font-size: 12px; }
+.mh-ui .mh-entry-amount [role="group"] { font-size: 10px; padding: 2px; }
+.mh-ui .mh-entry-amount [role="group"] button { min-height: 28px; padding: 4px 6px; }
+.mh-ui .mh-entry-category { grid-area: category; order: initial; }
+.mh-ui .mh-entry-method { grid-area: method; order: initial; }
+.mh-ui .mh-entry-category-chips {
+  grid-area: chips;
+  order: initial;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0 0 2px;
+  min-width: 0;
+  max-width: 100%;
+  overflow-x: auto;
+  scrollbar-width: thin;
+  overscroll-behavior-x: contain;
+}
+.mh-ui .mh-entry-category-chips button {
+  flex: 0 0 auto;
+  min-height: 33px;
+  max-width: 140px;
+  padding: 5px 9px;
+  border: 1px solid #dce1e7;
+  border-radius: 10px;
+  background: #f3f5f7;
+  color: #334155;
+  font-size: 12px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+.mh-ui .mh-entry-category-chips button[aria-pressed="true"] {
+  border-color: #dc4747;
+  background: #fff2ef;
+  color: #a92c33;
+}
+.mh-ui .mh-entry-date { grid-area: date; order: initial; }
+.mh-ui .mh-entry-note { grid-area: note; order: initial; }
+.mh-ui .mh-entry-note-quick { grid-area: quicknotes; order: initial; min-width: 0; }
+.mh-ui .mh-entry-note-quick > div { margin-top: 0; }
+.mh-ui .mh-entry-note-quick button { min-height: 32px; padding: 5px 8px; font-size: 11px; }
+.mh-ui .mh-entry-tools {
+  grid-area: tools;
+  order: initial;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0,1fr));
+  gap: 8px;
+  align-items: start;
+  min-width: 0;
+}
+.mh-ui .mh-entry-currency,
+.mh-ui .mh-entry-calculator { min-width: 0; order: initial; }
+.mh-ui .mh-entry-tools .mh-entry-aux-toggle {
+  display: flex;
+  align-items: center;
+  width: 100%;
+  gap: 5px;
+  min-height: 43px;
+  padding: 8px 9px;
+  border: 1px solid #d6dce5;
+  border-radius: 11px;
+  background: linear-gradient(145deg, #f7f8fa, #e9edf3);
+  color: #29384a;
+  font-size: 12px;
+  font-weight: 700;
+  text-align: left;
+}
+.mh-ui .mh-entry-tools .mh-entry-calculator-button {
+  border-color: #b99d77;
+  background: linear-gradient(145deg, #273443, #3c4b57);
+  box-shadow: inset 0 1px 0 #f8e4b22f;
+  color: #fff3d8;
+}
+.mh-ui .mh-entry-tools .mh-entry-tool-content--closed {
+  display: none !important;
+}
+.mh-ui .mh-entry-tools .mh-entry-tool-content { padding-top: 8px; }
+.mh-ui .mh-entry-tools .mh-entry-currency--active { grid-column: 1 / -1; }
+.mh-ui .mh-add-form label > span:first-child { font-size: 12px; }
+.mh-ui .mh-entry-amount > input,
+.mh-ui .mh-entry-category > select,
+.mh-ui .mh-entry-method > select,
+.mh-ui .mh-entry-date > input,
+.mh-ui .mh-entry-note > input {
+  margin-top: 4px;
+  display: block;
+  width: 100%;
+  min-width: 0;
+  min-height: 43px;
+  padding: 9px 10px;
+  border-radius: 10px;
+  font-size: 16px;
+  box-sizing: border-box;
+}
+.mh-ui .mh-entry-save {
+  grid-area: save;
+  order: initial;
+  margin-top: 2px !important;
+  min-height: 46px;
+  padding: 11px 12px;
+  border-radius: 12px;
+}
+
+/* A click-only native-calculator-style keypad inside the existing 300ms overlay. */
+.mh-calc-keypad { min-width: 0; }
+.mh-calc-keypad__screen {
+  padding: 15px 16px;
+  min-height: 106px;
+  border: 1px solid #506275;
+  border-radius: 16px;
+  background: linear-gradient(145deg, #192633 0%, #2d4152 100%);
+  color: #f8fafc;
+  text-align: right;
+  overflow: hidden;
+}
+.mh-calc-keypad__expression {
+  display: block;
+  min-height: 31px;
+  margin-top: 5px;
+  color: #fff7dd;
+  font-size: 23px;
+  font-weight: 750;
+  overflow-wrap: anywhere;
+  line-height: 1.35;
+  font-variant-numeric: tabular-nums;
+}
+.mh-calc-keypad__result {
+  display: block;
+  min-height: 24px;
+  color: #7fe7ca;
+  font-size: 18px;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+}
+.mh-calc-keypad__keys {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 8px;
+  margin-top: 12px;
+}
+.mh-calc-keypad__key {
+  display: grid;
+  place-items: center;
+  min-width: 0;
+  min-height: 54px;
+  border: 1px solid #d2dbe5;
+  border-radius: 14px;
+  background: #f3f6f9;
+  color: #263445;
+  font-size: 21px;
+  font-weight: 700;
+  touch-action: manipulation;
+  user-select: none;
+  transition: background 120ms ease, filter 120ms ease;
+}
+.mh-calc-keypad__key:active { background: #d9e1eb; }
+.mh-calc-keypad__key--util { background: #e9edf2; color: #52667a; font-size: 16px; }
+.mh-calc-keypad__key--op { background: #fff1e1; border-color: #e9c99d; color: #9b632f; }
+.mh-calc-keypad__key--equals { background: #2e4c5d; border-color: #315468; color: #fff; }
+.mh-calc-keypad__fill {
+  width: 100%;
+  min-height: 48px;
+  margin-top: 12px;
+  border-radius: 13px;
+  border: 1px solid #c3a47a;
+  background: linear-gradient(110deg, #293644, #454036);
+  color: white;
+  font-size: 15px;
+  font-weight: 800;
+}
+@media (max-width: 767px) {
+  .mh-ui .mh-add-form {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
+  }
+  .mh-ui .mh-entry-date > input {
+    padding: 8px 6px;
+    font-size: 14px;
+  }
+  .mh-ui .mh-entry-amount > input,
+  .mh-ui .mh-entry-category > select,
+  .mh-ui .mh-entry-method > select,
+  .mh-ui .mh-entry-note > input { padding: 9px 8px; }
+  .mh-ui .mh-entry-tools .mh-entry-aux-toggle { font-size: 11px; }
+  .mh-calc-keypad__key { min-height: 50px; }
+}
+@media (max-width: 350px) {
+  .mh-ui .mh-add-form {
+    grid-template-areas:
+      "type type" "amount amount" "category method" "chips chips"
+      "date date" "note note" "quicknotes quicknotes" "tools tools" "save save";
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .mh-calc-keypad__key { transition: none !important; }
+}

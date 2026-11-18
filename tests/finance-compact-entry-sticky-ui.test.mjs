@@ -23,22 +23,37 @@ test("Sticky compact header reuses Sound, Language, Sign out and accessible shor
   assert.match(app, /recordsOpenSource === "nav" \? recordsNavTriggerRef : recordsTriggerRef/);
 });
 
-test("Only mobile view collapses secondary calculator and currency; FX stays expanded", () => {
+test("Currency is collapsible on phone and desktop, and existing FX conversion stays mounted", () => {
   assert.match(app, /const \[currencyToolsOpen, setCurrencyToolsOpen\] = useState\(false\)/);
-  assert.match(app, /const \[calculatorOpen, setCalculatorOpen\] = useState\(false\)/);
   assert.match(app, /aria-controls="mh-entry-currency-panel"/);
-  assert.match(app, /aria-controls="mh-entry-calculator-panel"/);
   assert.match(app, /currencyToolsOpen \|\| fxCurrency !== "MYR"/);
   assert.match(app, /disabled=\{fxCurrency !== "MYR"\}/);
   assert.match(app, /mh-entry-currency--active/);
   assert.match(app, /<FinanceCurrencyInput date=\{form\.date\} currency=\{fxCurrency\}/);
   assert.match(app, /onForeignAmount=\{setFxForeignAmount\}/);
-  assert.match(app, /formatCalculatorTyping\(event\.target\.value\)/);
-  assert.match(app, /onClick=\{fillCalculation\}/);
-  assert.match(css, /@media \(max-width: 767px\) \{/);
-  assert.match(css, /\.mh-ui \.mh-entry-tool-content--closed \{ display: none; \}/);
-  assert.match(css, /@media \(min-width: 768px\) \{[\s\S]*?display: block !important/);
+  assert.match(css, /\.mh-ui \.mh-entry-tools \.mh-entry-tool-content--closed \{[\s\S]*?display: none !important;/);
   assert.match(currency, /getReferenceFxRate\(currency,date,fetch,ctrl\.signal\)/);
+});
+
+test("Calculator moved to the existing button-origin overlay with click-only keypad", () => {
+  const keypad = read("FinanceCalculatorKeypad.jsx");
+  assert.match(app, /const \[calculatorOpen, setCalculatorOpen\] = useState\(false\)/);
+  assert.match(app, /ref=\{calculatorTriggerRef\}/);
+  assert.match(app, /aria-haspopup="dialog" aria-expanded=\{calculatorOpen\}/);
+  assert.match(app, /<FinanceOverlay open=\{calculatorOpen\}/);
+  assert.match(app, /triggerRef=\{calculatorTriggerRef\}/);
+  assert.match(app, /<FinanceCalculatorKeypad/);
+  assert.match(app, /onKey=\{pressCalculatorKey\}/);
+  assert.match(app, /onEquals=\{previewCalculatorResult\}/);
+  assert.match(app, /onFill=\{\(\) => \{ if \(fillCalculation\(\)\) setCalculatorOpen\(false\); \}\}/);
+  assert.match(app, /setForm\(\(p\) => \(\{ \.\.\.p, amount: total\.toFixed\(2\) \}\)\)/);
+  assert.match(css, /grid-template-columns: repeat\(2, minmax\(0, 1fr\)\)/);
+  assert.match(css, /"category method"/);
+  assert.match(css, /"date note"/);
+  assert.match(css, /mh-calc-keypad__keys/);
+  assert.match(keypad, /<output className="mh-calc-keypad__expression"/);
+  assert.doesNotMatch(keypad, /<textarea|<input/);
+  assert.match(keypad, /<button key=\{key\} type="button"/);
 });
 
 test("Quick category chips are draft-only and all current methods and note suggestions remain", () => {
