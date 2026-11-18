@@ -2258,6 +2258,9 @@ return (
               transfers={transfers} deletedTransfers={deletedTransfers}
               monthRows={monthRows} budgetTemplate={budgets}
               forecastPlans={forecastPlans} openingBalances={openingBalances}
+              savingsGoals={savingsGoals} recurringBills={recurringBills}
+              reviewState={reviewState} accountChecks={accountChecks} savedFilters={savedFilters}
+              customOptions={customOptions} activities={activities} activityLinks={activityLinks}
               dataReady={initialDataReady} dataLoading={dataLoading}
               onClose={() => setExportOpen(false)}/>}
           </React.Suspense>
