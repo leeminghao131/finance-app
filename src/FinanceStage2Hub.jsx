@@ -23,6 +23,30 @@ export default function FinanceStage2Hub({
   const [selectedAccountMethod,setSelectedAccountMethod]=useState(null);
   const triggerRef=useRef(null);
   const handledRequestRef=useRef(null);
+  const hoverCloseTimerRef=useRef(null);
+  const cancelHoverClose=()=>{
+    if(hoverCloseTimerRef.current!==null){
+      window.clearTimeout(hoverCloseTimerRef.current);
+      hoverCloseTimerRef.current=null;
+    }
+  };
+  const isDesktopHover=event=>event.pointerType==="mouse" &&
+    window.matchMedia?.("(hover: hover) and (pointer: fine)")?.matches;
+  const hoverOpen=event=>{
+    if(!isDesktopHover(event)||disabled)return;
+    cancelHoverClose();
+    setMenu(true);
+  };
+  const hoverLeave=event=>{
+    if(!isDesktopHover(event))return;
+    cancelHoverClose();
+    // Bridge the visual gap between the bell and the menu without flicker.
+    hoverCloseTimerRef.current=window.setTimeout(()=>{
+      hoverCloseTimerRef.current=null;
+      setMenu(false);
+    },150);
+  };
+  useEffect(()=>()=>{if(hoverCloseTimerRef.current!==null)window.clearTimeout(hoverCloseTimerRef.current);},[]);
   const today=localDateMY();
   const billsDue=useMemo(()=>billOccurrences(bills,today,records,70,35).filter(x=>x.visible),[bills,records,today]);
   const candidates=useMemo(()=>findReviewCandidates(records,reviewState,today).filter(x=>!x.confirmed),
@@ -45,6 +69,7 @@ export default function FinanceStage2Hub({
     setSelectedBillId(type==="bill"?ref:null);
     setSelectedRecordId(type==="review"?ref:null);
     setMenu(false);
+    cancelHoverClose();
   };
   // Dock launchers reuse the SAME popup and handlers as the existing
   // actionable notifications; never mount a second copy of review/bill data.
@@ -74,13 +99,21 @@ export default function FinanceStage2Hub({
     :mode==="accounts"?t("余额对账","Balance Reconciliation")
     :t("异常记录复查","Review Transactions");
   return <>
-    <div className="mh-stage2-notifications" aria-label={t("财务动态通知","Financial notifications")}>
+    <div className="mh-stage2-notifications" aria-label={t("财务动态通知","Financial notifications")}
+      onPointerLeave={hoverLeave}>
       <button type="button" disabled={disabled} aria-expanded={menu} aria-haspopup="menu" aria-label={t("查看财务提醒","Open finance reminders")} title={t("查看财务提醒","Open finance reminders")}
-        onClick={()=>setMenu(x=>!x)} className="mh-stage2-notifications__bell">
+        onPointerEnter={hoverOpen}
+        onClick={event=>{
+          cancelHoverClose();
+          if(isDesktopHover(event.nativeEvent))setMenu(true);
+          else setMenu(value=>!value);
+        }} className="mh-stage2-notifications__bell">
         <FinanceNotificationEmblem active={alertCount>0} />
         {alertCount>0&&<span className="mh-stage2-notifications__count">{alertCount>99?"99+":alertCount}</span>}
       </button>
       {menu&&<div className="mh-stage2-notifications__menu"
+        onPointerEnter={event=>{if(isDesktopHover(event))cancelHoverClose();}}
+        onPointerLeave={hoverLeave}
         aria-label={t("逐条待处理通知","Individual pending notifications")}>
         <p className="px-2 py-1 text-xs font-semibold text-slate-500">
           {t("待处理提醒","Pending reminders")} · {alertCount}
