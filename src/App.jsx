@@ -508,22 +508,6 @@ if (field === "category" || field === "method") {
     />
   );
 }
-function TrendTooltip({ active, payload, records, category }) {
-  if (!active || !payload || !payload.length) return null;
-  const date = payload[0].payload.dateKey;
-  const rows = records.filter((r) => r.type === "expense" && r.date === date).filter((r) => category === "all" || r.category === category);
-  const total = rows.reduce((s, r) => s + Number(r.amount || 0), 0);
-  return (
-    <div className="w-64 rounded-2xl bg-white p-3 text-sm shadow-xl ring-1 ring-slate-200">
-      <p className="font-bold text-slate-800">{date}</p>
-      <p className="text-xs font-bold text-blue-600">Expense: {money(total)}</p>
-      <div className="mt-2 max-h-44 space-y-2 overflow-y-auto">
-        {rows.length ? rows.map((r) => <div key={r.id} className="rounded-xl bg-slate-50 p-2 ring-1 ring-slate-100"><div className="flex justify-between gap-2"><div><p className="font-semibold text-slate-800">{r.category}</p><p className="text-xs text-slate-500">{recordMethod(r)} · {r.note ? <span data-i18n-ignore>{r.note}</span> : "No note"}</p></div><p className="font-bold text-blue-600">{money(r.amount)}</p></div></div>) : <p className="text-xs text-slate-500">No records.</p>}
-      </div>
-    </div>
-  );
-}
-
 function AuthScreen() {
   const [mode, setMode] = useState("signIn");
   const [email, setEmail] = useState("");
