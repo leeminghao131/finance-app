@@ -20,7 +20,7 @@ export default function FinanceDataToolsLauncher({onOpen=()=>{},disabled=false})
     <button type="button" disabled={disabled} className="mh-insights-dock__button mh-insights-dock__data-primary"
       aria-expanded={open} aria-haspopup="true"
       aria-label={zh?"展开导入／导出选项":"Open import and export options"}
-      onClick={()=>setOpen(value=>!value)}>
+      onClick={()=>setOpen(true)}>
       <span className="mh-insights-dock__label">{zh?"导入／导出":"Import / Export"}</span>
       <span className="mh-insights-dock__icon" aria-hidden="true">⇅</span>
     </button>
