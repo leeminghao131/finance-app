@@ -1411,13 +1411,7 @@ function deleteCustomOption(kind, type, value) {
   setCustomOptions(nextOptions);
   saveCustomOptions(nextOptions);
 
-  if (kind === "category" && type === "expense") {
-    updateBudgets((previous) => {
-      const nextBudgets = { ...previous };
-      delete nextBudgets[value];
-      return nextBudgets;
-    });
-  }
+  // Removing a custom category never removes its budget template or historical data.
 
   setForm((previous) => {
     if (previous.type !== type) return previous;
@@ -1547,8 +1541,8 @@ const methodOptionsFor = () => expenseMethodOptions;
     catch (error) { return {rows:[],error:error.message}; }
   },[records,advancedFilter]);
   const expenseRecords = chartRecords.filter((r) => r.type === "expense");
-  const income = sumType(records, "income");
-  const expense = sumType(records, "expense");
+  const income = sumType(records.filter(row => row.date <= localToday), "income");
+  const expense = sumType(records.filter(row => row.date <= localToday), "expense");
   const filteredIncome = sumType(chartRecords, "income");
   const filteredExpense = sumType(chartRecords, "expense");
   const filterLabel = filterMode === "all" ? "全部" : filterMode === "month" ? selectedMonth : filterMode === "year" ? selectedYear : filterMode === "recent30" ? "最近 30 天" : filterMode === "recent7" ? "最近 7 天" : "最近 3 天";
@@ -1564,20 +1558,24 @@ const accountMethodOptions = useMemo(() => {
   return uniqueOptions(defaultMethods, normalizedCustomMethods);
 }, [customMethodOptions]);
 
+const currentLedgerRecords = useMemo(() => records.filter(row => row.date <= localToday), [records, localToday]);
+const currentTransfers = useMemo(() => transfers.filter(row => row.date <= localToday), [transfers, localToday]);
 const methodBalances = useMemo(() => calculateMethodBalances(
-  records.map(row => ({...row, method: recordMethod(row)})),
-  transfers, accountMethodOptions, openingBalances, normalizeMethodForBalance
-), [accountMethodOptions, openingBalances, records, transfers]);
+  currentLedgerRecords.map(row => ({...row, method: recordMethod(row)})),
+  currentTransfers, accountMethodOptions, openingBalances, normalizeMethodForBalance
+), [accountMethodOptions, openingBalances, currentLedgerRecords, currentTransfers]);
   const openingBalanceTotal = useMemo(() => openingTotal(openingBalances), [openingBalances]);
   const totalBalance = openingBalanceTotal + income - expense;
   // Savings Goals reserve the current natural month's budget, not the Dashboard filter.
   // Saved month snapshot wins; only months without one use the default template.
   const savingsBudgetMonth = localMonthMY();
   const savingsBudgetCategories = monthRows.find(row => row.month === savingsBudgetMonth)?.category_budgets ?? budgets;
+  const currentMonthExpenses = useMemo(() => currentLedgerRecords.filter(row =>
+    row.type === "expense" && row.date.startsWith(savingsBudgetMonth)), [currentLedgerRecords, savingsBudgetMonth]);
   const savingsCalculation = useMemo(() => {
-    try { return { data: calculateSavingsAvailable(totalBalance, savingsBudgetCategories) }; }
+    try { return { data: calculateSavingsAvailable(totalBalance, savingsBudgetCategories, currentMonthExpenses) }; }
     catch (error) { return { error: error.message || "Savings calculation unavailable." }; }
-  }, [totalBalance, savingsBudgetCategories]);
+  }, [totalBalance, savingsBudgetCategories, currentMonthExpenses]);
   const spentMap = useMemo(() => {
   const map = Object.fromEntries(expenseCategoryOptions.map((c) => [c, 0]));
   expenseRecords.forEach((r) => {
@@ -1620,13 +1618,19 @@ const methodBalances = useMemo(() => calculateMethodBalances(
       if (!out[r.date]) out[r.date] = { dateKey: r.date, day: chartLabel(r.date), expense: 0, dailyBalance: 0 };
       out[r.date].expense += Number(r.amount || 0);
     });
-    let balance = 0;
-    return Object.values(out).sort((a, b) => new Date(a.dateKey) - new Date(b.dateKey)).map((row) => {
+    const dates = Object.keys(out).sort();
+    const firstDate = dates[0];
+    const earlier = firstDate ? records.filter(row => row.date < firstDate) : [];
+    let balance = openingBalanceTotal + sumType(earlier, "income") - sumType(earlier, "expense");
+    return dates.map(date => {
+      const row = out[date];
+      // Future-dated entries are visible in the ledger but not yet current cash.
+      if (date > localToday) return {...row, balanceGreen:null, balanceRed:null};
       balance += row.dailyBalance;
-const limit = Number(balanceLimit || 1500);
-return { ...row, balanceGreen: balance > limit ? balance : null, balanceRed: balance <= limit ? balance : null };
+      const limit = Number(balanceLimit || 1500);
+      return { ...row, balanceGreen: balance > limit ? balance : null, balanceRed: balance <= limit ? balance : null };
     });
-}, [periodRecords, expenseRecords, trendCategory, selectedCategoryFilter, filterMode, balanceLimit]);
+}, [periodRecords, expenseRecords, records, openingBalanceTotal, localToday, trendCategory, selectedCategoryFilter, filterMode, balanceLimit]);
 
   const forecastMonth = filterMode === "month" ? selectedMonth : monthNow();
   const heatmapDays = useMemo(() => {
@@ -2192,7 +2196,7 @@ return (
               {[
                 {key:"income",label:isChinese?"收入":"Income",value:money(todaySummaryStats.income),tone:"income"},
                 {key:"expense",label:isChinese?"支出":"Expense",value:money(todaySummaryStats.expense),tone:"expense"},
-                {key:"net",label:isChinese?"余额":"Net",value:money(todaySummaryStats.income-todaySummaryStats.expense),tone:todaySummaryStats.income-todaySummaryStats.expense<0?"expense":"income"},
+                {key:"net",label:isChinese?"今日净收支":"Today Net",value:money(todaySummaryStats.income-todaySummaryStats.expense),tone:todaySummaryStats.income-todaySummaryStats.expense<0?"expense":"income"},
                 {key:"count",label:isChinese?"记录":"Records",value:String(todaySummaryStats.count),tone:"neutral"},
                 {key:"category",label:isChinese?"主要分类":"Top Category",value:todaySummaryStats.topCategory?formatCategoryLabel(todaySummaryStats.topCategory):(isChinese?"无消费":"None"),tone:"neutral"},
               ].map(item => (
@@ -2292,10 +2296,10 @@ return (
   </div>
 </div>
 
-        <section id="mh-dashboard-statistics" className="grid gap-4 scroll-mt-24 md:grid-cols-3"><StatCard title="Total Income" value={money(income)} icon="📈" desc="Overall records" /><StatCard title="Total Expense" value={money(expense)} icon="📉" desc="Overall records" /><BalanceCard
+        <section id="mh-dashboard-statistics" className="grid gap-4 scroll-mt-24 md:grid-cols-3"><StatCard title="Total Income" value={money(income)} icon="📈" desc="Through today" /><StatCard title="Total Expense" value={money(expense)} icon="📉" desc="Through today" /><BalanceCard
   title="Balance"
   value={totalBalance}
-  desc="Including Opening Balance"
+  desc="Through today, including Opening Balance"
   limit={balanceLimit}
   methodBalances={methodBalances}
   openingBalanceControl={<FinanceOpeningBalancePanel
