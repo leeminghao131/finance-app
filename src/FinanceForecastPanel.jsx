@@ -51,7 +51,7 @@ export default function FinanceForecastPanel({records,selectedMonth,asOfDate,pla
     <div className="rounded-2xl bg-white p-5 shadow-sm ring-1 ring-slate-200">
       <div>
         <h2 className="text-xl font-bold">Cash Flow Forecast / 现金流预测</h2>
-        <p className="mt-1 text-xs text-slate-500">Forecast uses cumulative ledger balance across months. Real income is never mixed with planned income.</p>
+        
       </div>
       <div className="mt-4 grid items-start gap-5 xl:grid-cols-2">
         <div className="min-w-0">
@@ -136,7 +136,7 @@ export default function FinanceForecastPanel({records,selectedMonth,asOfDate,pla
          triggerRef={incomePlannerTriggerRef}
         onClose={() => setIncomePlannerOpen(false)} widthClass="max-w-xl">
       <div className="space-y-3">
-        <p className="mt-1 text-xs text-slate-500">Manual planning only. This does not create an actual Income record.</p>
+        
         <form onSubmit={addPlan} className="mt-3 grid grid-cols-2 gap-2">
           <label className="text-xs text-slate-600">Expected date
             <input className="mt-1 w-full rounded-xl border border-slate-300 px-3 py-2 text-sm" type="date" required
