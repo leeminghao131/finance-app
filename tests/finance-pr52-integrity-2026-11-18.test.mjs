@@ -103,3 +103,29 @@ test("PR52: failed automatic budget changes cannot appear as verified, and offer
   assert.match(app,/budgetTemplateSaveStatus !== "saved"/);
   assert.match(app,/JSON\.stringify\(budgetsRef\.current\)!==JSON\.stringify\(pendingBudgetBaselineRef\.current\)/);
 });
+
+
+test("PR52: financial UI explanations translate while saved keys and values remain untouched",async()=>{
+  const {translateFinanceText}=await import("../src/financeLanguage.js");
+  for(const [en,zh] of [
+    ["Through today","截至今天"],["Today Net","今日净收支"],
+    ["Saved towards this goal (RM)","此目标已存金额（RM）"],
+    ["Entire period income (comparison baseline)","同期全部收入（比较基准）"],
+    ["Expense in selected category","所选分类支出"],
+  ]) {
+    assert.equal(translateFinanceText(en,"zh"),zh);
+    assert.equal(translateFinanceText(zh,"en"),en);
+  }
+  assert.equal(translateFinanceText("私人类别","en"),"私人类别");
+});
+
+test("PR52: full synced snapshot still demands two count-verified passes per owned table",()=>{
+  const cloud=read("financeCloudService.js"),pagination=read("financeData.js");
+  assert.match(cloud,/\[recordRows,transferRows,activityRows,linkRows\] = await Promise\.all\(/);
+  for(const name of ["records","transfers","finance_activities","finance_activity_links"])
+    assert.match(cloud,new RegExp('loadEveryOwnedRow\\(client,"'+name+'"'));
+  assert.match(cloud,/validateFinanceSnapshotRows\(recordRows,transferRows,settingsRow\)/);
+  assert.match(pagination,/const first = await readPass\(\)/);
+  assert.match(pagination,/const second = await readPass\(\)/);
+  assert.match(pagination,/JSON\.stringify\(row\) === JSON\.stringify\(second\[index\]\)/);
+});
