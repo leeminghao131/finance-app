@@ -46,7 +46,7 @@ test("Stage2 tools are imported only on first request, with original callbacks p
 });
 
 test("live finance UI and fail-closed TEST endpoint remain present",()=>{
-  assert.doesNotMatch(app,/function TrendTooltip\(/);
+  assert.match(app,/function TrendTooltip\(/);
   assert.match(app,/<FinanceTransferPanel/);
   assert.match(app,/<FinanceRuleAssistant/);
   assert.match(app,/<FinanceStage2Hub/);
