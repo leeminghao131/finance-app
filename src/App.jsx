@@ -642,6 +642,8 @@ function FinanceVisualizerAppContent() {
   const settingsVersionRef = useRef(null);
   const settingsQueueRef = useRef(Promise.resolve());
   const budgetSaveTimerRef = useRef(null);
+  const pendingBudgetTemplateRef = useRef(null);
+  const pendingBudgetBaselineRef = useRef(null);
   const recordsLoadCounterRef = useRef(0);
   const liveUserIdRef = useRef(null);
   const undoTimeoutRef = useRef(null);
@@ -657,6 +659,7 @@ function FinanceVisualizerAppContent() {
   const pendingRecordsRef = useRef(new Set());
   const reloadDebounceRef = useRef(null);
   const [budgets, setBudgets] = useState(DEFAULT_BUDGETS);
+  const [budgetTemplateSaveStatus, setBudgetTemplateSaveStatus] = useState("saved");
   const [customOptions, setCustomOptions] = useState(DEFAULT_CUSTOM_OPTIONS);
   const [form, setForm] = useState({ type: "expense", amount: "", category: "饮食", method: "TNG", note: "", date: today() });
   const [fxCurrency,setFxCurrency]=useState("MYR");
@@ -794,6 +797,9 @@ function FinanceVisualizerAppContent() {
       setAccountChecks([]);
       setAdvancedFilter(null);
       setUndoTransfer(null);
+      pendingBudgetTemplateRef.current = null;
+      pendingBudgetBaselineRef.current = null;
+      setBudgetTemplateSaveStatus("saved");
       setBudgets(DEFAULT_BUDGETS);
       confirmedCustomOptionsRef.current = DEFAULT_CUSTOM_OPTIONS;
       setCustomOptions(DEFAULT_CUSTOM_OPTIONS);
@@ -1229,7 +1235,22 @@ useEffect(() => {
   }
 
   function saveBudgets(nextBudgets) {
-    queueSettingsField("category_budgets", nextBudgets);
+    const owner = user?.id;
+    return queueSettingsField("category_budgets", nextBudgets).then(ok => {
+      if (liveUserIdRef.current !== owner) return false;
+      if (pendingBudgetTemplateRef.current !== nextBudgets) return ok;
+      if (ok) {
+        budgetsRef.current = nextBudgets;
+        setBudgets(nextBudgets);
+        pendingBudgetTemplateRef.current = null;
+        pendingBudgetBaselineRef.current = null;
+        setBudgetTemplateSaveStatus("saved");
+      } else {
+        // Keep the confirmed budget on the dashboard; preserve only a retryable draft.
+        setBudgetTemplateSaveStatus("failed");
+      }
+      return ok;
+    });
   }
 
   async function saveCustomOptions(nextOptions) {
@@ -1283,8 +1304,13 @@ useEffect(() => {
   async function saveTemplateBudget(nextBudgets) {
     const clean = normalizeBudgetsInput(nextBudgets);
     const ok = await queueSettingsField("category_budgets",clean);
-    if(ok) {budgetsRef.current = clean;setBudgets(clean);}
-    else localizedFinanceAlert("Default budget template was not saved. Please refresh and try again.");
+    if(ok) {
+      clearTimeout(budgetSaveTimerRef.current);
+      pendingBudgetTemplateRef.current = null;
+      pendingBudgetBaselineRef.current = null;
+      setBudgetTemplateSaveStatus("saved");
+      budgetsRef.current = clean;setBudgets(clean);
+    } else localizedFinanceAlert("Default budget template was not saved. Please refresh and try again.");
     return ok;
   }
 
@@ -1411,13 +1437,7 @@ function deleteCustomOption(kind, type, value) {
   setCustomOptions(nextOptions);
   saveCustomOptions(nextOptions);
 
-  if (kind === "category" && type === "expense") {
-    updateBudgets((previous) => {
-      const nextBudgets = { ...previous };
-      delete nextBudgets[value];
-      return nextBudgets;
-    });
-  }
+  // Removing a custom category never removes its budget template or historical data.
 
   setForm((previous) => {
     if (previous.type !== type) return previous;
@@ -1487,9 +1507,11 @@ function renderDeleteCustomOptionPanel(kind, type) {
   );
 }
   function updateBudgets(updater) {
-    const next = typeof updater === "function" ? updater(budgetsRef.current) : updater;
-    budgetsRef.current = next;
-    setBudgets(next);
+    const baseline = pendingBudgetTemplateRef.current || budgetsRef.current;
+    if (!pendingBudgetTemplateRef.current) pendingBudgetBaselineRef.current = budgetsRef.current;
+    const next = typeof updater === "function" ? updater(baseline) : updater;
+    pendingBudgetTemplateRef.current = next;
+    setBudgetTemplateSaveStatus("pending");
     clearTimeout(budgetSaveTimerRef.current);
     budgetSaveTimerRef.current = setTimeout(() => {
       budgetSaveTimerRef.current = null;
@@ -1535,8 +1557,8 @@ const methodOptionsFor = () => expenseMethodOptions;
     [categoryChoices, categoryFilterKey]);
   const filteredRecords = useMemo(() => categoryOnlyRows(searchPeriodRecords, selectedCategoryFilter),
     [searchPeriodRecords, selectedCategoryFilter]);
-  const chartRecords = useMemo(() => categoryComparisonRows(searchPeriodRecords, selectedCategoryFilter),
-    [searchPeriodRecords, selectedCategoryFilter]);
+  const chartRecords = useMemo(() => categoryComparisonRows(searchPeriodRecords, selectedCategoryFilter, periodRecords),
+    [searchPeriodRecords, selectedCategoryFilter, periodRecords]);
   const periodIncome = sumType(periodRecords, "income");
   const periodExpense = sumType(periodRecords, "expense");
   const transactionFilteredIncome = sumType(filteredRecords, "income");
@@ -1547,8 +1569,8 @@ const methodOptionsFor = () => expenseMethodOptions;
     catch (error) { return {rows:[],error:error.message}; }
   },[records,advancedFilter]);
   const expenseRecords = chartRecords.filter((r) => r.type === "expense");
-  const income = sumType(records, "income");
-  const expense = sumType(records, "expense");
+  const income = sumType(records.filter(row => row.date <= localToday), "income");
+  const expense = sumType(records.filter(row => row.date <= localToday), "expense");
   const filteredIncome = sumType(chartRecords, "income");
   const filteredExpense = sumType(chartRecords, "expense");
   const filterLabel = filterMode === "all" ? "全部" : filterMode === "month" ? selectedMonth : filterMode === "year" ? selectedYear : filterMode === "recent30" ? "最近 30 天" : filterMode === "recent7" ? "最近 7 天" : "最近 3 天";
@@ -1564,20 +1586,24 @@ const accountMethodOptions = useMemo(() => {
   return uniqueOptions(defaultMethods, normalizedCustomMethods);
 }, [customMethodOptions]);
 
+const currentLedgerRecords = useMemo(() => records.filter(row => row.date <= localToday), [records, localToday]);
+const currentTransfers = useMemo(() => transfers.filter(row => row.date <= localToday), [transfers, localToday]);
 const methodBalances = useMemo(() => calculateMethodBalances(
-  records.map(row => ({...row, method: recordMethod(row)})),
-  transfers, accountMethodOptions, openingBalances, normalizeMethodForBalance
-), [accountMethodOptions, openingBalances, records, transfers]);
+  currentLedgerRecords.map(row => ({...row, method: recordMethod(row)})),
+  currentTransfers, accountMethodOptions, openingBalances, normalizeMethodForBalance
+), [accountMethodOptions, openingBalances, currentLedgerRecords, currentTransfers]);
   const openingBalanceTotal = useMemo(() => openingTotal(openingBalances), [openingBalances]);
   const totalBalance = openingBalanceTotal + income - expense;
   // Savings Goals reserve the current natural month's budget, not the Dashboard filter.
   // Saved month snapshot wins; only months without one use the default template.
   const savingsBudgetMonth = localMonthMY();
   const savingsBudgetCategories = monthRows.find(row => row.month === savingsBudgetMonth)?.category_budgets ?? budgets;
+  const currentMonthExpenses = useMemo(() => currentLedgerRecords.filter(row =>
+    row.type === "expense" && row.date.startsWith(savingsBudgetMonth)), [currentLedgerRecords, savingsBudgetMonth]);
   const savingsCalculation = useMemo(() => {
-    try { return { data: calculateSavingsAvailable(totalBalance, savingsBudgetCategories) }; }
+    try { return { data: calculateSavingsAvailable(totalBalance, savingsBudgetCategories, currentMonthExpenses) }; }
     catch (error) { return { error: error.message || "Savings calculation unavailable." }; }
-  }, [totalBalance, savingsBudgetCategories]);
+  }, [totalBalance, savingsBudgetCategories, currentMonthExpenses]);
   const spentMap = useMemo(() => {
   const map = Object.fromEntries(expenseCategoryOptions.map((c) => [c, 0]));
   expenseRecords.forEach((r) => {
@@ -1620,13 +1646,19 @@ const methodBalances = useMemo(() => calculateMethodBalances(
       if (!out[r.date]) out[r.date] = { dateKey: r.date, day: chartLabel(r.date), expense: 0, dailyBalance: 0 };
       out[r.date].expense += Number(r.amount || 0);
     });
-    let balance = 0;
-    return Object.values(out).sort((a, b) => new Date(a.dateKey) - new Date(b.dateKey)).map((row) => {
+    const dates = Object.keys(out).sort();
+    const firstDate = dates[0];
+    const earlier = firstDate ? records.filter(row => row.date < firstDate) : [];
+    let balance = openingBalanceTotal + sumType(earlier, "income") - sumType(earlier, "expense");
+    return dates.map(date => {
+      const row = out[date];
+      // Future-dated entries are visible in the ledger but not yet current cash.
+      if (date > localToday) return {...row, balanceGreen:null, balanceRed:null};
       balance += row.dailyBalance;
-const limit = Number(balanceLimit || 1500);
-return { ...row, balanceGreen: balance > limit ? balance : null, balanceRed: balance <= limit ? balance : null };
+      const limit = Number(balanceLimit || 1500);
+      return { ...row, balanceGreen: balance > limit ? balance : null, balanceRed: balance <= limit ? balance : null };
     });
-}, [periodRecords, expenseRecords, trendCategory, selectedCategoryFilter, filterMode, balanceLimit]);
+}, [periodRecords, expenseRecords, records, openingBalanceTotal, localToday, trendCategory, selectedCategoryFilter, filterMode, balanceLimit]);
 
   const forecastMonth = filterMode === "month" ? selectedMonth : monthNow();
   const heatmapDays = useMemo(() => {
@@ -2192,7 +2224,7 @@ return (
               {[
                 {key:"income",label:isChinese?"收入":"Income",value:money(todaySummaryStats.income),tone:"income"},
                 {key:"expense",label:isChinese?"支出":"Expense",value:money(todaySummaryStats.expense),tone:"expense"},
-                {key:"net",label:isChinese?"余额":"Net",value:money(todaySummaryStats.income-todaySummaryStats.expense),tone:todaySummaryStats.income-todaySummaryStats.expense<0?"expense":"income"},
+                {key:"net",label:isChinese?"今日净收支":"Today Net",value:money(todaySummaryStats.income-todaySummaryStats.expense),tone:todaySummaryStats.income-todaySummaryStats.expense<0?"expense":"income"},
                 {key:"count",label:isChinese?"记录":"Records",value:String(todaySummaryStats.count),tone:"neutral"},
                 {key:"category",label:isChinese?"主要分类":"Top Category",value:todaySummaryStats.topCategory?formatCategoryLabel(todaySummaryStats.topCategory):(isChinese?"无消费":"None"),tone:"neutral"},
               ].map(item => (
@@ -2254,6 +2286,9 @@ return (
               transfers={transfers} deletedTransfers={deletedTransfers}
               monthRows={monthRows} budgetTemplate={budgets}
               forecastPlans={forecastPlans} openingBalances={openingBalances}
+              savingsGoals={savingsGoals} recurringBills={recurringBills}
+              reviewState={reviewState} accountChecks={accountChecks} savedFilters={savedFilters}
+              customOptions={customOptions} activities={activities} activityLinks={activityLinks}
               dataReady={initialDataReady} dataLoading={dataLoading}
               onClose={() => setExportOpen(false)}/>}
           </React.Suspense>
@@ -2292,10 +2327,25 @@ return (
   </div>
 </div>
 
-        <section id="mh-dashboard-statistics" className="grid gap-4 scroll-mt-24 md:grid-cols-3"><StatCard title="Total Income" value={money(income)} icon="📈" desc="Overall records" /><StatCard title="Total Expense" value={money(expense)} icon="📉" desc="Overall records" /><BalanceCard
+        {budgetTemplateSaveStatus !== "saved" && <div role="status" className="rounded-xl border border-amber-300 bg-amber-50 p-3 text-sm text-amber-950">
+          {budgetTemplateSaveStatus === "pending" ? (isChinese ? "预算模板更改正在保存，当前仍显示已确认的预算。" : "Saving budget template; the dashboard still shows confirmed values.")
+            : (isChinese ? "预算模板更改尚未保存。已保留待重试草稿，云端预算未被覆盖。" : "Budget template not saved. Retryable draft retained; cloud budget unchanged.")}
+          {budgetTemplateSaveStatus === "failed" && <button type="button" disabled={dataLoading || !initialDataReady}
+            className="ml-3 rounded-lg border border-amber-400 px-3 py-1 font-bold" onClick={() => {
+              const draft = pendingBudgetTemplateRef.current;
+              if (!draft) return;
+              if (JSON.stringify(budgetsRef.current)!==JSON.stringify(pendingBudgetBaselineRef.current)) {
+                localizedFinanceAlert("The cloud budget template changed on another device. Review the latest saved template before applying your old draft.");
+                return;
+              }
+              setBudgetTemplateSaveStatus("pending");
+              saveBudgets(draft);
+            }}>{isChinese ? "重试保存" : "Retry save"}</button>}
+        </div>}
+        <section id="mh-dashboard-statistics" className="grid gap-4 scroll-mt-24 md:grid-cols-3"><StatCard title="Total Income" value={money(income)} icon="📈" desc="Through today" /><StatCard title="Total Expense" value={money(expense)} icon="📉" desc="Through today" /><BalanceCard
   title="Balance"
   value={totalBalance}
-  desc="Including Opening Balance"
+  desc="Through today, including Opening Balance"
   limit={balanceLimit}
   methodBalances={methodBalances}
   openingBalanceControl={<FinanceOpeningBalancePanel
@@ -2619,8 +2669,12 @@ return (
               />
             </FinanceOverlay>
             <section className="grid gap-4 md:grid-cols-3">
-              <StatCard title="Filtered Income" value={money(filteredIncome)} icon="📈" desc={"Current filter: " + filterLabel} />
-              <StatCard title="Filtered Expense" value={money(filteredExpense)} icon="📉" desc={"Current filter: " + filterLabel}
+              <StatCard title="Filtered Income" value={money(filteredIncome)} icon="📈"
+                 desc={selectedCategoryFilter?.type==="expense" ? "Entire period income (comparison baseline)"
+                   : selectedCategoryFilter?.type==="income" ? "Income in selected category" : "Current filter: " + filterLabel} />
+              <StatCard title="Filtered Expense" value={money(filteredExpense)} icon="📉"
+                 desc={selectedCategoryFilter?.type==="income" ? "Entire period expense (comparison baseline)"
+                   : selectedCategoryFilter?.type==="expense" ? "Expense in selected category" : "Current filter: " + filterLabel}
                 action={<button type="button" ref={budgetTriggerRef} aria-label="Open Monthly Budget" aria-haspopup="dialog"
                   aria-expanded={budgetOpen} title="Monthly Budget / 分类预算"
                   onClick={() => setBudgetOpen(true)}
@@ -2686,7 +2740,7 @@ return (
   ref={spendingTrendTriggerRef} role="button" tabIndex={0} aria-label="Expand Spending Trend" title="Click to expand Spending Trend"
   onClick={() => setExpandedTrend("expense")}
   onKeyDown={(event) => { if (event.key === "Enter" || event.key === " ") { event.preventDefault(); setExpandedTrend("expense"); } }}>
-  {trendData.length ? <ResponsiveContainer width="100%" height="100%"><LineChart data={trendData}><CartesianGrid strokeDasharray="3 3" /><XAxis dataKey="day" /><YAxis /><Tooltip content={<FinanceTrendSummaryTooltip kind="expense" />} /><Legend /><Line isAnimationActive={false} type="monotone" dataKey="expense" name="Expense" stroke="#3b82f6" strokeWidth={3} dot={{ r: 4 }} /></LineChart></ResponsiveContainer> : <div className="flex h-full items-center justify-center text-slate-500">No expense trend data.</div>}</div><div className="mt-4 border-t border-slate-200 pt-3"><p className="mb-2 text-sm font-bold text-slate-700">Filtered Balance Trend</p><div className="mh-modal-trigger h-36 cursor-zoom-in rounded-xl focus-visible:outline focus-visible:outline-2 focus-visible:outline-blue-500"
+  {trendData.length ? <ResponsiveContainer width="100%" height="100%"><LineChart data={trendData}><CartesianGrid strokeDasharray="3 3" /><XAxis dataKey="day" /><YAxis /><Tooltip content={<FinanceTrendSummaryTooltip kind="expense" />} /><Legend /><Line isAnimationActive={false} type="monotone" dataKey="expense" name="Expense" stroke="#3b82f6" strokeWidth={3} dot={{ r: 4 }} /></LineChart></ResponsiveContainer> : <div className="flex h-full items-center justify-center text-slate-500">No expense trend data.</div>}</div><div className="mt-4 border-t border-slate-200 pt-3"><p className="mb-2 text-sm font-bold text-slate-700">Filtered Balance Trend</p><p className="mb-2 text-xs text-slate-500">Actual cumulative balance including opening amounts and prior records; category and keyword filters do not change it.</p><div className="mh-modal-trigger h-36 cursor-zoom-in rounded-xl focus-visible:outline focus-visible:outline-2 focus-visible:outline-blue-500"
   ref={balanceTrendTriggerRef} role="button" tabIndex={0} aria-label="Expand Filtered Balance Trend" title="Click to expand Balance Trend"
   onClick={() => setExpandedTrend("balance")}
   onKeyDown={(event) => { if (event.key === "Enter" || event.key === " ") { event.preventDefault(); setExpandedTrend("balance"); } }}>

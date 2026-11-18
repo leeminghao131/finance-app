@@ -51,6 +51,8 @@ function asBudgetAmount(value) {
 export function buildFinanceWorkbook({
   records=[],deletedRecords=[],transfers=[],deletedTransfers=[],
   monthRows=[],budgetTemplate={},forecastPlans=[],openingBalances={},
+  savingsGoals=[],recurringBills=[],reviewState={},accountChecks=[],savedFilters=[],customOptions={},
+  activities=[],activityLinks=[],
   scope="all",month=localDateMY().slice(0,7),includeRecycleBin=false,
   exportedOn=localDateMY(),
 } = {}) {
@@ -118,6 +120,67 @@ export function buildFinanceWorkbook({
   makeSheet(wb,"Budget Template",HEADERS.template,templateRows,[],[1]);
   makeSheet(wb,"Expected Income",HEADERS.planned,plannedRows,[1],[3]);
   makeSheet(wb,"Export Summary",["Metric","Value"],summaryRows);
+  // Additional cloud-owned finance metadata. These sheets are READ-ONLY snapshots;
+  // never include Supabase Auth secrets, service keys, or local device credentials.
+  // Store the complete JSON as split, prefix-marked strings, so even >32K Excel
+  // cells and user-supplied leading '=' cannot truncate or execute content.
+  const supplemental = [
+    ["savings_goals",savingsGoals],["recurring_bills",recurringBills],
+    ["review_state",reviewState],["account_checks",accountChecks],
+    ["saved_filters",savedFilters],["custom_options",customOptions],
+    ["activities",activities],["activity_links",activityLinks],
+  ];
+  const jsonRows=[];
+  for (const [key,value] of supplemental) {
+    const json=JSON.stringify(value);
+    if (typeof json !== "string") throw new Error("Unable to export "+key);
+    for(let index=0,part=1;index<json.length||part===1;part++) {
+      let end=Math.min(json.length,index+25000);
+      // Avoid splitting a Unicode surrogate pair in two XLSX cells.
+      if(end<json.length && end>index) {
+        const previous=json.charCodeAt(end-1);
+        if(previous>=0xD800 && previous<=0xDBFF)end--;
+      }
+      jsonRows.push([key,part,"json:"+json.slice(index,end)]);
+      index=end;
+    }
+  }
+  makeSheet(wb,"Cloud Settings JSON",["Setting","Part","JSON fragment (remove json: prefix and concatenate)"],jsonRows);
+  makeSheet(wb,"Savings Goals",
+    ["Goal ID","Goal Name","Target (RM)","Saved (RM)","Target Date"],
+    savingsGoals.map(g=>[safeExcelText(g.id),safeExcelText(g.title),
+      rm(cents(g.target)),rm(cents(g.saved)),safeExcelText(g.deadline||"")]),[],[2,3]);
+  makeSheet(wb,"Recurring Bills",
+    ["Bill ID","Title","Amount (RM)","Category","Method","Cycle","First Due","Lead Days","Active","Occurrences JSON"],
+    recurringBills.map(b=>[safeExcelText(b.id),safeExcelText(b.title),rm(cents(b.amount)),
+      safeExcelText(b.category),safeExcelText(b.method),safeExcelText(b.cycle),
+      safeExcelText(b.anchorDate),Number(b.leadDays||0),b.active!==false?"Yes":"No",
+      "json:"+JSON.stringify(b.occurrences||[])]),[],[2]);
+  makeSheet(wb,"Activities",
+    ["ID","Name","Budget (RM)","Status","Started On","Ended On","Version","User ID"],
+    activities.map(a=>[safeExcelText(a.id),safeExcelText(a.title),
+      a.budget==null?"":rm(cents(a.budget)),safeExcelText(a.status),
+      safeExcelText(a.startedOn),safeExcelText(a.endedOn||""),Number(a.version),
+      safeExcelText(a.userId)]),[],[2]);
+  makeSheet(wb,"Activity Links",
+    ["ID","Activity ID","Record ID","Removed At","Version","User ID"],
+    activityLinks.map(l=>[safeExcelText(l.id),safeExcelText(l.activityId),safeExcelText(l.recordId),
+      safeExcelText(l.removedAt||""),Number(l.version),safeExcelText(l.userId)]));
+  makeSheet(wb,"Review Decisions",
+    ["Record ID","Fingerprint","Checked At"],
+    (reviewState.decisions||[]).map(d=>[safeExcelText(d.recordId),safeExcelText(d.fingerprint),
+      safeExcelText(d.checkedAt)]));
+  makeSheet(wb,"Account Checks",
+    ["ID","Method","Date","Actual (RM)","Ledger (RM)","Difference (RM)","Note"],
+    accountChecks.map(c=>[safeExcelText(c.id),safeExcelText(c.method),safeExcelText(c.date),
+      rm(cents(c.actual)),rm(cents(c.ledger)),rm(cents(c.difference)),
+      safeExcelText(c.note)]),[],[3,4,5]);
+  makeSheet(wb,"Saved Filters",
+    ["Filter ID","Name","Criteria JSON"],
+    savedFilters.map(f=>[safeExcelText(f.id),safeExcelText(f.name),"json:"+JSON.stringify(f.filters)]));
+  makeSheet(wb,"Custom Options",
+    ["Kind","JSON Values"],
+    Object.entries(customOptions).map(([key,value])=>[safeExcelText(key),"json:"+JSON.stringify(value)]));
   if(includeRecycleBin) {
     const oldRecords=deletedRecords.filter(r=>inMonth(r,scope,month)).map(r=>[
       safeExcelText(r.id),excelDateNumber(r.date),safeExcelText(r.type),
@@ -148,6 +211,9 @@ export function buildFinanceWorkbook({
   return {workbook:wb,stats:{
     records:validRecords.length,transfers:validTransfers.length,
     monthlyBudgets:validBudgets.length,plans:validPlans.length,
+    savingsGoals:savingsGoals.length,recurringBills:recurringBills.length,
+    activities:activities.length,activityLinks:activityLinks.length,
+    accountChecks:accountChecks.length,savedFilters:savedFilters.length,
     income:rm(incomeCents),expense:rm(expenseCents),openingTotalCents:initialCents,
     transferTotalCents:validTransfers.reduce((n,r)=>n+cents(r.amount),0),
     plannedTotalCents:validPlans.reduce((n,p)=>n+cents(p.amount),0),

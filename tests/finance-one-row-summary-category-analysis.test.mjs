@@ -38,6 +38,9 @@ test("Expense-category view retains all income for comparison; income-category v
   assert.deepEqual(categoryOnlyRows(rows,food).map(r=>r.id),[1]);
   assert.deepEqual(categoryComparisonRows(rows,food).map(r=>r.id),[1,4,5]);
   assert.deepEqual(categoryComparisonRows(rows,salary).map(r=>r.id),[1,2,3,4]);
+  // Category plus keyword search retains ALL opposite-type period records.
+  assert.deepEqual(categoryComparisonRows(rows.filter(r=>r.id===1),food,rows).map(r=>r.id),[1,4,5]);
+  assert.deepEqual(categoryComparisonRows(rows.filter(r=>r.id===4),salary,rows).map(r=>r.id),[1,2,3,4]);
   assert.equal(sum(rows,"income")-sum(rows,"expense"), 988);
   assert.equal(sum(rows,"income")-sum(rows,"expense"), sum(rows,"income")-sum(rows,"expense"));
   assert.strictEqual(categoryComparisonRows(rows,null),rows);
@@ -84,7 +87,7 @@ test("Category button and keyword magnifier preserve all previous filter modes a
 test("Category charts and transaction views remain distinct from protected period balances and forecast",()=>{
   assert.match(app,/const periodRecords = useMemo\(\(\) => filterRecords\(records, filterMode, selectedMonth, selectedYear, ""\)/);
   assert.match(app,/const filteredRecords = useMemo\(\(\) => categoryOnlyRows\(searchPeriodRecords, selectedCategoryFilter\)/);
-  assert.match(app,/const chartRecords = useMemo\(\(\) => categoryComparisonRows\(searchPeriodRecords, selectedCategoryFilter\)/);
+  assert.match(app,/const chartRecords = useMemo\(\(\) => categoryComparisonRows\(searchPeriodRecords, selectedCategoryFilter, periodRecords\)/);
   assert.match(app,/const expenseRecords = chartRecords\.filter\(\(r\) => r\.type === "expense"\)/);
   assert.match(app,/const categoryData = useMemo\(\(\) => group\(expenseRecords/);
   assert.match(app,/const methodData = useMemo\(\(\) => group\(expenseRecords/);

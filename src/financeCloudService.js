@@ -7,22 +7,23 @@ import {validateActivities,validateActivityLinks} from "./financeActivity.js";
 // All visible totals are replaced only after the caller receives this full result.
 export async function fetchFinanceSnapshot(client,userId,onProgress) {
   if(!userId)throw new Error("Authentication is required to fetch finance data.");
-  const recordRows=await loadEveryOwnedRow(
-    client,"records",
-    "id,type,amount,category,method,note,date,created_at,updated_at,version,deleted_at,fx_currency,fx_amount,fx_rate,fx_rate_date,fx_provider",
-    userId,onProgress,
-  );
-  const transferRows=await loadEveryOwnedRow(
-    client,"transfers",
-    "id,from_method,to_method,amount,note,date,created_at,updated_at,version,deleted_at",
-    userId,onProgress,
-  );
-  const activityRows=await loadEveryOwnedRow(client,"finance_activities",
-    "id,user_id,title,budget,status,started_on,ended_on,version,created_at,updated_at",
-    userId,onProgress);
-  const linkRows=await loadEveryOwnedRow(client,"finance_activity_links",
-    "id,user_id,activity_id,record_id,removed_at,version,created_at,updated_at",
-    userId,onProgress);
+  // The four independent, read-only, owner-filtered table scans can overlap.
+  // Each loader still paginates and count-verifies ALL rows; no cache, RLS or
+  // partial result can ever be presented as a complete cloud snapshot.
+  const [recordRows,transferRows,activityRows,linkRows] = await Promise.all([
+    loadEveryOwnedRow(client,"records",
+      "id,type,amount,category,method,note,date,created_at,updated_at,version,deleted_at,fx_currency,fx_amount,fx_rate,fx_rate_date,fx_provider",
+      userId,onProgress),
+    loadEveryOwnedRow(client,"transfers",
+      "id,from_method,to_method,amount,note,date,created_at,updated_at,version,deleted_at",
+      userId,onProgress),
+    loadEveryOwnedRow(client,"finance_activities",
+      "id,user_id,title,budget,status,started_on,ended_on,version,created_at,updated_at",
+      userId,onProgress),
+    loadEveryOwnedRow(client,"finance_activity_links",
+      "id,user_id,activity_id,record_id,removed_at,version,created_at,updated_at",
+      userId,onProgress),
+  ]);
   const {data:settingsRow,error:settingsError}=await client.from("user_settings")
     .select("category_budgets,custom_options,version,forecast_plans,opening_balances,savings_goals,saved_filters,recurring_bills,review_state,account_checks")
     .eq("user_id",userId).maybeSingle();

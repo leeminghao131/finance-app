@@ -56,7 +56,8 @@ test("savings goal validates RM precision, target, date and unique IDs",()=>{
 test("Savings Goals reserve the current monthly budget exactly once with RM cent precision",()=>{
  const estimate=calculateSavingsAvailable(4461.98,{饮食:"600",交通:"300",娱乐:"200",美容:"150",住房:""});
  assert.deepEqual(estimate,{
-  totalBalance:4461.98,monthlyBudget:1250,available:3211.98,
+  totalBalance:4461.98,monthlyBudget:1250,monthlyBudgetTotal:1250,
+  spentAgainstBudget:0,available:3211.98,
   shortfall:0,netAfterBudget:3211.98,
  });
  const short=calculateSavingsAvailable(100,{food:"200"});
@@ -69,9 +70,9 @@ test("Savings Goals reserve the current monthly budget exactly once with RM cent
  assert.throws(()=>calculateSavingsAvailable(100,{food:"-1"}));
  assert.throws(()=>calculateSavingsAvailable(Infinity,{food:"10"}));
  const firstGoal={id:"goal-abcd1234",title:"Travel",target:5000,saved:3000,deadline:""};
- const progress=savingsGoalProgress({...firstGoal,saved:estimate.available});
- assert.equal(progress.remaining,1788.02);
- assert.equal(progress.percent,64.24);
+ const progress=savingsGoalProgress(firstGoal);
+ assert.equal(progress.remaining,2000);
+ assert.equal(progress.percent,60);
  assert.equal(firstGoal.saved,3000,"legacy stored data remains untouched");
 });
 test("four requested UI changes are placed correctly and never overwrite ledger flows",()=>{
@@ -97,11 +98,11 @@ test("four requested UI changes are placed correctly and never overwrite ledger 
  assert.ok(!quick.includes("FinanceOverlay"),"Quick Add remains inline");
  assert.ok(!app.includes("quickNotesOpen"),"no popup state");
  assert.match(app,/<FinanceQuickNotes records=\{records\} type=\{form.type\} category=\{form.category\}/);
- assert.match(app,/calculateSavingsAvailable\(totalBalance, savingsBudgetCategories\)/);
+ assert.match(app,/calculateSavingsAvailable\(totalBalance, savingsBudgetCategories, currentMonthExpenses\)/);
  assert.match(app,/monthRows.find\(row => row.month === savingsBudgetMonth\)/);
- assert.match(goalUI,/savingsGoalProgress\(\{\.\.\.g,saved:available\}\)/);
- assert.match(goalUI,/Saved amount \(auto\)/);
- assert.ok(!goalUI.includes('value={draft.saved}'),"Saved Amount is not manually edited");
+ assert.match(goalUI,/savingsGoalProgress\(g\)/);
+ assert.match(goalUI,/Saved towards this goal \(RM\)/);
+ assert.ok(goalUI.includes('value={draft.saved}'),"Each goal has its own saved amount editor");
  assert.match(cloud,/opening_balances,savings_goals/);
  assert.match(app,/queueSettingsField\("savings_goals", verified\)/);
 });
