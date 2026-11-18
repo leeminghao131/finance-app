@@ -8,6 +8,30 @@ export default function FinanceRuleAssistant({ctx,userId,onOpenTool=()=>{}}){
   const {language}=useFinanceLanguage(),zh=language==="zh";
   const [open,setOpen]=useState(false),[history,setHistory]=useState([]);
   const trigger=useRef(null),messages=useRef(null);
+  const hoverCloseTimerRef=useRef(null);
+  const clearHoverClose=()=>{
+    if(hoverCloseTimerRef.current!==null){
+      window.clearTimeout(hoverCloseTimerRef.current);
+      hoverCloseTimerRef.current=null;
+    }
+  };
+  const desktopHover=event=>event.pointerType==="mouse" &&
+    window.matchMedia?.("(hover: hover) and (pointer: fine)")?.matches;
+  const handleHoverOpen=event=>{
+    if(!desktopHover(event))return;
+    clearHoverClose();
+    setOpen(true);
+  };
+  const handleHoverLeave=event=>{
+    if(!desktopHover(event))return;
+    clearHoverClose();
+    // Allow pointer to cross the 9px visual gap to the floating sheet.
+    hoverCloseTimerRef.current=window.setTimeout(()=>{
+      hoverCloseTimerRef.current=null;
+      setOpen(false);
+    },150);
+  };
+  useEffect(()=>()=>{if(hoverCloseTimerRef.current!==null)window.clearTimeout(hoverCloseTimerRef.current);},[]);
   useEffect(()=>{setHistory([]);setOpen(false);},[userId]);
   useEffect(()=>{
     if(open)messages.current?.scrollTo({top:messages.current.scrollHeight});
@@ -16,19 +40,28 @@ export default function FinanceRuleAssistant({ctx,userId,onOpenTool=()=>{}}){
     const reply=answerFinanceQuestion(question,ctx,zh);
     setHistory(rows=>[...rows.slice(-11),{question,reply}]);
   };
-  return <div className="mh-rule-assistant">
+  return <div className="mh-rule-assistant" onPointerLeave={handleHoverLeave}>
     <button ref={trigger} className="mh-rule-assistant__launcher" type="button"
-      aria-haspopup="dialog" aria-expanded={open} onClick={()=>setOpen(value=>!value)}
+      aria-haspopup="dialog" aria-expanded={open} onPointerEnter={handleHoverOpen}
+      onClick={event=>{
+        clearHoverClose();
+        if(event.nativeEvent?.pointerType==="touch" ||
+          !window.matchMedia?.("(hover: hover) and (pointer: fine)")?.matches)
+          setOpen(value=>!value);
+        else setOpen(true);
+      }}
       aria-label={zh?"财务小助手":"Finance assistant"} title={zh?"财务小助手":"Finance assistant"}>
       <FinanceAssistantEmblem />
     </button>
     {open&&<section role="dialog" aria-modal="false"
+      onPointerEnter={event=>{if(desktopHover(event))clearHoverClose();}}
+      onPointerLeave={handleHoverLeave}
       aria-label={zh?"规则式财务助手":"Rule-based finance assistant"}
       className="mh-rule-assistant__sheet">
       <header className="flex items-center justify-between gap-3 rounded-t-xl bg-slate-900 p-3 text-white">
         <div className="flex min-w-0 items-center gap-2"><FinanceAssistantEmblem compact /><h2 className="font-bold">{zh?"财务小助手":"Finance Assistant"}</h2></div>
         <button type="button" className="min-h-10 rounded-lg border border-slate-600 px-3"
-          onClick={()=>setOpen(false)} aria-label={zh?"关闭助手":"Close assistant"}>✕</button>
+          onClick={()=>{clearHoverClose();setOpen(false);}} aria-label={zh?"关闭助手":"Close assistant"}>✕</button>
       </header>
       <div ref={messages} className="max-h-[34dvh] min-h-24 space-y-3 overflow-y-auto p-3" aria-live="polite">
 

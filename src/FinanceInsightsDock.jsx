@@ -176,9 +176,20 @@ export default function FinanceInsightsDock({
   ];
   const dragging=slots.find(s=>s.id===draggingId);
   return <>
+    {!expanded&&<button type="button"
+      className="mh-insights-dock__mobile-launcher"
+      aria-label={zh?"打开财务工具抽屉":"Open finance tools drawer"}
+      title={zh?"财务工具":"Finance tools"}
+      aria-controls="mh-insights-dock-panel" aria-expanded={false}
+      onClick={()=>{setSuppressHover(false);setExpanded(true);}}>
+      <svg aria-hidden="true" viewBox="0 0 24 24" width="23" height="23"
+        fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+        <path d="M4 6h16M4 12h16M4 18h16"/>
+      </svg>
+    </button>}
     {expanded&&<button type="button" className="mh-insights-dock__outside"
       aria-label={zh?"收起左侧工具":"Collapse side tools"} onClick={()=>{setExpanded(false);setSuppressHover(true);}}/>}
-    <nav ref={dockRef} className="mh-insights-dock" data-expanded={expanded?"true":"false"}
+    <nav ref={dockRef} id="mh-insights-dock-panel" className="mh-insights-dock" data-expanded={expanded?"true":"false"}
       data-suppress-hover={suppressHover?"true":"false"}
       onPointerLeave={()=>{if(!expanded&&!draggingId)setSuppressHover(false);}}
       aria-label={zh?"财务工具侧边抽屉":"Finance tools side drawer"}>
