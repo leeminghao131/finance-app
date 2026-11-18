@@ -83,7 +83,7 @@ export default function FinanceAdvancedFilters({active,onApply,savedFilters=[],o
               <span data-i18n-ignore>{option}</span>
             </label>)}
           </div>
-          <p className="mt-2 text-xs text-slate-500">No selections = all {label.toLowerCase()} values.</p>
+          
         </fieldset>)}
       </div>
       <div className="mt-4 flex flex-wrap gap-2">
@@ -100,7 +100,7 @@ export default function FinanceAdvancedFilters({active,onApply,savedFilters=[],o
         </button>
       </div>
       {error&&<p role="alert" className="mt-3 text-sm text-red-700">{error}</p>}
-      <p className="mt-3 text-xs text-slate-500">Saved search stores filter criteria only, never duplicates or edits financial records. Review flags become available after the separate Review Inbox feature is implemented.</p>
+      
     </FinanceOverlay>
   </div>;
 }
