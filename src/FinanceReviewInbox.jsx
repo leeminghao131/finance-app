@@ -81,18 +81,14 @@ export default function FinanceReviewInbox({
   return <>
     <div className="flex flex-wrap items-start justify-between gap-2">
       <div><h2 className="text-lg font-bold">{t("异常记录复查中心","Transaction Review Inbox")}</h2>
-        <p className="mt-1 text-xs text-slate-500">{t("只提示可能的问题；仅在你主动确认删除时移入回收站。已确认的记录修改后会重新检查。",
-          "Suggestions only; deletion requires your confirmation and uses Recycle Bin. Edited records are checked again.")}</p></div>
+        </div>
       <span className="rounded-full bg-amber-100 px-3 py-1.5 text-sm font-bold text-amber-800">
         {candidates.filter(c=>!c.confirmed).length} {t("待确认","pending")}
       </span>
     </div>
     <section className="mt-3 rounded-xl border border-slate-200 bg-slate-50 p-3">
       <h3 className="text-sm font-bold">{t("异常提醒开关","Anomaly reminder switches")}</h3>
-      <p className="mt-1 text-xs text-slate-500">
-        {t("每种提醒都可以独立开启或关闭，设置会保存至你的账号。关闭不会修改历史记录。",
-          "Enable or disable each rule separately. Saved per account; no transaction is changed.")}
-      </p>
+      
       <div className="mt-3 grid gap-2 sm:grid-cols-2">
         {REVIEW_RULE_KEYS.map(rule=><label key={rule}
           className="flex min-h-12 items-center justify-between gap-3 rounded-xl bg-white px-3 py-2 text-sm ring-1 ring-slate-200">
@@ -159,10 +155,7 @@ export default function FinanceReviewInbox({
             <button type="button" onClick={()=>setEditingId(null)} className="rounded-lg border px-3 py-2.5 text-xs">
               {t("取消","Cancel")}</button>
           </div>
-          <p className="mt-2 text-xs text-slate-500">
-            {t("使用原本的单字段交易编辑与版本冲突保护，不会整体覆盖其他字段。",
-              "Uses the existing single-field edit and version conflict checks; other fields stay unchanged.")}
-          </p>
+          
         </div>:<div className="mt-3 flex flex-wrap gap-2">
           <button type="button" disabled={disabled||busy||c.confirmed} onClick={()=>confirm(c)}
             className="rounded-lg bg-emerald-700 px-3 py-2.5 text-xs font-bold text-white disabled:opacity-50">
@@ -182,7 +175,6 @@ export default function FinanceReviewInbox({
         {selectedId?t("该异常已消失或对应记录已变动。","This anomaly has cleared or the record changed."):
           t("暂无需要复查的记录。","No transactions to review.")}</p>}
     </div>
-    <p className="mt-3 text-xs text-slate-500">{t("目前检查最近 180 天的金额过大、疑似重复、缺备注及未来日期；重复记录只是建议，不是确定错误。",
-      "Checks the last 180 days for high expense, possible duplicates, missing notes and future dates. A duplicate warning is not proof of error.")}</p>
+    
   </>;
 }
