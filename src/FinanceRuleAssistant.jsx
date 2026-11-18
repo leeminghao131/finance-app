@@ -26,7 +26,7 @@ export default function FinanceRuleAssistant({ctx,userId,onOpenTool=()=>{}}){
       className="mh-rule-assistant__sheet">
       <header className="flex items-center justify-between gap-3 rounded-t-xl bg-slate-900 p-3 text-white">
         <div><h2 className="font-bold">🤖 {zh?"财务小助手":"Finance Assistant"}</h2>
-          <p className="text-[11px] text-slate-300">{zh?"按键提问 · 本地免费规则":"Tap a question · free local rules"}</p></div>
+</div>
         <button type="button" className="min-h-10 rounded-lg border border-slate-600 px-3"
           onClick={()=>setOpen(false)} aria-label={zh?"关闭助手":"Close assistant"}>✕</button>
       </header>
