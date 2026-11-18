@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import vm from "node:vm";
 import { readFileSync } from "node:fs";
 import { webcrypto } from "node:crypto";
-import { getRecordRequestId,confirmRecordRequest,getTransferRequestId,confirmTransferRequest } from "../src/financeSaveIdempotency.js";
+import { getRecordRequestId,confirmRecordRequest,getTransferRequestId,confirmTransferRequest,assertRecoveredRecordMatchesPayload,assertRecoveredTransferMatchesPayload } from "../src/financeSaveIdempotency.js";
 import { parseEditedAmount } from "../src/financeData.js";
 
 function cache(){
@@ -69,6 +69,7 @@ test("unique-conflict recovery selects the first server record, without insertin
    parseEditedAmount,
    toRecordPayload:(rec,user_id)=>({...rec,user_id}),
    getRecordRequestId:async()=> "10000000-0000-4000-8000-000000000001",
+   assertRecoveredRecordMatchesPayload,
    confirmRecordRequest:()=>{stored++;},
    sessionStorage:{},crypto:{},
    supabase:client,
@@ -108,7 +109,7 @@ test("Money Transfer unique conflict resolves existing transfer without an extra
  assert.ok(start>0&&end>start);
  const script=app.slice(start,end+4);
  let inserts=0,readBacks=0,confirmed=0;
- const saved={id:"tx-previous",from_method:"BANK",to_method:"TNG",amount:85.40,date:"2026-11-12",deleted_at:null};
+ const saved={id:"tx-previous",from_method:"BANK",to_method:"TNG",amount:85.40,note:"sample",date:"2026-11-12",deleted_at:null};
  const db={from:table=>{
    assert.equal(table,"transfers");
    return {
@@ -123,6 +124,7 @@ test("Money Transfer unique conflict resolves existing transfer without an extra
    transferForm:{amount:"85.40",fromMethod:"BANK",toMethod:"TNG",note:"sample",date:"2026-11-12"},
    parseMoneyInput:()=>85.4,requireCalendarDate:value=>value,
    getTransferRequestId:async()=> "10000000-0000-4000-8000-000000000001",
+   assertRecoveredTransferMatchesPayload,
    confirmTransferRequest:()=>confirmed++,
    sessionStorage:{},crypto:{},supabase:db,
    liveUserIdRef:{current:"fake-test-user"},
