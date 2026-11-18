@@ -39,7 +39,7 @@ import { normalizeRecord, normalizeTransfer, toRecordPayload } from "./financeRe
 import { fetchFinanceSnapshot } from "./financeCloudService.js";
 import { getRecordRequestId, confirmRecordRequest, getTransferRequestId, confirmTransferRequest, assertRecoveredRecordMatchesPayload, assertRecoveredTransferMatchesPayload } from "./financeSaveIdempotency.js";
 import { CoinRainEffect, IncomeCoinSpinEffect } from "./FinanceVisualEffects.jsx";
-import { FinanceLanguageProvider, FinanceLanguageButton, localizedFinanceAlert, localizedFinanceConfirm } from "./FinanceLanguageLayer.jsx";
+import { FinanceLanguageProvider, FinanceLanguageButton, useFinanceLanguage, localizedFinanceAlert, localizedFinanceConfirm } from "./FinanceLanguageLayer.jsx";
 import {
   BarChart, Bar, XAxis, YAxis, Tooltip,
   ResponsiveContainer, CartesianGrid, Legend, LineChart, Line,
@@ -586,6 +586,8 @@ function AuthScreen() {
 }
 
 function FinanceVisualizerAppContent() {
+  const { language } = useFinanceLanguage();
+  const isChinese = language === "zh";
   const [session, setSession] = useState(null);
   const [user, setUser] = useState(null);
   const [authLoading, setAuthLoading] = useState(true);
@@ -2138,35 +2140,35 @@ return (
             <h1 className="truncate text-base font-bold sm:mt-0.5 sm:text-xl md:text-2xl">记账可视化软件</h1>
           </div>
           <div className="mh-dashboard-actions flex shrink-0 items-center gap-1.5 sm:gap-2">
-            <button type="button" aria-label={soundEnabled ? "Mute sound" : "Enable sound"}
+            <button type="button" aria-label={isChinese ? (soundEnabled ? "关闭声音" : "开启声音") : (soundEnabled ? "Mute sound" : "Enable sound")}
               title={soundEnabled ? "Sound on" : "Sound off"}
               onClick={() => setSoundEnabled((v) => !v)}
               className="mh-dashboard-action rounded-xl bg-slate-800 px-2.5 py-2 text-sm font-semibold text-white ring-1 ring-slate-600 sm:px-3">
               <span aria-hidden="true">{soundEnabled ? "🔊" : "🔇"}</span><span className="hidden sm:inline"> Sound</span>
             </button>
             <FinanceLanguageButton className="mh-dashboard-action" />
-            <button type="button" onClick={signOut} aria-label="Sign out" title="Sign out"
+            <button type="button" onClick={signOut} aria-label={isChinese ? "退出登录" : "Sign out"} title={isChinese ? "退出登录" : "Sign out"}
               className="mh-dashboard-action rounded-xl bg-white px-2.5 py-2 text-sm font-semibold text-slate-900 sm:px-3">
               <span className="sm:hidden" aria-hidden="true">↪</span><span className="hidden sm:inline">Sign out</span>
             </button>
           </div>
         </header>
         <nav className="mh-dashboard-quick-actions hidden items-center gap-2 rounded-2xl border border-slate-200 bg-white px-3 py-2 shadow-sm md:flex"
-          aria-label="Dashboard quick navigation">
+          aria-label={isChinese ? "仪表板快捷导航" : "Dashboard quick navigation"}>
           <button type="button" onClick={() => {
             setForm(previous => ({ ...previous, type: "expense" }));
             document.getElementById("mh-stage2-add-record-form")?.scrollIntoView({ behavior: "smooth", block: "start" });
-          }} className="rounded-xl bg-red-600 px-4 py-2 text-sm font-semibold text-white hover:bg-red-700">＋ Add Expense</button>
+          }} className="rounded-xl bg-red-600 px-4 py-2 text-sm font-semibold text-white hover:bg-red-700">{isChinese ? "＋ 新增支出" : "＋ Add Expense"}</button>
           <button type="button" onClick={() => {
             setForm(previous => ({ ...previous, type: "income" }));
             document.getElementById("mh-stage2-add-record-form")?.scrollIntoView({ behavior: "smooth", block: "start" });
-          }} className="rounded-xl border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-800 hover:bg-slate-100">＋ Add Income</button>
+          }} className="rounded-xl border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-800 hover:bg-slate-100">{isChinese ? "＋ 新增收入" : "＋ Add Income"}</button>
           <span className="mx-1 h-6 w-px bg-slate-200" aria-hidden="true" />
           <button type="button" ref={recordsNavTriggerRef} aria-haspopup="dialog" aria-expanded={recordsOpen}
             onClick={() => { setRecordsOpenSource("nav"); setRecordsOpen(true); }}
-            className="mh-modal-trigger rounded-xl px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-100">▤ Transaction Records</button>
+            className="mh-modal-trigger rounded-xl px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-100">{isChinese ? "▤ 交易记录" : "▤ Transaction Records"}</button>
           <button type="button" onClick={() => document.getElementById("mh-dashboard-statistics")?.scrollIntoView({ behavior: "smooth", block: "start" })}
-            className="rounded-xl px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-100">▥ Statistics</button>
+            className="rounded-xl px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-100">{isChinese ? "▥ 数据统计" : "▥ Statistics"}</button>
         </nav>
         <FinanceOverlay open={importOpen} title="CSV Import / 导入"
           widthClass="max-w-4xl" showTitle={false} triggerRef={dataToolTriggerRef}
@@ -2276,8 +2278,9 @@ return (
 <section className={"mh-entry-currency" + (fxCurrency !== "MYR" ? " mh-entry-currency--active" : "")}>
   <button type="button" className="mh-entry-aux-toggle" aria-expanded={currencyToolsOpen || fxCurrency !== "MYR"}
     aria-controls="mh-entry-currency-panel" disabled={fxCurrency !== "MYR"}
+    title={fxCurrency !== "MYR" ? (isChinese ? "外币交易需要显示原始外币金额" : "Foreign currency details must remain visible") : ""}
     onClick={() => setCurrencyToolsOpen(value => !value)}>
-    <span aria-hidden="true">◈</span> Transaction currency · {fxCurrency}
+    <span aria-hidden="true">◈</span> {isChinese ? "交易货币" : "Transaction currency"} · {fxCurrency}
     <span className="ml-auto" aria-hidden="true">{currencyToolsOpen || fxCurrency !== "MYR" ? "⌃" : "⌄"}</span>
   </button>
   <div id="mh-entry-currency-panel" className={currencyToolsOpen || fxCurrency !== "MYR" ? "mh-entry-tool-content" : "mh-entry-tool-content mh-entry-tool-content--closed"}>
@@ -2331,7 +2334,7 @@ return (
               <section className="mh-entry-calculator">
                 <button type="button" aria-expanded={calculatorOpen} aria-controls="mh-entry-calculator-panel"
                   className="mh-entry-aux-toggle" onClick={() => setCalculatorOpen(value => !value)}>
-                  <span aria-hidden="true">▦</span> Calculator
+                  <span aria-hidden="true">▦</span> {isChinese ? "小计算器" : "Calculator"}
                   <span className="ml-auto" aria-hidden="true">{calculatorOpen ? "⌃" : "⌄"}</span>
                 </button>
                 <div id="mh-entry-calculator-panel" className={calculatorOpen ? "mh-entry-tool-content" : "mh-entry-tool-content mh-entry-tool-content--closed"}>
@@ -2379,7 +2382,7 @@ return (
 
   {renderDeleteCustomOptionPanel("category", form.type)}
 </label>
-<div className="mh-entry-category-chips" role="group" aria-label="Quick category choices">
+<div className="mh-entry-category-chips" role="group" aria-label={isChinese ? "常用分类快捷选择" : "Quick category choices"}>
   {[...new Set([...(form.type === "expense" ? ["饮食","交通","日用","娱乐"] : ["Salary","Allowance","Gift","Others"])
     .filter(category => categoryOptionsFor(form.type).includes(category)),form.category])].map(category => (
     <button key={category} type="button" aria-pressed={form.category === category}
