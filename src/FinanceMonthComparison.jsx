@@ -26,7 +26,7 @@ export default function FinanceMonthComparison({records=[]}) {
     <div className="flex flex-wrap items-start justify-between gap-3">
       <div>
         <h2 className="text-lg font-bold text-slate-900">Monthly Financial Comparison</h2>
-        <p className="mt-1 text-xs text-slate-500">Compare any two calendar months. Independent of Dashboard Filters. Transfers and Opening Balance are not Income or Expense.</p>
+        
       </div>
       <div className="flex flex-wrap items-center gap-2">
         <label className="text-xs font-semibold text-slate-700">First month
@@ -85,7 +85,7 @@ export default function FinanceMonthComparison({records=[]}) {
         {!value.categories.length&&<p className="p-3 text-sm text-slate-500">No expenses in either month.</p>}
         </div>
       </FinanceOverlay>
-      <p className="mt-3 text-xs text-slate-500">Records: {firstMonth} ({value.first.count}) · {secondMonth} ({value.second.count}). Positive expense change means more spending.</p>
+      <p className="mt-3 text-xs text-slate-500">Records: {firstMonth} ({value.first.count}) · {secondMonth} ({value.second.count})</p>
     </>}
   </section>;
 }

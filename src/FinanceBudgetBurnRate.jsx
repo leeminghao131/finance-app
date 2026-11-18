@@ -109,6 +109,6 @@ export default function FinanceBudgetBurnRate({records,budgets,month,categories}
     {!visible.length&&<p className="mt-3 rounded-xl bg-white p-4 text-sm text-slate-600">
       {t("这个月还没有分类预算或有效支出记录。","No category budget or spending records for this month.")}
     </p>}
-    <p className="mt-3 text-xs text-slate-500">{t("仅供参考；不会修改已保存的预算或真实交易。","Read-only reference; saved budgets and transactions never change.")}</p>
+    
   </section>;
 }

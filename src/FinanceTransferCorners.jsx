@@ -168,11 +168,11 @@ export default function FinanceTransferCorners({
           <input type="text" inputMode="numeric" required disabled={disabled}
             aria-label={zh?"转账金额（分位键盘）":"Transfer amount (cents keypad)"}
             title={zh?"输入2455代表RM24.55":"2455 means RM24.55"}
-            value={amount}
+            value={amount === "0.00" ? "" : amount}
             onChange={e=>onAmountChange(e.target.value)}
             onFocus={e=>e.target.select()}
             className="mh-transfer-orbit__amount"/>
-          <span className="mh-transfer-orbit__core-hint">{zh?"2455 → RM24.55":"Cents keypad"}</span>
+
         </label>
       </div>
     </div>
@@ -183,8 +183,6 @@ export default function FinanceTransferCorners({
       <span className="mh-transfer-orbit__direction" aria-hidden="true">⇢</span>
       <div><small>{zh?"到":"TO"}</small><strong data-i18n-ignore>{waiting?(zh?"请选择":"Select…"):toMethod||"—"}</strong></div>
     </div>
-    <p className="mh-transfer-orbit__note">{zh?
-      "只转移账户之间的资金，不会增加收入、支出或总资产。":
-      "Transfers move money between methods; income, expense and total assets stay unchanged."}</p>
+
   </section>;
 }

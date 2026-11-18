@@ -43,7 +43,7 @@ export default function FinanceOpeningBalancePanel({methods, balances, onSave, d
           <span className="font-semibold" data-i18n-ignore>{method}</span>
           <input type="text" inputMode="decimal" aria-label={method+" opening balance"}
             className="w-40 rounded-xl border border-slate-300 px-3 py-2 text-right"
-            value={draft[method] ?? "0.00"}
+            value={balances[method] == null && (draft[method] == null || draft[method] === "0.00") ? "" : (draft[method] ?? "")}
             onChange={e=>setDraft(prev=>({...prev,[method]:e.target.value}))}/>
         </label>)}
         {error&&<p role="alert" className="text-sm text-red-700">{error}</p>}

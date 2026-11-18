@@ -245,7 +245,7 @@ export default function FinanceCategoryBubbleChart({ data, emptyText = "No expen
             <span className="min-w-0 break-words font-semibold" data-i18n-ignore>{builtInFinanceCategory(active.name, language)}</span>
             <span className="font-semibold tabular-nums">{(active.value / total * 100).toFixed(1)}% · {money(active.value)}</span>
           </>
-        ) : <span className="text-xs text-slate-500">Hover or tap a bubble to see category, amount and share.</span>}
+        ) : <span className="text-xs text-slate-500">{items.length} categories</span>}
       </div>
     </div>
   );

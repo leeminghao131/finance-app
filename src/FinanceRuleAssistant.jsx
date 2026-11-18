@@ -26,15 +26,12 @@ export default function FinanceRuleAssistant({ctx,userId,onOpenTool=()=>{}}){
       className="mh-rule-assistant__sheet">
       <header className="flex items-center justify-between gap-3 rounded-t-xl bg-slate-900 p-3 text-white">
         <div><h2 className="font-bold">🤖 {zh?"财务小助手":"Finance Assistant"}</h2>
-          <p className="text-[11px] text-slate-300">{zh?"按键提问 · 本地免费规则":"Tap a question · free local rules"}</p></div>
+</div>
         <button type="button" className="min-h-10 rounded-lg border border-slate-600 px-3"
           onClick={()=>setOpen(false)} aria-label={zh?"关闭助手":"Close assistant"}>✕</button>
       </header>
       <div ref={messages} className="max-h-[34dvh] min-h-24 space-y-3 overflow-y-auto p-3" aria-live="polite">
-        {!history.length&&<p className="text-sm text-slate-600">
-          {zh?"选择下方的问题按钮，我会按照当前账号的财务资料回答。":
-            "Choose one of the questions below for an answer based on your synced finances."}
-        </p>}
+
         {history.map((entry,index)=><div key={index} className="space-y-1 text-sm">
           <p className="rounded-lg bg-slate-100 px-3 py-2 text-slate-800">{entry.question}</p>
           <p className="rounded-lg bg-blue-50 px-3 py-2 text-blue-900">{entry.reply.answer}</p>
@@ -51,7 +48,7 @@ export default function FinanceRuleAssistant({ctx,userId,onOpenTool=()=>{}}){
         </div>)}
       </div>
       <div className="mh-rule-assistant__question-area">
-        <p className="mb-2 text-xs font-bold text-slate-700">{zh?"选择想了解的问题":"Select a question"}</p>
+        
         <div role="group" aria-label={zh?"预设财务问题":"Preset finance questions"}
           className="mh-rule-assistant__questions">
           {ASSISTANT_SUGGESTIONS.map(([cn,en],index)=>{

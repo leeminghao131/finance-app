@@ -222,7 +222,7 @@ function StatCard({ title, value, icon, desc, action }) {
         <div>
           <p className="text-sm font-medium text-slate-500">{title}</p>
           <p className="mt-2 text-2xl font-bold text-slate-900">{value}</p>
-          <p className="mt-1 text-sm text-slate-500">{desc}</p>
+          {desc && desc !== "Overall records" && <p className="mt-1 text-sm text-slate-500">{desc}</p>}
         </div>
         {action || <div className="rounded-2xl bg-slate-100 px-3 py-2 text-xl">{icon}</div>}
       </div>
@@ -279,9 +279,7 @@ function BalanceCard({ title, value, desc, limit, methodBalances = [], openingBa
           <div className="mb-3 flex items-center justify-between gap-3">
             <div>
               <p className="text-sm font-bold text-slate-900">Method Balance</p>
-              <p className="text-xs text-slate-500">
-                Transfer only moves money between methods.
-              </p>
+              
             </div>
             <div className="rounded-xl bg-emerald-50 px-2 py-1 text-base">🏦</div>
           </div>
@@ -333,7 +331,7 @@ function HeatmapCard({ days, label }) {
   return (
     <Card>
       <h2 className="text-xl font-bold">Spending Heatmap / 消费热力图</h2>
-      <p className="mt-1 text-sm text-slate-500">颜色越深 = 那天花费越高 · {label}</p>
+      
       <div className="mt-4 grid gap-2" style={{ gridTemplateColumns: "repeat(auto-fit, minmax(80px, 1fr))" }}>
         {days.map((d) => {
           const intensity = d.amount > 0 ? 0.18 + (d.amount / max) * 0.72 : 0.06;
@@ -2078,7 +2076,7 @@ async function addRecord(e) {
           <h1 className="text-xl font-bold">Verifying your finance records</h1>
           <p className="mt-3 text-sm text-slate-600">{syncStatus || "Loading..."}</p>
           {syncProgress && <p className="mt-2 text-sm font-semibold text-blue-700">{syncProgress}</p>}
-          <p className="mt-2 text-xs text-slate-500">Totals remain hidden until all cloud records are loaded and checked.</p>
+          
           <button onClick={() => loadCloudData()} className="mt-5 rounded-xl bg-slate-900 px-4 py-2 text-sm font-bold text-white">Retry loading</button>
           <button onClick={signOut} className="ml-3 rounded-xl border border-slate-200 px-4 py-2 text-sm">Sign out</button>
         </div>
@@ -2131,7 +2129,7 @@ return (
 <IncomeCoinSpinEffect trigger={incomeCoinTrigger} />
       <div className="mx-auto max-w-7xl space-y-6">
         <header className="flex flex-col gap-4 rounded-3xl bg-slate-900 p-6 text-white md:flex-row md:items-center md:justify-between">
-          <div><p className="text-sm font-medium text-slate-300">Personal Finance Dashboard</p><h1 className="mt-2 text-3xl font-bold md:text-4xl">记账可视化软件</h1><p className="mt-2 text-sm text-slate-300">记录收入与支出，自动生成统计、分类比例、每日趋势和预算使用情况。</p></div>
+          <div><p className="text-sm font-medium text-slate-300">Personal Finance Dashboard</p><h1 className="mt-2 text-3xl font-bold md:text-4xl">记账可视化软件</h1></div>
           <div className="flex flex-wrap gap-3"><button onClick={() => setSoundEnabled((v) => !v)} className="rounded-2xl bg-slate-800 px-4 py-3 text-sm font-semibold text-white ring-1 ring-slate-600">{soundEnabled ? "🔊" : "🔇"} Sound</button><FinanceLanguageButton /><button onClick={signOut} className="rounded-2xl bg-white px-4 py-3 text-sm font-semibold text-slate-900">Sign out</button></div>
         </header>
         <FinanceOverlay open={importOpen} title="CSV Import / 导入"
@@ -2177,7 +2175,7 @@ return (
         <div className="flex flex-col gap-2 rounded-2xl bg-white px-4 py-3 text-sm text-slate-600 ring-1 ring-slate-200 md:flex-row md:items-center md:justify-between">
   <div>
     <p className="font-bold text-slate-800">Balance Alert Limit</p>
-    <p className="text-xs text-slate-500">Total Balance and Filtered Balance will turn red below this value.</p>
+    
   </div>
   <div className="flex items-center gap-2">
     <span className="text-xs font-bold text-slate-500">RM</span>
@@ -2210,7 +2208,7 @@ return (
     <div className="flex items-center justify-between gap-3">
       <div className="min-w-0">
         <h2 className="text-xl font-bold">{addRecordTheme.title}</h2>
-        <p className="mt-1 text-sm text-white/80">{addRecordTheme.subtitle}</p>
+        
         <button type="button" ref={recordsTriggerRef} onClick={() => setRecordsOpen(true)}
           aria-haspopup="dialog" aria-expanded={recordsOpen}
           className="mh-modal-trigger mt-3 inline-flex min-h-11 items-center gap-2 rounded-xl border border-white/35 bg-white/15 px-3 py-2 text-sm font-bold text-white transition hover:bg-white/25 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white">
@@ -2269,7 +2267,7 @@ return (
     </span>
   </span>
   <input
-    value={form.amount}
+    value={form.amount === "0.00" ? "" : form.amount}
     onChange={(event) =>
       setForm((previous) => ({
         ...previous,
@@ -2282,17 +2280,14 @@ return (
     title={amountEntryMode === "cents" ? "2455 means RM24.55" : "100 means RM100.00"}
     className="mt-1 w-full rounded-2xl border border-slate-200 px-4 py-3 outline-none"
   />
-  <span className="mt-1 block text-xs text-slate-500">
-    {amountEntryMode === "cents" ? "Cents keypad: 2455 → RM24.55" : "Normal RM: 100 → RM100.00 · 24.55 → RM24.55"}
-  </span>
+
 </label>
               <div className="rounded-2xl bg-slate-50 p-4 ring-1 ring-slate-200"><p className="text-sm font-bold text-slate-700">小计算器</p><textarea
   value={calculationText}
   onChange={(event) => setCalculationText(formatCalculatorTyping(event.target.value))}
   rows={3}
-  placeholder="3.50 + 12.90 + 2*5.40"
   className="mt-3 w-full rounded-2xl border border-slate-200 px-4 py-3 text-sm outline-none"
-/><div className="mt-3 flex items-center justify-between gap-2"><span className="text-sm text-slate-600">{calculationResult !== null ? `Total: ${money(calculationResult)}` : "支持 + - * / 和括号"}</span><button type="button" onClick={fillCalculation} className="rounded-xl bg-slate-900 px-3 py-2 text-xs font-bold text-white">Calculate & Fill</button></div></div>
+/><div className="mt-3 flex items-center justify-between gap-2"><span className="text-sm text-slate-600">{calculationResult !== null ? `Total: ${money(calculationResult)}` : ""}</span><button type="button" onClick={fillCalculation} className="rounded-xl bg-slate-900 px-3 py-2 text-xs font-bold text-white">Calculate & Fill</button></div></div>
            
 <label className="block">
   <span className="text-sm font-medium text-slate-600">Category</span>
@@ -2473,7 +2468,7 @@ return (
                 <div className="mt-4 rounded-2xl bg-slate-50 p-3 ring-1 ring-slate-200">
                   <div className="mb-2 flex flex-wrap justify-between gap-2">
                     <p className="text-sm font-bold text-slate-700">Method Ratio</p>
-                    <p className="text-xs text-slate-500">所有支出方式比例</p>
+                    
                   </div>
                   <div className="mt-3 min-w-0">
                     <FinanceMethodDonutChart data={methodData} emptyText="No method data." />
@@ -2506,7 +2501,7 @@ return (
       <p className="mt-1 text-sm text-slate-500">
         {advancedFilter
           ? "Showing "+(advancedResults.rows?.length||0)+" advanced-search records · global sort"
-          : "Showing "+filteredRecords.length+" records for "+filterLabel+" · Click a date to expand records"}
+          : "Showing "+filteredRecords.length+" records for "+filterLabel+""}
       </p>
     </div>
 
@@ -2721,7 +2716,7 @@ categoryOptionsFor={categoryOptionsFor}
               ))}
             </div>
           )}
-          <p className="mt-3 text-xs text-slate-500">Records remain recoverable after 10 seconds, after closing this tab, and across devices. There is no permanent delete button.</p>
+          
         </Card>
        </FinanceOverlay>
 

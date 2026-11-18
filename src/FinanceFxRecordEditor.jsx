@@ -51,7 +51,7 @@ export default function FinanceFxRecordEditor({record,onSave,onClose,triggerRef}
   return <FinanceOverlay open={!!record} title={t("编辑外币交易","Edit foreign-currency record")}
     onClose={()=>{if(!saving)onClose();}} widthClass="max-w-lg" triggerRef={triggerRef}>
     {record&&<div className="space-y-3">
-      <p className="text-sm text-slate-600">{t("原始外币与 RM 一起安全更新。只有日期或货币变化时才重新获取参考汇率。","Original currency and RM are updated atomically. The saved rate stays locked unless the date/currency changes.")}</p>
+      
       <label className="block text-sm font-semibold">{t("币种","Currency")}
         <select className="mt-1 w-full rounded-xl border p-3" value={currency}
           onChange={e=>setCurrency(e.target.value)} disabled={saving}>
