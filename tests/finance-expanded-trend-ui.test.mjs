@@ -16,10 +16,10 @@ test("Expanded trends are opened from both existing small graphs and can be clos
   assert.match(app, /open=\{expandedTrend !== null\}/);
   assert.match(app, /onClose=\{\(\) => setExpandedTrend\(null\)\}/);
   assert.match(app, /data=\{trendData\}/);
-  assert.match(app, /dailyData=\{dailyData\}/);
-  assert.match(app, /records=\{filteredRecords\}/);
+  assert.match(app, /dailyData=\{expandedTrend === "balance" \? periodDailyData : dailyData\}/);
+  assert.match(app, /records=\{expandedTrend === "balance" \? periodRecords : chartRecords\}/);
   assert.match(app, /alertLimit=\{balanceLimit\}/);
-  assert.match(app, /category=\{trendCategory\}/);
+  assert.match(app, /category=\{activeExpenseCategory \|\| trendCategory\}/);
 });
 
 test("Expanded graph stays in a separate fixed overlay with desktop hover and mobile tap/date choice", () => {
