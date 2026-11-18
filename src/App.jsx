@@ -2615,7 +2615,7 @@ categoryOptionsFor={categoryOptionsFor}
   {record.fx_currency&&<div className="mt-1 text-xs text-slate-500" data-i18n-ignore>
     {record.fx_currency} {record.fx_amount} · 1 {record.fx_currency} = RM{record.fx_rate}
   </div>}
-  {record.fx_currency&&<button type="button" onClick={e=>openFxEdit(record,e.currentTarget)}
+  {record.fx_currency&&<button type="button" aria-haspopup="dialog" onClick={e=>openFxEdit(record,e.currentTarget)}
     className="mt-1 rounded-lg border border-blue-200 px-2 py-1 text-xs font-bold text-blue-700">FX Edit</button>}
 </td>
 
