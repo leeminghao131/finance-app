@@ -1,28 +1,8 @@
 import React,{useEffect,useId,useMemo,useRef,useState} from "react";
 import {useFinanceLanguage} from "./FinanceLanguageLayer.jsx";
+import {orbitGeometry,orbitCurve} from "./financeTransferOrbit.js";
 
 // Stage 4 visual-only selector. All existing Transfer writes and financial math remain in App.
-export function orbitGeometry(methods=[]){
-  const unique=[...new Set(methods.map(value=>String(value||"").trim()).filter(Boolean))];
-  const count=unique.length;
-  // Keep every method on ONE evenly spaced ring. For larger collections the
-  // ring grows and the viewport scrolls horizontally, preserving touch targets.
-  const radius=count<3?116:Math.max(116,Math.ceil(112/(2*Math.sin(Math.PI/count))));
-  const center=radius+56,size=center*2;
-  const nodes=unique.map((method,index)=>{
-    const angle=-Math.PI/2+index*2*Math.PI/count;
-    return {method,index,x:center+Math.cos(angle)*radius,y:center+Math.sin(angle)*radius};
-  });
-  return {nodes,count,radius,center,size};
-}
-export function orbitCurve(start,end,center){
-  if(!start||!end)return "";
-  const bend=(Math.hypot(start.x-end.x,start.y-end.y)<10)?-20:0;
-  return "M "+start.x.toFixed(1)+" "+start.y.toFixed(1)+
-    " Q "+center.toFixed(1)+" "+(center+bend).toFixed(1)+
-    " "+end.x.toFixed(1)+" "+end.y.toFixed(1);
-}
-
 export default function FinanceTransferCorners({
   methods=[],fromMethod,toMethod,onFrom,onTo,
   amount,onAmountChange,disabled=false,
