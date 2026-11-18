@@ -100,7 +100,7 @@ test("four requested UI changes are placed correctly and never overwrite ledger 
  assert.match(app,/<FinanceQuickNotes records=\{records\} type=\{form.type\} category=\{form.category\}/);
  assert.match(app,/calculateSavingsAvailable\(totalBalance, savingsBudgetCategories, currentMonthExpenses\)/);
  assert.match(app,/monthRows.find\(row => row.month === savingsBudgetMonth\)/);
- assert.match(goalUI,/savingsGoalProgress\(g\)/);
+ assert.match(goalUI,/savingsGoalProgress\(g,autoContext\)/);
  assert.match(goalUI,/Saved towards this goal \(RM\)/);
  assert.ok(goalUI.includes('value={draft.saved}'),"Each goal has its own saved amount editor");
  assert.match(cloud,/opening_balances,savings_goals/);
