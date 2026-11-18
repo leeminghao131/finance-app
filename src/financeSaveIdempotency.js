@@ -19,7 +19,7 @@ export async function getRecordRequestId(userId, payload, storage, cryptoProvide
   // foreign amounts/currencies/rates. Never conflate those distinct intents.
   // Keep the original MYR fingerprint unchanged for backward-compatible retries.
   const fxFields=payload.fx_currency
-    ? [payload.fx_currency,String(payload.fx_amount??""),String(payload.fx_rate??""),
+    ? [payload.fx_currency,canonicalDecimal(payload.fx_amount),canonicalDecimal(payload.fx_rate),
        payload.fx_rate_date??"",payload.fx_provider??""] : null;
   const fxDigest=fxFields===null?null:await cryptoProvider.subtle.digest(
     "SHA-256",new TextEncoder().encode(JSON.stringify(fxFields)));
@@ -86,16 +86,16 @@ export function confirmTransferRequest(userId,requestId,storage) {
 
 // Read-after-commit recovery must never claim a DIFFERENT transaction was saved.
 // The DB owns the UUID uniqueness check; these comparisons protect the user UI.
+function canonicalDecimal(value){
+  const raw=String(value??"").trim();
+  if(!/^\d+(?:\.\d+)?$/.test(raw))return raw;
+  const [whole,frac=""]=raw.split(".");
+  const suffix=frac.replace(/0+$/,"");
+  return whole.replace(/^0+(?=\d)/,"")+(suffix?"."+suffix:"");
+}
 function decimalEquivalent(left,right){
-  const canon=value=>{
-    const raw=String(value??"").trim();
-    if(!/^\d+(?:\.\d+)?$/.test(raw))return null;
-    const [whole,frac=""]=raw.split(".");
-    const suffix=frac.replace(/0+$/,"");
-    return whole.replace(/^0+(?=\d)/,"")+(suffix?"."+suffix:"");
-  };
-  const a=canon(left),b=canon(right);
-  return a!==null&&b!==null&&a===b;
+  const a=canonicalDecimal(left),b=canonicalDecimal(right);
+  return /^\d+(?:\.\d+)?$/.test(a)&&a===b;
 }
 function sameMYRCents(left,right){
   const a=Number(left),b=Number(right);
