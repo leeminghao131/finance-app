@@ -1,8 +1,9 @@
 import React,{useEffect,useMemo,useRef,useState} from "react";
 import FinanceOverlay from "./FinanceOverlay.jsx";
-import FinanceRecurringBills from "./FinanceRecurringBills.jsx";
-import FinanceReviewInbox from "./FinanceReviewInbox.jsx";
-import FinanceAccountReconciliation from "./FinanceAccountReconciliation.jsx";
+// Deferred until the owner opens a specific Stage 2 tool; finance handlers stay in the parent.
+const FinanceRecurringBills = React.lazy(() => import("./FinanceRecurringBills.jsx"));
+const FinanceReviewInbox = React.lazy(() => import("./FinanceReviewInbox.jsx"));
+const FinanceAccountReconciliation = React.lazy(() => import("./FinanceAccountReconciliation.jsx"));
 import {billOccurrences,findReviewCandidates} from "./financeStage2.js";
 import {localDateMY} from "./financeCalendar.js";
 import {useFinanceLanguage} from "./FinanceLanguageLayer.jsx";
@@ -120,6 +121,7 @@ export default function FinanceStage2Hub({
     </div>
     <FinanceOverlay open={!!mode} title={title} onClose={close} triggerRef={triggerRef}
       widthClass={mode==="review"?"max-w-2xl":"max-w-4xl"}>
+      <React.Suspense fallback={<div role="status" className="p-4 text-sm text-slate-600">Loading...</div>}>
       {mode==="bill"&&<FinanceRecurringBills bills={bills} records={records} categories={categories} methods={methods}
         onSave={onSaveBills} onConfirmPayment={onConfirmBillPayment}
         disabled={disabled} selectedBillId={selectedBillId}/>}
@@ -132,6 +134,7 @@ export default function FinanceStage2Hub({
         onSave={onSaveChecks} onExecuteTransfers={onExecuteTransfers}
         onPrefillRecord={prefillAndClose}
         selectedMethod={selectedAccountMethod} disabled={disabled}/>}
+      </React.Suspense>
 
     </FinanceOverlay>
   </>;
