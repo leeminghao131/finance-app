@@ -53,8 +53,7 @@
   75% { translate: -0.45px -0.15px; rotate: -0.12deg; }
 }
 @media (hover: hover) and (pointer: fine) {
-  button:is(.mh-modal-trigger, [aria-haspopup="dialog"], [aria-haspopup="menu"])
-    :not(:disabled):not(:active):hover {
+  button:is(.mh-modal-trigger, [aria-haspopup="dialog"], [aria-haspopup="menu"]):not(:disabled):not(:active):hover {
     animation: mh-universal-hover-vibrate .17s linear infinite;
   }
 }
