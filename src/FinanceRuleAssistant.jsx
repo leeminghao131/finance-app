@@ -31,7 +31,7 @@ export default function FinanceRuleAssistant({ctx,userId,onOpenTool=()=>{}}){
           onClick={()=>setOpen(false)} aria-label={zh?"关闭助手":"Close assistant"}>✕</button>
       </header>
       <div ref={messages} className="max-h-[34dvh] min-h-24 space-y-3 overflow-y-auto p-3" aria-live="polite">
-        {!history.length&&}
+
         {history.map((entry,index)=><div key={index} className="space-y-1 text-sm">
           <p className="rounded-lg bg-slate-100 px-3 py-2 text-slate-800">{entry.question}</p>
           <p className="rounded-lg bg-blue-50 px-3 py-2 text-blue-900">{entry.reply.answer}</p>
