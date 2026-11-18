@@ -96,7 +96,7 @@ test("One sortable CSV / Excel drawer entry replaces two header entry buttons",(
   assert.equal(new Set(moveDockItem(FINANCE_DOCK_IDS,"data-tools","activity")).size,9);
   assert.match(dock,/<FinanceDataToolsLauncher disabled=\{disabled\} onOpen=\{onOpenDataTool\}/);
   assert.match(launcher,/onMouseEnter=\{\(\)=>setOpen\(true\)\}/);
-  assert.match(launcher,/onClick=\{\(\)=>setOpen\(value=>!value\)\}/);
+  assert.match(launcher,/onClick=\{\(\)=>setOpen\(true\)\}/);
   assert.match(launcher,/launch\("import",event\)/);
   assert.match(launcher,/launch\("export",event\)/);
   assert.match(app,/onOpenDataTool=\{\(kind,trigger\)=>/);
