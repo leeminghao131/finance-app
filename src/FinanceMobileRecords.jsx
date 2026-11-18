@@ -137,7 +137,7 @@ export default function FinanceMobileRecords({ records, onUpdate, onDelete, onEd
               )}
             </label>
             {record.fx_currency&&(field==="amount"||field==="date")&&<p className="text-xs font-bold text-amber-700">Use FX Edit to update the original foreign-currency amount or date.</p>}
-            {field === "amount" && !record.fx_currency && <p className="text-xs text-slate-500">Normal RM amount: 100 = RM100.00 (not cents keypad).</p>}
+
             <div className="flex gap-3">
               <button type="button" onClick={saveField} disabled={saving || (record.fx_currency&&(field==="amount"||field==="date")) || draft === String(fieldValue(record, field))}
                 className="mh-touch flex-1 rounded-xl bg-slate-900 px-4 py-3 text-sm font-bold text-white disabled:opacity-50">
