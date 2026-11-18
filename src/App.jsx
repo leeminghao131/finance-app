@@ -2210,7 +2210,7 @@ return (
               className="mh-dashboard-action rounded-xl bg-slate-800 px-2.5 py-2 text-sm font-semibold text-white ring-1 ring-slate-600 sm:px-3">
               <span aria-hidden="true">{soundEnabled ? "🔊" : "🔇"}</span><span className="hidden sm:inline"> Sound</span>
             </button>
-            <FinanceLanguageButton className="mh-dashboard-action" />
+            <FinanceLanguageButton className="mh-dashboard-action" compactOnMobile />
             <button type="button" onClick={signOut} aria-label={isChinese ? "退出登录" : "Sign out"} title={isChinese ? "退出登录" : "Sign out"}
               className="mh-dashboard-action rounded-xl bg-white px-2.5 py-2 text-sm font-semibold text-slate-900 sm:px-3">
               <span className="sm:hidden" aria-hidden="true">↪</span><span className="hidden sm:inline">Sign out</span>
@@ -2562,12 +2562,15 @@ return (
                     </span>
                     <span aria-hidden="true">⌄</span>
                   </button>
-                  <button type="button" onClick={() => setTextSearchOpen(v => !v)}
-                    aria-expanded={textSearchOpen} aria-label={isChinese ? "文字搜索" : "Text search"}
+                  <button type="button" onClick={() => setTextSearchOpen(v => keyword ? true : !v)}
+                    aria-expanded={textSearchOpen || Boolean(keyword)} aria-label={isChinese ? "文字搜索" : "Text search"}
                     title={isChinese ? "文字搜索" : "Text search"}
                     className={"mh-analysis-filter__search rounded-2xl border px-3 py-3 text-lg "+
                       (keyword ? "border-blue-400 bg-blue-50 text-blue-700" : "border-slate-200 bg-white text-slate-700")}>
-                    <span aria-hidden="true">⌕</span>
+                    <svg aria-hidden="true" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor"
+                      strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <circle cx="10.8" cy="10.8" r="6.8"/><path d="m16 16 5 5"/>
+                    </svg>
                   </button>
                 </div>
               </div>
