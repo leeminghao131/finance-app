@@ -15,6 +15,30 @@ for (const [en,zh] of pairs) {
 }
 for (const [en,zh] of qaMessages) { for (const original of [en,zh]) bySource.set(original,{en,zh}); }
 for(const [source,en] of aliasPairs){const target=bySource.get(en);if(target)bySource.set(source,target);}
+// Display strings introduced by the finance integrity pass. This layer does not
+// translate or mutate any user values, database categories, record IDs or notes.
+for (const [en,zh] of [
+  ["Through today","截至今天"],["Through today, including Opening Balance","截至今天（包含期初余额）"],
+  ["Today Net","今日净收支"],["Current Balance","当前余额"],
+  ["Remaining Budget","剩余预算"],["Saved towards this goal (RM)","此目标已存金额（RM）"],
+  ["Manual progress only; does not create an Income or Transfer.","仅记录目标进度，不会创建收入或转账。"],
+  ["Shared available savings (not goal progress)","共享可用储蓄余额（不代表目标进度）"],
+  ["Available savings (shared, read-only):","共享可用储蓄余额（只读）："],
+  ["Current Balance −","当前余额 −"],["Remaining Budget","剩余预算"],
+  ["Does not automatically update any goal.","不会自动更改任何储蓄目标。"],
+  ["Income in selected category","所选分类收入"],
+  ["Expense in selected category","所选分类支出"],
+  ["Entire period income (comparison baseline)","同期全部收入（比较基准）"],
+  ["Entire period expense (comparison baseline)","同期全部支出（比较基准）"],
+  ["Actual cumulative balance including opening amounts and prior records; category and keyword filters do not change it.","实际累计余额包含期初金额与此前记录，不受分类或关键词筛选影响。"],
+  ["Cloud Settings JSON","云端设置 JSON"],["Savings Goals","储蓄目标"],
+  ["Recurring Bills","固定账单"],["Activity Links","活动记录关联"],
+  ["Review Decisions","复查决定"],["Account Checks","账户对账记录"],
+  ["Saved Filters","已保存筛选"],["Custom Options","自定义选项"],
+]) {
+  bySource.set(en,{en,zh});
+  bySource.set(zh,{en,zh});
+}
 export const supportedFinanceLanguages = Object.freeze(["zh","en"]);
 
 export function readFinanceLanguage(storage){try{return storage?.getItem?.(FINANCE_LANGUAGE_KEY)==="en"?"en":"zh";}catch{return "zh";}}
