@@ -54,3 +54,35 @@ Only isolated Supabase Test and fake transactions. No main merge, Production dep
 - [ ] Production release blocked until independent encrypted full/restorable database backup, recovery drill, schema compatibility/RLS review and separate approvals for migration, main merge, Production deploy.
 
 Reference rates are NOT bank settlement rates. Foreign cash wallet/currency-exchange-as-Transfer is a separate future feature, not part of Stage 4.
+
+## Stage 4 UI revision — 2026-11-18 (PR #44, TEST only)
+
+These checks replace the old four-corner **visual** wording only; financial integrity tests and permissions remain mandatory.
+
+### B: Circular Transfer Orbit
+- [ ] BANK, TNG, CASH, GRAB PAY and each custom Method (e.g. 支付宝) are evenly spaced on ONE circle; no custom-method overflow row.
+- [ ] Adding a Test custom Method redistributes every node evenly; historical Method references stay readable.
+- [ ] The ONLY new-transfer Amount input is in the exact center; old standalone From/To/Amount card has been replaced. 2455 in Transfer keypad is RM24.55.
+- [ ] Date, Note, Confirm Transfer and full History still exist; dropdown fallback stays available behind a collapsed selector.
+- [ ] Tap source then destination, mouse drag BANK→TNG and Android finger drag 支付宝→CASH; source/target update. No self-transfer allowed.
+- [ ] A missing destination disables Confirm; original save handler retains duplicate protection and money conservation.
+- [ ] Animated glow follows a dragged line and the settled route, and reduced-motion preference disables visual motion.
+- [ ] Narrow Android screen: nodes stay legible, do not overlap the central Amount, and allow horizontal orbit scroll where needed.
+- [ ] History Search, Filter, Edit, soft delete, Undo, Recycle Bin, Restore and zero-sum transfer all continue working.
+
+### D: preset-only assistant
+- [ ] The assistant has no editable text input, textarea or Send/Ask form.
+- [ ] Users can trigger answers only from preset question buttons, retaining read-only sourced answers.
+- [ ] Chinese and English questions, answers, overflow scrolling, open/close and navigation all work on Windows and Android.
+
+### E: split Import / Export in left drawer
+- [ ] Header no longer shows separate Import CSV / Export Excel buttons.
+- [ ] One sortable Import / Export launcher exists in drawer, remembers user-specific order after refresh.
+- [ ] On Windows hover splits into two side-by-side buttons CSV and Excel.
+- [ ] On Android tap main launcher to reveal two buttons. Tap each to open its original import/export workflow.
+- [ ] Both original panels open floating overlays; close, Escape, scrolling, existing CSV import preview, confirmed import and Excel export remain functional.
+- [ ] Sorting drawer by long press must not launch Import or Export accidentally; hover exit and outside tap/blur close choices.
+
+### Independent security release gate
+- [ ] On 2026-11-18 the workflow reports five HIGH npm audit advisories in Vite / @vitejs/plugin-react and related build packages; UI unit tests and Vite Build passing are NOT enough for release. Package versions remain unchanged in this UI-only task.
+- [ ] No Production merge, deployment or production DB migration until audits, TEST end-to-end tests and independent backups/recovery are separately approved and verified.
