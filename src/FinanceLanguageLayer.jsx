@@ -121,14 +121,14 @@ export function useFinanceLanguage() {
   return context;
 }
 
-export function FinanceLanguageButton({ className = "" }) {
+export function FinanceLanguageButton({ className = "", compactOnMobile = false }) {
   const { language, toggleLanguage } = useFinanceLanguage();
   const title = language === "zh" ? "切换至英文" : "Switch to Chinese";
   return (
     <button type="button" onClick={toggleLanguage}
       title={title} aria-label={title} aria-pressed={language === "en"}
       className={"rounded-2xl bg-slate-800 px-4 py-3 text-sm font-semibold text-white ring-1 ring-slate-600 transition hover:bg-slate-700 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-500 " + className}>
-      🌐 {language === "zh" ? "中文" : "EN"}
+      {compactOnMobile ? <><span aria-hidden="true">🌐</span><span className="hidden sm:inline"> {language === "zh" ? "中文" : "EN"}</span></> : <>🌐 {language === "zh" ? "中文" : "EN"}</>}
     </button>
   );
 }
