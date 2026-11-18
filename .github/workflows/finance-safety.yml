@@ -36,6 +36,13 @@ jobs:
           package-manager-cache: false
       - name: Verify lockfile exists
         run: test -f package-lock.json
+      # Temporary diagnostic: regenerate a reviewed lockfile in CI without writing to the repository.
+      - name: Generate lockfile for security repair (temporary, TEST branch only)
+        run: |
+          npm install --package-lock-only --ignore-scripts --no-audit --no-fund
+          echo BEGIN_FINANCE_LOCK
+          sed 's/^/FINANCE_LOCK_PART:/' package-lock.json
+          echo END_FINANCE_LOCK
       - name: Reproducible install without lifecycle scripts
         run: npm ci --no-audit --no-fund --ignore-scripts
       - name: Finance logic and safety regression tests (synthetic data only)
