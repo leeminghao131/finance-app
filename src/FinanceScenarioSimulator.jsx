@@ -127,10 +127,7 @@ export default function FinanceScenarioSimulator({records=[],totalBalance=0,user
           {t("如果每个月收入或支出增加、减少，未来余额会怎样？",
             "What happens to your balance if you earn or spend more — or less — each month?")}
         </h3>
-        <p className="mt-1 text-sm leading-relaxed text-slate-600">
-          {t("调整正负金额：收入为负代表少赚，支出为负代表少花。模拟不会修改真实记录。",
-            "Adjust signed amounts: negative income means earning less; negative spending means spending less. No real records change.")}
-        </p>
+        
       </div>
 
       <div className="mt-4 rounded-xl border border-slate-200 p-3 sm:p-4">
@@ -153,10 +150,7 @@ export default function FinanceScenarioSimulator({records=[],totalBalance=0,user
           {signedInput("spendingDelta",t("每月支出变化（RM）","Monthly spending change (RM)"),
             t("多花","Spend more"),t("少花","Spend less"))}
         </div>
-        <p className="mt-3 text-xs text-slate-500">
-          {t("计算方式：收入变化 − 支出变化＝每月余额变化。示例：收入 +300，支出 −200，代表每个月额外留下 RM500。",
-            "Formula: income change − spending change = monthly balance difference. Example: income +300, spending −200 gives RM500 extra per month.")}
-        </p>
+        
       </div>
 
       {result.error?<p role="alert" className="mt-3 rounded-xl bg-red-50 p-3 text-sm text-red-700">{result.error}</p>
@@ -173,19 +167,13 @@ export default function FinanceScenarioSimulator({records=[],totalBalance=0,user
             <p className={"mt-0.5 text-xl font-bold tabular-nums "+(difference>=0?"text-emerald-800":"text-rose-800")}>
               {difference>0?"+":""}{money(difference)}
             </p>
-            <p className="mt-1 text-sm text-slate-600">
-              {t("这是相对于保持原本习惯，额外增加或减少的预计余额。",
-                "This is the estimated extra gain or loss versus keeping your current pattern.")}
-            </p>
+            
           </div>
         </section>
 
         <section className="mt-4 min-w-0 rounded-xl border border-slate-200 p-3">
           <h3 className="text-sm font-bold text-slate-900">{t("余额变化对比","Estimated balance over time")}</h3>
-          <p className="mt-1 text-xs text-slate-500">
-            {t("灰线＝照目前习惯；绿线＝按新计划；横轴是月数，纵轴是 RM。",
-              "Gray = current pattern; green = your plan. Horizontal: months; vertical: RM.")}
-          </p>
+          
           <div className="mt-3 h-64 min-w-0" aria-label={t("余额模拟折线图","Simulated balance line chart")}>
             <ResponsiveContainer width="100%" height="100%">
               <LineChart data={comparisonData}>
@@ -228,16 +216,12 @@ export default function FinanceScenarioSimulator({records=[],totalBalance=0,user
             <p className="mt-1 text-lg font-bold tabular-nums text-teal-800">{needed||t("请输入正确的金额","Enter a valid RM amount")}</p>
           </div>
         </div>
-        <p className="mt-2 text-xs text-slate-500">
-          {t("这里是相对于原本习惯需要额外积累的金额，不是已经存进银行的钱。",
-            "This is the additional amount needed compared with your old pattern, not verified bank savings.")}
-        </p>
+        
       </section>
 
       <section className="mt-4 rounded-xl border border-slate-200 p-3 sm:p-4">
         <h3 className="text-sm font-bold">{t("保存这个模拟方案","Save a simulation plan")}</h3>
-        <p className="mt-1 text-xs text-slate-500">{t("最多三个，仅保存在这台设备，不会写入真实收支。",
-          "Up to three plans, stored on this device only. No real financial records are changed.")}</p>
+        
         <div className="mt-3 flex flex-wrap items-end gap-2">
           <label className="min-w-[150px] flex-1 text-sm">{t("方案名称","Plan name")}
             <input className={field} maxLength={50} value={form.name} onChange={e=>update("name",e.target.value)}/>
