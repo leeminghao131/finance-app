@@ -122,7 +122,7 @@ export default function FinanceSavingsGoals({goals=[],onSave,disabled=false,savi
         </label>
         <label className="text-sm">Target amount (RM)
           <input required type="text" inputMode="decimal" value={draft.target} onChange={e=>setDraft(p=>({...p,target:e.target.value}))}
-            className="mt-1 w-full rounded-xl border border-slate-300 px-3 py-2" placeholder="5000.00"/>
+            className="mt-1 w-full rounded-xl border border-slate-300 px-3 py-2"/>
         </label>
         <div className="rounded-xl bg-slate-50 p-3 text-sm">
           <p className="text-slate-600">Saved amount (auto)</p>
