@@ -145,7 +145,7 @@ export default function FinanceForecastPanel({records,selectedMonth,asOfDate,pla
           </label>
           <label className="text-xs text-slate-600">Amount RM
             <input className="mt-1 w-full rounded-xl border border-slate-300 px-3 py-2 text-sm"
-              type="text" inputMode="decimal" placeholder="2500.00" value={editForm.amount}
+              type="text" inputMode="decimal" value={editForm.amount}
               onChange={e=>setEditForm(p=>({...p,amount:e.target.value}))} required/>
           </label>
           <label className="col-span-2 text-xs text-slate-600">Description
