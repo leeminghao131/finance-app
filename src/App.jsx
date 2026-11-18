@@ -1552,8 +1552,8 @@ const methodOptionsFor = () => expenseMethodOptions;
     [categoryChoices, categoryFilterKey]);
   const filteredRecords = useMemo(() => categoryOnlyRows(searchPeriodRecords, selectedCategoryFilter),
     [searchPeriodRecords, selectedCategoryFilter]);
-  const chartRecords = useMemo(() => categoryComparisonRows(searchPeriodRecords, selectedCategoryFilter),
-    [searchPeriodRecords, selectedCategoryFilter]);
+  const chartRecords = useMemo(() => categoryComparisonRows(searchPeriodRecords, selectedCategoryFilter, periodRecords),
+    [searchPeriodRecords, selectedCategoryFilter, periodRecords]);
   const periodIncome = sumType(periodRecords, "income");
   const periodExpense = sumType(periodRecords, "expense");
   const transactionFilteredIncome = sumType(filteredRecords, "income");
@@ -2660,8 +2660,12 @@ return (
               />
             </FinanceOverlay>
             <section className="grid gap-4 md:grid-cols-3">
-              <StatCard title="Filtered Income" value={money(filteredIncome)} icon="📈" desc={"Current filter: " + filterLabel} />
-              <StatCard title="Filtered Expense" value={money(filteredExpense)} icon="📉" desc={"Current filter: " + filterLabel}
+              <StatCard title="Filtered Income" value={money(filteredIncome)} icon="📈"
+                 desc={selectedCategoryFilter?.type==="expense" ? "Entire period income (comparison baseline)"
+                   : selectedCategoryFilter?.type==="income" ? "Income in selected category" : "Current filter: " + filterLabel} />
+              <StatCard title="Filtered Expense" value={money(filteredExpense)} icon="📉"
+                 desc={selectedCategoryFilter?.type==="income" ? "Entire period expense (comparison baseline)"
+                   : selectedCategoryFilter?.type==="expense" ? "Expense in selected category" : "Current filter: " + filterLabel}
                 action={<button type="button" ref={budgetTriggerRef} aria-label="Open Monthly Budget" aria-haspopup="dialog"
                   aria-expanded={budgetOpen} title="Monthly Budget / 分类预算"
                   onClick={() => setBudgetOpen(true)}
@@ -2727,7 +2731,7 @@ return (
   ref={spendingTrendTriggerRef} role="button" tabIndex={0} aria-label="Expand Spending Trend" title="Click to expand Spending Trend"
   onClick={() => setExpandedTrend("expense")}
   onKeyDown={(event) => { if (event.key === "Enter" || event.key === " ") { event.preventDefault(); setExpandedTrend("expense"); } }}>
-  {trendData.length ? <ResponsiveContainer width="100%" height="100%"><LineChart data={trendData}><CartesianGrid strokeDasharray="3 3" /><XAxis dataKey="day" /><YAxis /><Tooltip content={<FinanceTrendSummaryTooltip kind="expense" />} /><Legend /><Line isAnimationActive={false} type="monotone" dataKey="expense" name="Expense" stroke="#3b82f6" strokeWidth={3} dot={{ r: 4 }} /></LineChart></ResponsiveContainer> : <div className="flex h-full items-center justify-center text-slate-500">No expense trend data.</div>}</div><div className="mt-4 border-t border-slate-200 pt-3"><p className="mb-2 text-sm font-bold text-slate-700">Filtered Balance Trend</p><div className="mh-modal-trigger h-36 cursor-zoom-in rounded-xl focus-visible:outline focus-visible:outline-2 focus-visible:outline-blue-500"
+  {trendData.length ? <ResponsiveContainer width="100%" height="100%"><LineChart data={trendData}><CartesianGrid strokeDasharray="3 3" /><XAxis dataKey="day" /><YAxis /><Tooltip content={<FinanceTrendSummaryTooltip kind="expense" />} /><Legend /><Line isAnimationActive={false} type="monotone" dataKey="expense" name="Expense" stroke="#3b82f6" strokeWidth={3} dot={{ r: 4 }} /></LineChart></ResponsiveContainer> : <div className="flex h-full items-center justify-center text-slate-500">No expense trend data.</div>}</div><div className="mt-4 border-t border-slate-200 pt-3"><p className="mb-2 text-sm font-bold text-slate-700">Filtered Balance Trend</p><p className="mb-2 text-xs text-slate-500">Actual cumulative balance including opening amounts and prior records; category and keyword filters do not change it.</p><div className="mh-modal-trigger h-36 cursor-zoom-in rounded-xl focus-visible:outline focus-visible:outline-2 focus-visible:outline-blue-500"
   ref={balanceTrendTriggerRef} role="button" tabIndex={0} aria-label="Expand Filtered Balance Trend" title="Click to expand Balance Trend"
   onClick={() => setExpandedTrend("balance")}
   onKeyDown={(event) => { if (event.key === "Enter" || event.key === " ") { event.preventDefault(); setExpandedTrend("balance"); } }}>
