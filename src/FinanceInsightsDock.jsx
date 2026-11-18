@@ -163,7 +163,7 @@ export default function FinanceInsightsDock({
         <span className="mh-insights-dock__icon" aria-hidden="true">🔎</span>
       </button>},
     {id:"accounts",label:zh?"余额对账":"Balance Check",icon:"🏦",node:
-      <button type="button" disabled={disabled}
+      <button type="button" disabled={disabled} aria-haspopup="dialog"
         aria-label={zh?"打开账户余额对账":"Open Balance Reconciliation"}
         onClick={e=>onOpenStage2Tool("accounts",e.currentTarget)}
         className="mh-insights-dock__button">
