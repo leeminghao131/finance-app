@@ -144,7 +144,9 @@ export default function FinanceSavingsGoals({goals=[],onSave,disabled=false,savi
           <div className="mt-1 flex flex-wrap gap-4 text-sm">
             <label className="flex cursor-pointer items-center gap-2">
               <input type="radio" name="savingsMode" value="manual" checked={draft.savedMode==="manual"}
-                onChange={()=>setDraft(p=>({...p,savedMode:"manual"}))}/> {zh?"手动输入":"Manual input"}
+                onChange={()=>setDraft(p=>({...p,savedMode:"manual",
+                  budgetMultiplier:/^(?:0|[1-9]\\d{0,2})(?:\\.\\d{1,2})?$/.test(String(p.budgetMultiplier)) && Number(p.budgetMultiplier)<=120
+                    ? p.budgetMultiplier : "1"}))}/> {zh?"手动输入":"Manual input"}
             </label>
             <label className="flex cursor-pointer items-center gap-2">
               <input type="radio" name="savingsMode" value="auto" checked={draft.savedMode==="auto"}
