@@ -78,7 +78,7 @@ export function validateSavingsGoals(goals) {
     const hasMultiplier=Object.prototype.hasOwnProperty.call(g,"budgetMultiplier");
     const mode=hasMode?String(g.savedMode):"manual";
     if (!["manual","auto"].includes(mode)) throw new Error("Choose a valid savings progress mode.");
-    const rawMultiplier=String(g.budgetMultiplier??"1").trim();
+    const rawMultiplier=String(g.budgetMultiplier===undefined?"1":g.budgetMultiplier).trim();
     if (!/^(?:0|[1-9]\d{0,2})(?:\.\d{1,2})?$/.test(rawMultiplier) ||
         Number(rawMultiplier)>120) {
       throw new Error("Budget multiplier must be between 0 and 120, with at most two decimals.");
