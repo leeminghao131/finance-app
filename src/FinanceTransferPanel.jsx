@@ -1,5 +1,6 @@
 import { localizedFinanceAlert, localizedFinanceConfirm, useFinanceLanguage } from "./FinanceLanguageLayer.jsx";
 import FinanceOverlay from "./FinanceOverlay.jsx";
+import FinanceTransferCorners from "./FinanceTransferCorners.jsx";
 import React, { useMemo, useRef, useState } from "react";
 import { requireCalendarDate } from "./financeCalendar.js";
 
@@ -58,57 +59,69 @@ export default function FinanceTransferPanel({
   }
 
   return (
-    <div id="mh-money-transfer-card" className="rounded-2xl bg-white p-5 shadow-sm ring-1 ring-slate-200">
-      <div className="flex flex-wrap items-start justify-between gap-3">
+    <div id="mh-money-transfer-card" className="mh-transfer-console">
+      <div className="mh-transfer-console__header">
         <div>
-          <h2 className="text-xl font-bold">Money Transfer</h2>
-          <p className="mt-1 text-sm text-slate-500">Move money between accounts. This never counts as income or expense.</p>
+          <p className="mh-transfer-console__eyebrow">{t("环形资金转移台","CIRCULAR TRANSFER CONSOLE")}</p>
+          <h2 className="mh-transfer-console__title">{t("资金转账","Money Transfer")}</h2>
+          <p className="mh-transfer-console__subtitle">{t(
+            "每个付款方式都在同一个资金圆环上；从一个账户拖动到另一个账户。",
+            "All payment methods share one orbit. Drag from a source to a destination."
+          )}</p>
         </div>
-        <div className="flex items-center gap-2">
-          <button ref={historyTriggerRef} type="button" disabled={disabled}
-            aria-haspopup="dialog" aria-expanded={historyOpen}
-            onClick={()=>{setShowAll(true);setHistoryOpen(true);}}
-            className="mh-modal-trigger min-h-11 rounded-xl border border-blue-200 bg-blue-50 px-3 py-2 text-sm font-bold text-blue-800 hover:bg-blue-100 disabled:opacity-50">
-            📋 {t("转账历史","Transfer History")} ({transfers.length})
-          </button>
-          <span className="rounded-2xl bg-blue-50 px-3 py-2 text-xl">🔁</span>
-        </div>
+        <button ref={historyTriggerRef} type="button" disabled={disabled}
+          aria-haspopup="dialog" aria-expanded={historyOpen}
+          onClick={()=>{setShowAll(true);setHistoryOpen(true);}}
+          className="mh-transfer-console__history mh-modal-trigger">
+          <span aria-hidden="true">▤</span> {t("转账历史","Transfer History")} <span className="mh-transfer-console__history-count">{transfers.length}</span>
+        </button>
       </div>
 
-      <form onSubmit={onTransfer} className="mt-4 space-y-3">
-        <div className="grid gap-3 sm:grid-cols-2">
-          <label className="text-sm text-slate-700">From Method
-            <select className={inputStyle} value={transferForm.fromMethod}
-              onChange={(e)=>setTransferForm((old)=>({...old,fromMethod:e.target.value}))}>
-              {methodOptions.map((m)=><option key={m} value={m}>{m}</option>)}
-            </select>
+      <form onSubmit={onTransfer} className="mh-transfer-console__form">
+        <FinanceTransferCorners methods={methodOptions}
+          fromMethod={transferForm.fromMethod} toMethod={transferForm.toMethod}
+          amount={transferForm.amount} disabled={disabled}
+          onFrom={method=>setTransferForm(old=>({...old,fromMethod:method}))}
+          onTo={method=>setTransferForm(old=>({...old,toMethod:method}))}
+          onAmountChange={value=>{
+            const digits=String(value||"").replace(/\D/g,"");
+            const amount=(Number(digits||0)/100).toFixed(2);
+            setTransferForm(old=>({...old,amount}));
+          }}/>
+        <details className="mh-transfer-console__fallback">
+          <summary>{t("使用下拉列表选择账户","Choose methods using dropdowns")}</summary>
+          <div className="mt-3 grid grid-cols-2 gap-2">
+            <label className="text-xs">{t("转出账户","From Method")}
+              <select className={inputStyle} value={transferForm.fromMethod} disabled={disabled}
+                onChange={e=>setTransferForm(old=>({...old,fromMethod:e.target.value}))}>
+                {methodOptions.map(method=><option key={method} value={method}>{method}</option>)}
+              </select>
+            </label>
+            <label className="text-xs">{t("转入账户","To Method")}
+              <select className={inputStyle} value={transferForm.toMethod} disabled={disabled}
+                onChange={e=>setTransferForm(old=>({...old,toMethod:e.target.value}))}>
+                {!transferForm.toMethod&&<option value="">{t("请选择","Select…")}</option>}
+                {methodOptions.map(method=><option key={method} value={method}>{method}</option>)}
+              </select>
+            </label>
+          </div>
+        </details>
+        <div className="mh-transfer-console__fields">
+          <label>{t("转账日期","Date")}
+            <input type="date" required disabled={disabled} className={inputStyle}
+              value={transferForm.date}
+              onChange={e=>setTransferForm(old=>({...old,date:e.target.value}))}/>
           </label>
-          <label className="text-sm text-slate-700">To Method
-            <select className={inputStyle} value={transferForm.toMethod}
-              onChange={(e)=>setTransferForm((old)=>({...old,toMethod:e.target.value}))}>
-              {methodOptions.map((m)=><option key={m} value={m}>{m}</option>)}
-            </select>
+          <label>{t("备注","Note")}
+            <input disabled={disabled} className={inputStyle} value={transferForm.note}
+              onChange={e=>setTransferForm(old=>({...old,note:e.target.value}))}/>
           </label>
         </div>
-        <label className="block text-sm text-slate-700">Amount (RM)
-          <input type="text" inputMode="numeric" required className={inputStyle}
-            value={transferForm.amount}
-            onChange={(e)=>{
-              const digits=e.target.value.replace(/\D/g,"");
-              const amount=(Number(digits || 0)/100).toFixed(2);
-              setTransferForm((old)=>({...old,amount}));
-            }}/>
-        </label>
-        <label className="block text-sm text-slate-700">Date
-          <input type="date" required className={inputStyle} value={transferForm.date}
-            onChange={(e)=>setTransferForm((old)=>({...old,date:e.target.value}))}/>
-        </label>
-        <label className="block text-sm text-slate-700">Note
-          <input className={inputStyle} value={transferForm.note}
-            onChange={(e)=>setTransferForm((old)=>({...old,note:e.target.value}))}/>
-        </label>
-        <button type="submit" className="w-full rounded-xl bg-blue-600 px-4 py-3 text-sm font-bold text-white hover:bg-blue-700">
-          Transfer Money
+        <button type="submit"
+          disabled={disabled||!transferForm.fromMethod||!transferForm.toMethod||
+            transferForm.fromMethod===transferForm.toMethod||Number(transferForm.amount)<=0}
+          className="mh-transfer-console__submit">
+          <span aria-hidden="true">✦</span> {t("确认资金转账","Confirm Transfer")} <span aria-hidden="true">⇢</span>
         </button>
       </form>
 

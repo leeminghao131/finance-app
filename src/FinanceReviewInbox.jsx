@@ -12,7 +12,7 @@ const labels={
 };
 export default function FinanceReviewInbox({
   records=[],reviewState={threshold:500,decisions:[]},onSave,optionsFor,
-  onUpdateRecord,onDeleteRecord,open=false,selectedId=null,disabled=false,onClose=()=>{},
+  onUpdateRecord,onDeleteRecord,onEditFx=()=>{},open=false,selectedId=null,disabled=false,onClose=()=>{},
 }){
   const {language}=useFinanceLanguage(),zh=language==="zh";
   const t=(cn,en)=>zh?cn:en;
@@ -137,7 +137,7 @@ export default function FinanceReviewInbox({
         {editingId===c.id?<div className="mt-3 rounded-xl bg-slate-50 p-3">
           <label className="block text-xs">{t("选择需要修改的字段","Select a field to edit")}
             <select className={field} value={fieldName} onChange={e=>setEditField(c,e.target.value)}>
-              {["note","amount","date","category","method"].map(name=><option key={name} value={name}>{
+              {["note","amount","date","category","method"].filter(name=>!c.record.fx_currency||!["amount","date"].includes(name)).map(name=><option key={name} value={name}>{
                 {note:t("备注","Note"),amount:t("金额","Amount"),date:t("日期","Date"),
                   category:t("分类","Category"),method:t("付款方式","Method")}[name]}</option>)}
             </select>
@@ -169,6 +169,10 @@ export default function FinanceReviewInbox({
             {t("确认无误","Confirm correct")}</button>
           <button type="button" disabled={disabled||busy} onClick={()=>startEdit(c)}
             className="rounded-lg border border-slate-300 px-3 py-2.5 text-xs font-bold">{t("修改对应记录","Edit transaction")}</button>
+          {c.record.fx_currency&&<button type="button" disabled={disabled||busy}
+            onClick={e=>onEditFx(c.record,e.currentTarget)}
+            className="min-h-11 rounded-lg border border-blue-200 bg-blue-50 px-3 py-2.5 text-xs font-bold text-blue-800">
+            {t("编辑外币金额","FX Edit")}</button>}
           <button type="button" disabled={disabled||busy||!onDeleteRecord} onClick={()=>removeRecord(c)}
             className="min-h-11 rounded-lg border border-red-300 bg-red-50 px-3 py-2.5 text-xs font-bold text-red-700 disabled:opacity-50">
             {t("删除记录","Delete transaction")}</button>

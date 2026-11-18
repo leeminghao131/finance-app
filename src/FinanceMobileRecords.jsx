@@ -15,7 +15,7 @@ const methodOf = (record) => record.method || "TNG";
 const builtInCategories = new Set(["饮食", "教育", "住房", "日用", "交通", "娱乐", "运动", "医疗", "美容", "Salary", "Allowance", "Part-time", "Gift", "Others"]);
 const builtInMethods = new Set(["BANK", "CASH", "TNG", "GRAB PAY", "BANK IN", "DEBIT CARD", "ONLINE BANK IN"]);
 
-export default function FinanceMobileRecords({ records, onUpdate, onDelete, categoryOptionsFor, methodOptionsFor, getActivityLabel=()=>"" }) {
+export default function FinanceMobileRecords({ records, onUpdate, onDelete, onEditFx=()=>{}, categoryOptionsFor, methodOptionsFor, getActivityLabel=()=>"" }) {
   const { language } = useFinanceLanguage();
   const [editingId, setEditingId] = useState(null);
   const editTriggerRef = React.useRef(null);
@@ -67,9 +67,12 @@ export default function FinanceMobileRecords({ records, onUpdate, onDelete, cate
               </span>
               <p className="mt-2 font-mono text-xs text-slate-500">{item.date}</p>
             </div>
-            <strong className={`mh-record-amount text-right text-lg ${item.type === "income" ? "text-green-700" : "text-red-700"}`}>
-              {item.type === "income" ? "+" : "−"}{currency(item.amount)}
-            </strong>
+            <div className="text-right">
+              <strong className={`mh-record-amount block text-lg ${item.type === "income" ? "text-green-700" : "text-red-700"}`}>
+                {item.type === "income" ? "+" : "−"}{currency(item.amount)}
+              </strong>
+              {item.fx_currency&&<p className="text-xs text-slate-600" data-i18n-ignore>{item.fx_currency} {item.fx_amount}</p>}
+            </div>
           </div>
           <div className="mt-3 grid min-w-0 grid-cols-2 gap-x-4 gap-y-2 text-sm">
             <div className="min-w-0"><p className="text-xs text-slate-500">Category</p><p className="break-words font-semibold text-slate-800" data-i18n-ignore>{builtInCategories.has(item.category) ? builtInFinanceCategory(item.category, language) : item.category}</p></div>
@@ -84,6 +87,8 @@ export default function FinanceMobileRecords({ records, onUpdate, onDelete, cate
             </span>}
           </div>
           <div className="mt-4 flex gap-3 border-t border-slate-100 pt-3">
+            {item.fx_currency&&<button type="button" onClick={e=>onEditFx(item,e.currentTarget)}
+              className="mh-touch rounded-xl border border-blue-300 px-3 text-xs font-bold text-blue-700">FX Edit</button>}
             <button type="button" onClick={event => { editTriggerRef.current = event.currentTarget; startEdit(item); }} className="mh-modal-trigger mh-touch flex-1 rounded-xl bg-slate-900 px-4 py-2.5 text-sm font-bold text-white">Edit</button>
             <button type="button" onClick={() => setConfirmDelete(confirmDelete === item.id ? null : item.id)}
               className="mh-touch flex-1 rounded-xl border border-red-200 bg-white px-4 py-2.5 text-sm font-bold text-red-700">
@@ -131,9 +136,10 @@ export default function FinanceMobileRecords({ records, onUpdate, onDelete, cate
                   value={draft} onChange={(e) => setDraft(e.target.value)} disabled={saving} />
               )}
             </label>
-            {field === "amount" && <p className="text-xs text-slate-500">Normal RM amount: 100 = RM100.00 (not cents keypad).</p>}
+            {record.fx_currency&&(field==="amount"||field==="date")&&<p className="text-xs font-bold text-amber-700">Use FX Edit to update the original foreign-currency amount or date.</p>}
+            {field === "amount" && !record.fx_currency && <p className="text-xs text-slate-500">Normal RM amount: 100 = RM100.00 (not cents keypad).</p>}
             <div className="flex gap-3">
-              <button type="button" onClick={saveField} disabled={saving || draft === String(fieldValue(record, field))}
+              <button type="button" onClick={saveField} disabled={saving || (record.fx_currency&&(field==="amount"||field==="date")) || draft === String(fieldValue(record, field))}
                 className="mh-touch flex-1 rounded-xl bg-slate-900 px-4 py-3 text-sm font-bold text-white disabled:opacity-50">
                 {saving ? "Saving..." : "Save field"}
               </button>

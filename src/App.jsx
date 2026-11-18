@@ -4,6 +4,10 @@ import { parseEditedAmount } from "./financeData";
 import { localDateMY, localMonthMY, localYearMY, shiftCalendarDay, calendarDaysRange, previousCalendarDays, calendarMonthDays, requireCalendarDate } from "./financeCalendar";
 import { normalizeBudgetsInput } from "./financeInsights.js";
 import FinanceTransferPanel from "./FinanceTransferPanel.jsx";
+import FinanceCurrencyInput from "./FinanceCurrencyInput.jsx";
+import FinanceFxRecordEditor from "./FinanceFxRecordEditor.jsx";
+import FinanceRuleAssistant from "./FinanceRuleAssistant.jsx";
+import {makeFxSnapshot} from "./financeFx.js";
 import FinanceBudgetPanel from "./FinanceBudgetPanel.jsx";
 import FinanceForecastPanel from "./FinanceForecastPanel.jsx";
 import FinanceOpeningBalancePanel from "./FinanceOpeningBalancePanel.jsx";
@@ -623,6 +627,7 @@ function FinanceVisualizerAppContent() {
   const [initialDataReady, setInitialDataReady] = useState(false);
   const [importOpen, setImportOpen] = useState(false);
   const [exportOpen, setExportOpen] = useState(false);
+  const dataToolTriggerRef=useRef(null);
   const budgetsRef = useRef(DEFAULT_BUDGETS);
   const settingsVersionRef = useRef(null);
   const settingsQueueRef = useRef(Promise.resolve());
@@ -644,6 +649,16 @@ function FinanceVisualizerAppContent() {
   const [budgets, setBudgets] = useState(DEFAULT_BUDGETS);
   const [customOptions, setCustomOptions] = useState(DEFAULT_CUSTOM_OPTIONS);
   const [form, setForm] = useState({ type: "expense", amount: "", category: "饮食", method: "TNG", note: "", date: today() });
+  const [fxCurrency,setFxCurrency]=useState("MYR");
+  const [fxForeignAmount,setFxForeignAmount]=useState("");
+  const [fxQuote,setFxQuote]=useState(null);
+  const [fxEditingId,setFxEditingId]=useState(null);
+  // Clear unfinished FX details between signed-in accounts, never leak a draft.
+  useEffect(()=>{
+    setFxCurrency("MYR");setFxForeignAmount("");setFxQuote(null);setFxEditingId(null);
+  },[user?.id]);
+  const fxEditTriggerRef=useRef(null);
+  const openFxEdit=(record,trigger)=>{fxEditTriggerRef.current=trigger||null;setFxEditingId(record.id);};
   const [transferForm, setTransferForm] = useState({
   fromMethod: "BANK",
   toMethod: "TNG",
@@ -1684,16 +1699,20 @@ async function addRecord(e) {
   if (recordCreationPendingRef.current) return;
   recordCreationPendingRef.current = true;
   try {
-    let amount;
-    try { amount = parseEditedAmount(form.amount); }
-    catch(error) { localizedFinanceAlert(error.message); return; }
+    let amount,fxMeta=null;
+    try{
+      if(typeof fxCurrency==="undefined"||fxCurrency==="MYR"){
+        amount = parseEditedAmount(form.amount);
+      }else{
+        fxMeta=makeFxSnapshot({currency:fxCurrency,foreignAmount:fxForeignAmount,
+          quote:fxQuote,recordDate:form.date});
+        amount=fxMeta.amount;
+      }
+    }catch(error){localizedFinanceAlert(error.message);return;}
     const pendingActivity=form.type==="expense"?activeActivity(activities):null;
-    const payload = toRecordPayload(
-      { ...form, amount, note: form.note.trim() },
-      user.id
-    );
+    const payload={...toRecordPayload({...form,amount,note:form.note.trim()},user.id),...(fxMeta||{})};
     const requestId = await getRecordRequestId(user.id, payload, sessionStorage, crypto);
-    const columns = "id,type,amount,category,method,note,date,created_at,updated_at,version,deleted_at";
+    const columns = "id,type,amount,category,method,note,date,created_at,updated_at,version,deleted_at,fx_currency,fx_amount,fx_rate,fx_rate_date,fx_provider";
     let { data, error } = await supabase
       .from("records")
       .insert({ ...payload, client_request_id: requestId })
@@ -1715,6 +1734,7 @@ async function addRecord(e) {
     const insertedRecord = normalizeRecord(data);
     setRecords((p) => p.some(row => row.id === insertedRecord.id) ? p : [insertedRecord, ...p]);
     setForm((p) => ({ ...p, amount: amountEntryMode === "rm" ? "" : "0.00", note: "", date: today() }));
+    if(typeof setFxForeignAmount==="function")setFxForeignAmount("");
     // This secondary association is not a second Expense. Never report a
     // saved Expense as lost if Activity tagging needs manual recovery.
     if(insertedRecord.type==="expense"&&pendingActivity){
@@ -1905,6 +1925,10 @@ async function addRecord(e) {
     const current = records.find((row) => row.id === recordId);
     if (!current || !user) return;
     if (pendingRecordsRef.current.has(recordId)) return;
+    if(current.fx_currency&&(field==="amount"||field==="date")){
+      localizedFinanceAlert("Use FX Edit to update the original foreign amount/date safely.");
+      return false;
+    }
     let updates;
     try {
       updates = field === "type"
@@ -1924,7 +1948,7 @@ async function addRecord(e) {
         .eq("user_id", user.id)
         .eq("version", current.version)
         .is("deleted_at", null)
-        .select("id,type,amount,category,method,note,date,created_at,updated_at,version,deleted_at")
+        .select("id,type,amount,category,method,note,date,created_at,updated_at,version,deleted_at,fx_currency,fx_amount,fx_rate,fx_rate_date,fx_provider")
         .maybeSingle();
       if (error) throw error;
       if (!data) {
@@ -1944,6 +1968,35 @@ async function addRecord(e) {
     }
   }
 
+  async function updateForeignRecord(original,change){
+    const current=records.find(row=>row.id===original?.id);
+    if(!user||!initialDataReady||dataLoading||!current?.fx_currency||pendingRecordsRef.current.has(current.id))return false;
+    let safe;
+    try{
+      safe=makeFxSnapshot({currency:change.fx_currency,foreignAmount:change.fx_amount,
+        recordDate:change.date,quote:{currency:change.fx_currency,requestedDate:change.date,
+          rate:change.fx_rate,date:change.fx_rate_date,source:change.fx_provider}});
+      requireCalendarDate(change.date);
+    }catch(e){localizedFinanceAlert(e.message);return false;}
+    pendingRecordsRef.current.add(current.id);
+    try{
+      const columns="id,type,amount,category,method,note,date,created_at,updated_at,version,deleted_at,fx_currency,fx_amount,fx_rate,fx_rate_date,fx_provider";
+      const {data,error}=await supabase.from("records").update({...safe,date:change.date})
+        .eq("id",current.id).eq("user_id",user.id).eq("version",current.version)
+        .is("deleted_at",null).select(columns).maybeSingle();
+      if(error)throw error;
+      if(!data){
+        await loadCloudData({background:true});
+        throw Error("FX changed on another device; nothing overwritten.");
+      }
+      if(liveUserIdRef.current!==user.id)return false;
+      const result=normalizeRecord(data);
+      setRecords(rows=>rows.map(row=>row.id===result.id?result:row));
+      setSyncStatus("FX transaction saved to cloud");return true;
+    }catch(e){localizedFinanceAlert(e.message||String(e));return false;}
+    finally{pendingRecordsRef.current.delete(current.id);}
+  }
+
   async function deleteRecord(recordId) {
     const current = records.find((row) => row.id === recordId);
     if (!current || !user || pendingRecordsRef.current.has(recordId)) return;
@@ -1953,7 +2006,7 @@ async function addRecord(e) {
         .update({ deleted_at: new Date().toISOString() })
         .eq("id", recordId).eq("user_id", user.id)
         .eq("version", current.version).is("deleted_at", null)
-        .select("id,type,amount,category,method,note,date,created_at,updated_at,version,deleted_at")
+        .select("id,type,amount,category,method,note,date,created_at,updated_at,version,deleted_at,fx_currency,fx_amount,fx_rate,fx_rate_date,fx_provider")
         .maybeSingle();
       if (error) throw error;
       if (!data) {
@@ -1986,7 +2039,7 @@ async function addRecord(e) {
         .update({ deleted_at: null })
         .eq("id", recordId).eq("user_id", user.id)
         .eq("version", current.version).not("deleted_at", "is", null)
-        .select("id,type,amount,category,method,note,date,created_at,updated_at,version,deleted_at")
+        .select("id,type,amount,category,method,note,date,created_at,updated_at,version,deleted_at,fx_currency,fx_amount,fx_rate,fx_rate_date,fx_provider")
         .maybeSingle();
       if (error) throw error;
       if (!data) {
@@ -2071,6 +2124,7 @@ return (
   onPrefillRecord={prefillStage2Record}
   onUpdateRecord={updateRecord}
   onDeleteRecord={deleteRecord}
+  onEditFx={openFxEdit}
   optionsFor={type=>({categories:categoryOptionsFor(type),methods:methodOptionsFor(type)})}
   disabled={!initialDataReady||dataLoading}
 />
@@ -2078,23 +2132,32 @@ return (
       <div className="mx-auto max-w-7xl space-y-6">
         <header className="flex flex-col gap-4 rounded-3xl bg-slate-900 p-6 text-white md:flex-row md:items-center md:justify-between">
           <div><p className="text-sm font-medium text-slate-300">Personal Finance Dashboard</p><h1 className="mt-2 text-3xl font-bold md:text-4xl">记账可视化软件</h1><p className="mt-2 text-sm text-slate-300">记录收入与支出，自动生成统计、分类比例、每日趋势和预算使用情况。</p></div>
-          <div className="flex flex-wrap gap-3"><button onClick={() => setSoundEnabled((v) => !v)} className="rounded-2xl bg-slate-800 px-4 py-3 text-sm font-semibold text-white ring-1 ring-slate-600">{soundEnabled ? "🔊" : "🔇"} Sound</button><FinanceLanguageButton /><button type="button" disabled={!initialDataReady || dataLoading} onClick={() => { setExportOpen((v) => !v); setImportOpen(false); }} className="rounded-2xl bg-white px-4 py-3 text-sm font-semibold text-slate-900 disabled:opacity-50">⬇ Export Excel</button><button type="button" disabled={!initialDataReady || dataLoading} onClick={() => { setImportOpen((v) => !v); setExportOpen(false); }} className="rounded-2xl bg-slate-700 px-4 py-3 text-sm font-semibold text-white ring-1 ring-slate-600 disabled:opacity-50">⬆ Import CSV</button><button onClick={signOut} className="rounded-2xl bg-white px-4 py-3 text-sm font-semibold text-slate-900">Sign out</button></div>
+          <div className="flex flex-wrap gap-3"><button onClick={() => setSoundEnabled((v) => !v)} className="rounded-2xl bg-slate-800 px-4 py-3 text-sm font-semibold text-white ring-1 ring-slate-600">{soundEnabled ? "🔊" : "🔇"} Sound</button><FinanceLanguageButton /><button onClick={signOut} className="rounded-2xl bg-white px-4 py-3 text-sm font-semibold text-slate-900">Sign out</button></div>
         </header>
-        <React.Suspense fallback={<div role="status" className="rounded-2xl bg-white p-4 text-sm text-slate-600">Loading...</div>}>
-        {importOpen && <FinanceCsvImportPanel
-          supabase={supabase} user={user}
-          existingRecords={[...records,...deletedRecords]}
-          onClose={() => setImportOpen(false)}
-          onImported={() => loadCloudData({background:true})}
-        />}
-        {exportOpen && <FinanceExcelExportPanel
-          records={records} deletedRecords={deletedRecords}
-          transfers={transfers} deletedTransfers={deletedTransfers}
-          monthRows={monthRows} budgetTemplate={budgets}
-          forecastPlans={forecastPlans} openingBalances={openingBalances} dataReady={initialDataReady}
-          dataLoading={dataLoading} onClose={() => setExportOpen(false)}
-        />}
-        </React.Suspense>
+        <FinanceOverlay open={importOpen} title="CSV Import / 导入"
+          widthClass="max-w-4xl" showTitle={false} triggerRef={dataToolTriggerRef}
+          onClose={() => setImportOpen(false)}>
+          <React.Suspense fallback={<div role="status" className="p-4 text-sm text-slate-600">Loading...</div>}>
+            {importOpen && <FinanceCsvImportPanel
+              supabase={supabase} user={user}
+              existingRecords={[...records,...deletedRecords]}
+              onClose={() => setImportOpen(false)}
+              onImported={() => loadCloudData({background:true})}/>}
+          </React.Suspense>
+        </FinanceOverlay>
+        <FinanceOverlay open={exportOpen} title="Excel Export / 导出"
+          widthClass="max-w-4xl" showTitle={false} triggerRef={dataToolTriggerRef}
+          onClose={() => setExportOpen(false)}>
+          <React.Suspense fallback={<div role="status" className="p-4 text-sm text-slate-600">Loading...</div>}>
+            {exportOpen && <FinanceExcelExportPanel
+              records={records} deletedRecords={deletedRecords}
+              transfers={transfers} deletedTransfers={deletedTransfers}
+              monthRows={monthRows} budgetTemplate={budgets}
+              forecastPlans={forecastPlans} openingBalances={openingBalances}
+              dataReady={initialDataReady} dataLoading={dataLoading}
+              onClose={() => setExportOpen(false)}/>}
+          </React.Suspense>
+        </FinanceOverlay>
         <div className="rounded-2xl bg-white px-4 py-3 text-sm text-slate-600 ring-1 ring-slate-200">
           Signed in as <b data-i18n-ignore>{user?.email}</b> · {dataLoading ? "Syncing..." : syncStatus || "Cloud ready"}
           {syncProgress && <span className="ml-2 font-semibold text-blue-700">{syncProgress}</span>}
@@ -2176,7 +2239,11 @@ return (
 >
   💰 Income
 </button></div>
-<label className="block">
+<FinanceCurrencyInput date={form.date} currency={fxCurrency}
+  onCurrency={code=>{setFxCurrency(code);setFxQuote(null);setFxForeignAmount("");}}
+  foreignAmount={fxForeignAmount} onForeignAmount={setFxForeignAmount}
+  quote={fxQuote} onQuote={setFxQuote} disabled={!initialDataReady||dataLoading}/>
+<label className={fxCurrency==="MYR"?"block":"hidden"}>
   <span className="flex flex-wrap items-center justify-between gap-2 text-sm font-medium text-slate-600">
     <span>Amount (RM)</span>
     <span className="inline-flex rounded-lg bg-slate-100 p-1 text-xs" role="group" aria-label="Amount input mode">
@@ -2455,7 +2522,7 @@ return (
   {advancedFilter && (advancedResults.error
     ? <p role="alert" className="mt-3 rounded-xl bg-red-50 p-3 text-sm text-red-700">{advancedResults.error}</p>
     : <FinanceAdvancedResults rows={advancedResults.rows} EditableCell={EditableCell}
-        onUpdate={updateRecord} onDelete={deleteRecord}
+        onUpdate={updateRecord} onDelete={deleteRecord} onEditFx={openFxEdit}
         categoryOptionsFor={categoryOptionsFor} methodOptionsFor={methodOptionsFor}
         getActivityLabel={id=>activityOfRecord(id,activityLinks,activities)?.title||""}/>)}
   {!advancedFilter && <div className="mt-5 space-y-3">
@@ -2545,14 +2612,16 @@ categoryOptionsFor={categoryOptionsFor}
 
 <td className={`py-3 pr-4 font-bold ${recordTypeStyle(record.type).amount}`}>
   <span className="mr-1">{recordTypeStyle(record.type).sign}</span>
-  <EditableCell
-    value={record.amount}
-    field="amount"
-    recordType={record.type}
-    onSave={(v) => updateRecord(record.id, "amount", v)}
-    categoryOptionsFor={categoryOptionsFor}
-    methodOptionsFor={methodOptionsFor}
-  />
+  {record.fx_currency
+    ? <span className="font-semibold">{money(record.amount)}</span>
+    : <EditableCell value={record.amount} field="amount" recordType={record.type}
+        onSave={(v) => updateRecord(record.id, "amount", v)}
+        categoryOptionsFor={categoryOptionsFor} methodOptionsFor={methodOptionsFor}/>}
+  {record.fx_currency&&<div className="mt-1 text-xs text-slate-500" data-i18n-ignore>
+    {record.fx_currency} {record.fx_amount} · 1 {record.fx_currency} = RM{record.fx_rate}
+  </div>}
+  {record.fx_currency&&<button type="button" onClick={e=>openFxEdit(record,e.currentTarget)}
+    className="mt-1 rounded-lg border border-blue-200 px-2 py-1 text-xs font-bold text-blue-700">FX Edit</button>}
 </td>
 
                       <td className="py-3 pr-4 text-slate-500">
@@ -2593,6 +2662,7 @@ categoryOptionsFor={categoryOptionsFor}
                 methodOptionsFor={methodOptionsFor}
                 onUpdate={updateRecord}
                 onDelete={deleteRecord}
+                onEditFx={openFxEdit}
                 getActivityLabel={id=>activityOfRecord(id,activityLinks,activities)?.title||""}
               />
             </div>
@@ -2663,12 +2733,23 @@ categoryOptionsFor={categoryOptionsFor}
           calculationError={savingsCalculation.error}
           budgetMonth={savingsBudgetMonth}
           onOpenStage2Tool={openStage2DockTool}
+          onOpenDataTool={(kind,trigger)=>{
+            if(!initialDataReady||dataLoading)return;
+            dataToolTriggerRef.current=trigger;
+            setImportOpen(kind==="import");setExportOpen(kind==="export");
+          }}
           activities={activities} activityLinks={activityLinks}
           onCreateActivity={startActivity} onUpdateActivity={changeActivity}
           onLinkActivity={associateActivityExpense} onUnlinkActivity={detachActivityExpense}
           disabled={!initialDataReady||dataLoading}
         />
 
+        <FinanceFxRecordEditor record={records.find(r=>r.id===fxEditingId)||null}
+          onSave={updateForeignRecord} onClose={()=>setFxEditingId(null)} triggerRef={fxEditTriggerRef}/>
+        <FinanceRuleAssistant userId={user?.id} onOpenTool={openStage2DockTool}
+          ctx={{ready:initialDataReady&&!dataLoading,records,totalBalance,
+            methods:methodBalances,monthRows,budgets,reviewState,bills:recurringBills,
+            activities,activityLinks,goals:savingsGoals,forecastPlans,openingBalanceTotal}}/>
         <footer className="pb-6 text-center text-xs text-slate-400">记账可视化软件 · Data synced with Supabase cloud · {records.length} total records</footer>
       </div>
     </div>

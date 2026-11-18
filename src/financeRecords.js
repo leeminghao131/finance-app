@@ -11,6 +11,11 @@ export function normalizeRecord(row) {
     version: Number(row.version || 1),
     updated_at: row.updated_at || row.created_at,
     deleted_at: row.deleted_at || null,
+    fx_currency: row.fx_currency || null,
+    fx_amount: row.fx_amount == null ? null : String(row.fx_amount),
+    fx_rate: row.fx_rate == null ? null : String(row.fx_rate),
+    fx_rate_date: row.fx_rate_date || null,
+    fx_provider: row.fx_provider || null,
   };
 }
 export function normalizeTransfer(row) {

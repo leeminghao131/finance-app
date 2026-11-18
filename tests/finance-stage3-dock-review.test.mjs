@@ -4,12 +4,12 @@ import {readFileSync} from "node:fs";
 import {FINANCE_DOCK_IDS,normalizeDockOrder,moveDockItem,readDockOrder,saveDockOrder} from "../src/financeDockOrder.js";
 const src=name=>readFileSync(new URL("../src/"+name,import.meta.url),"utf8");
 
-test("drawer order retains all eight tools, ignores duplicates/obsolete IDs and reorders safely",()=>{
-  assert.equal(FINANCE_DOCK_IDS.length,8);
+test("drawer order retains all nine tools, ignores duplicates/obsolete IDs and reorders safely",()=>{
+  assert.equal(FINANCE_DOCK_IDS.length,9);
   assert.deepEqual(normalizeDockOrder(["review","review","unknown","activity"]).slice(0,2),["review","activity"]);
-  assert.equal(new Set(normalizeDockOrder(["review"])).size,8);
+  assert.equal(new Set(normalizeDockOrder(["review"])).size,9);
   assert.equal(moveDockItem(FINANCE_DOCK_IDS,"accounts","wrapped")[0],"accounts");
-  assert.equal(moveDockItem(FINANCE_DOCK_IDS,"wrapped","accounts").at(-1),"wrapped");
+  assert.equal(moveDockItem(FINANCE_DOCK_IDS,"wrapped","accounts").at(-2),"wrapped");
   assert.deepEqual(moveDockItem(FINANCE_DOCK_IDS,"none","wrapped"),[...FINANCE_DOCK_IDS]);
 });
 
@@ -55,4 +55,16 @@ test("Activity buttons give immediate feedback while preserving versioned cloud 
   assert.match(panel,/role="status" aria-live="polite"/);
   assert.match(panel,/onUpdate\(selected,\{status:next\}\)/);
   assert.match(panel,/status\("paused"\)/);
+});
+
+
+test("single import/export tool integrates with drawer order and has split options",()=>{
+  const dock=src("FinanceInsightsDock.jsx"),data=src("FinanceDataToolsLauncher.jsx");
+  assert.equal(FINANCE_DOCK_IDS.at(-1),"data-tools");
+  assert.match(dock,/onOpenDataTool/);
+  assert.match(dock,/<FinanceDataToolsLauncher/);
+  assert.match(data,/onMouseEnter=\{\(\)=>setOpen\(true\)\}/);
+  assert.match(data,/onOpen\(kind,event\.currentTarget\)/);
+  assert.match(data,/launch\("import",event\)/);
+  assert.match(data,/launch\("export",event\)/);
 });
