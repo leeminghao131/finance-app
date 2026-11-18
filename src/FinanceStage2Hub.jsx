@@ -99,14 +99,17 @@ export default function FinanceStage2Hub({
     :mode==="accounts"?t("余额对账","Balance Reconciliation")
     :t("异常记录复查","Review Transactions");
   return <>
-    <div className="mh-stage2-notifications" aria-label={t("财务动态通知","Financial notifications")}
+    <div className="mh-stage2-notifications" data-menu-open={menu?"true":"false"}
+      aria-label={t("财务动态通知","Financial notifications")}
       onPointerLeave={hoverLeave}>
       <button type="button" disabled={disabled} aria-expanded={menu} aria-haspopup="menu" aria-label={t("查看财务提醒","Open finance reminders")} title={t("查看财务提醒","Open finance reminders")}
         onPointerEnter={hoverOpen}
         onClick={event=>{
           cancelHoverClose();
-          if(isDesktopHover(event.nativeEvent))setMenu(true);
-          else setMenu(value=>!value);
+          if(event.nativeEvent?.pointerType==="touch" ||
+            !window.matchMedia?.("(hover: hover) and (pointer: fine)")?.matches)
+            setMenu(value=>!value);
+          else setMenu(true);
         }} className="mh-stage2-notifications__bell">
         <FinanceNotificationEmblem active={alertCount>0} />
         {alertCount>0&&<span className="mh-stage2-notifications__count">{alertCount>99?"99+":alertCount}</span>}
