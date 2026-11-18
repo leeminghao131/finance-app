@@ -104,7 +104,7 @@ test("One sortable CSV / Excel drawer entry replaces two header entry buttons",(
   assert.match(app,/<FinanceOverlay open=\{exportOpen\}/);
   assert.match(app, /const FinanceCsvImportPanel = React\.lazy/);
   assert.match(app, /const FinanceExcelExportPanel = React\.lazy/);
-  const firstHeader=app.split('<header className="flex flex-col')[1]?.split("</header>")[0];
+  const firstHeader=app.split('<header className="mh-dashboard-header')[1]?.split("</header>")[0];
   assert.ok(firstHeader,"dashboard header must exist");
   assert.doesNotMatch(firstHeader,/⬆ Import CSV|⬇ Export Excel/);
   assert.match(app,/onImported=\{\(\) => loadCloudData\(\{background:true\}\)\}/);
