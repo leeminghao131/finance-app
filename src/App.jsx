@@ -37,7 +37,7 @@ const FinanceCsvImportPanel = React.lazy(() => import("./FinanceCsvImportPanel.j
 const FinanceExcelExportPanel = React.lazy(() => import("./FinanceExcelExportPanel.jsx"));
 import { normalizeRecord, normalizeTransfer, toRecordPayload } from "./financeRecords.js";
 import { fetchFinanceSnapshot } from "./financeCloudService.js";
-import { getRecordRequestId, confirmRecordRequest, getTransferRequestId, confirmTransferRequest } from "./financeSaveIdempotency.js";
+import { getRecordRequestId, confirmRecordRequest, getTransferRequestId, confirmTransferRequest, assertRecoveredRecordMatchesPayload, assertRecoveredTransferMatchesPayload } from "./financeSaveIdempotency.js";
 import { CoinRainEffect, IncomeCoinSpinEffect } from "./FinanceVisualEffects.jsx";
 import { FinanceLanguageProvider, FinanceLanguageButton, localizedFinanceAlert, localizedFinanceConfirm } from "./FinanceLanguageLayer.jsx";
 import {
@@ -1722,7 +1722,7 @@ async function addRecord(e) {
       const resolved = await supabase.from("records").select(columns)
         .eq("user_id", user.id).eq("client_request_id", requestId).maybeSingle();
       if (resolved.error) throw resolved.error;
-      if (resolved.data) { data = resolved.data; error = null; }
+      if (resolved.data) { assertRecoveredRecordMatchesPayload(resolved.data,payload); data = resolved.data; error = null; }
     }
     if (error) throw error;
     if (!data) throw new Error("The database did not acknowledge this record.");
@@ -1800,7 +1800,7 @@ async function addRecord(e) {
         const found=await supabase.from("transfers").select(columns)
           .eq("user_id",user.id).eq("client_request_id",requestId).maybeSingle();
         if(found.error) throw found.error;
-        if(found.data){data=found.data;error=null;}
+        if(found.data){assertRecoveredTransferMatchesPayload(found.data,payload);data=found.data;error=null;}
       }
       if(error) throw error;
       if(!data) throw new Error("Transfer save was not acknowledged by the cloud.");

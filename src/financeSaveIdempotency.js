@@ -15,15 +15,33 @@ export async function getRecordRequestId(userId, payload, storage, cryptoProvide
   ]);
   const raw = await cryptoProvider.subtle.digest("SHA-256", new TextEncoder().encode(signature));
   const fingerprint = Array.from(new Uint8Array(raw), byte=>byte.toString(16).padStart(2,"0")).join("");
+  // FX transactions may round to the SAME MYR amount despite differing original
+  // foreign amounts/currencies/rates. Never conflate those distinct intents.
+  // Keep the original MYR fingerprint unchanged for backward-compatible retries.
+  const fxFields=payload.fx_currency
+    ? [payload.fx_currency,canonicalDecimal(payload.fx_amount),canonicalDecimal(payload.fx_rate),
+       payload.fx_rate_date??"",payload.fx_provider??""] : null;
+  const fxDigest=fxFields===null?null:await cryptoProvider.subtle.digest(
+    "SHA-256",new TextEncoder().encode(JSON.stringify(fxFields)));
+  const fxFingerprint=fxDigest===null?null:Array.from(new Uint8Array(fxDigest),
+    byte=>byte.toString(16).padStart(2,"0")).join("");
   let saved=null;
   try { saved=JSON.parse(storage.getItem(key(userId)) || "null"); } catch { /* untrusted local cache */ }
   if (saved?.fingerprint===fingerprint && UUID.test(saved?.requestId || "")) {
-    return saved.requestId;
+    if (fxFingerprint===null && !saved.fxFingerprint && saved.intent!=="fx") return saved.requestId;
+    if (fxFingerprint!==null && saved.fxFingerprint===fxFingerprint) return saved.requestId;
+    if (fxFingerprint!==null && !saved.fxFingerprint && !saved.intent) {
+      // Old pending FX requests lack intent metadata. Preserve the old ID
+      // for no-duplicate recovery; verify the SERVER row on conflict.
+      return saved.requestId;
+    }
   }
   const requestId=cryptoProvider.randomUUID();
-  // Persist BEFORE sending. If storage is unavailable, refuse the write rather
-  // than sending an operation that cannot be safely retried.
-  storage.setItem(key(userId),JSON.stringify({requestId,fingerprint}));
+  // Store hashes only, NEVER original amounts, notes, rates or currency details.
+  storage.setItem(key(userId),JSON.stringify({
+    requestId,fingerprint,intent:fxFingerprint===null?"myr":"fx",
+    ...(fxFingerprint===null?{}:{fxFingerprint}),
+  }));
   return requestId;
 }
 
@@ -64,4 +82,49 @@ export function confirmTransferRequest(userId,requestId,storage) {
   if(saved?.requestId===requestId) {
     try {storage.removeItem(storageKey);} catch {}
   }
+}
+
+// Read-after-commit recovery must never claim a DIFFERENT transaction was saved.
+// The DB owns the UUID uniqueness check; these comparisons protect the user UI.
+function canonicalDecimal(value){
+  const raw=String(value??"").trim();
+  if(!/^\d+(?:\.\d+)?$/.test(raw))return raw;
+  const [whole,frac=""]=raw.split(".");
+  const suffix=frac.replace(/0+$/,"");
+  return whole.replace(/^0+(?=\d)/,"")+(suffix?"."+suffix:"");
+}
+function decimalEquivalent(left,right){
+  const a=canonicalDecimal(left),b=canonicalDecimal(right);
+  return /^\d+(?:\.\d+)?$/.test(a)&&a===b;
+}
+function sameMYRCents(left,right){
+  const a=Number(left),b=Number(right);
+  if(!Number.isFinite(a)||!Number.isFinite(b)||a<=0||b<=0)return false;
+  const ac=Math.round(a*100),bc=Math.round(b*100);
+  return Number.isSafeInteger(ac)&&Number.isSafeInteger(bc)&&ac===bc;
+}
+export function assertRecoveredRecordMatchesPayload(row,payload){
+  if(!row||row.type!==payload.type||row.category!==payload.category||
+     row.method!==payload.method||row.date!==payload.date||
+     String(row.note||"")!==String(payload.note||"")||
+     !sameMYRCents(row.amount,payload.amount)||
+     String(row.fx_currency||"")!==String(payload.fx_currency||"")) {
+    throw new Error("Recovered record differs from the pending transaction. Review Transaction Records; no new record was acknowledged.");
+  }
+  if(payload.fx_currency&&(
+     !decimalEquivalent(row.fx_amount,payload.fx_amount)||
+     !decimalEquivalent(row.fx_rate,payload.fx_rate)||
+     row.fx_rate_date!==payload.fx_rate_date||
+     row.fx_provider!==payload.fx_provider)) {
+    throw new Error("Recovered FX record does not match its original foreign amount/rate. Check Transaction Records before retrying.");
+  }
+  return row;
+}
+export function assertRecoveredTransferMatchesPayload(row,payload){
+  if(!row||row.from_method!==payload.from_method||row.to_method!==payload.to_method||
+     row.date!==payload.date||String(row.note||"")!==String(payload.note||"")||
+     !sameMYRCents(row.amount,payload.amount)) {
+    throw new Error("Recovered Transfer differs from the pending transfer. Check Transfer History; no new Transfer was acknowledged.");
+  }
+  return row;
 }
