@@ -197,7 +197,7 @@ export default function FinanceTransferPanel({
           <label className="mt-3 block text-xs">Note
             <input className={inputStyle} value={editing.note} onChange={e=>setEditing(o=>({...o,note:e.target.value}))}/>
           </label>
-          <p className="mt-2 text-xs text-amber-700">Low balance warning only: actual opening balances are not yet recorded.</p>
+          
           <div className="mt-3 flex gap-2">
             <button type="button" disabled={pending} onClick={saveEdit}
               className="rounded-xl bg-blue-700 px-4 py-2 text-sm font-bold text-white disabled:opacity-50">Save transfer</button>
