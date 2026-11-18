@@ -26,6 +26,7 @@ import {canonicalFinanceMethod} from "./financeMethodKeys.js";
 import {planReconciliationTransfers,writeReconciliationTransfer} from "./financeReconciliationTransfers.js";
 import {validateSavedFilters,filterFinanceRecordsAdvanced} from "./financeStage1Analytics.js";
 import {validateSavingsGoals,calculateSavingsAvailable} from "./financePlanning.js";
+import {readFxCurrencyPreference,writeFxCurrencyPreference} from "./financeFxCurrencyPreference.js";
 import { openingTotal, calculateMethodBalances } from "./financeOpeningBalance.js";
 import FinanceOverlay from "./FinanceOverlay.jsx";
 import FinanceMobileRecords from "./FinanceMobileRecords.jsx";
@@ -666,9 +667,12 @@ function FinanceVisualizerAppContent() {
   const [fxForeignAmount,setFxForeignAmount]=useState("");
   const [fxQuote,setFxQuote]=useState(null);
   const [fxEditingId,setFxEditingId]=useState(null);
-  // Clear unfinished FX details between signed-in accounts, never leak a draft.
+  // Clear all unsaved FX input on account switch; restore ONLY the currency
+  // code preferred by this account on this browser. Do not reuse a prior
+  // account's amount, exchange rate or editing draft.
   useEffect(()=>{
-    setFxCurrency("MYR");setFxForeignAmount("");setFxQuote(null);setFxEditingId(null);
+    setFxCurrency(readFxCurrencyPreference(user?.id,localStorage));
+    setFxForeignAmount("");setFxQuote(null);setFxEditingId(null);
   },[user?.id]);
   const fxEditTriggerRef=useRef(null);
   const openFxEdit=(record,trigger)=>{fxEditTriggerRef.current=trigger||null;setFxEditingId(record.id);};
@@ -2527,7 +2531,7 @@ return (
   </button>
   <div id="mh-entry-currency-panel" className={currencyToolsOpen || fxCurrency !== "MYR" ? "mh-entry-tool-content" : "mh-entry-tool-content mh-entry-tool-content--closed"}>
     <FinanceCurrencyInput date={form.date} currency={fxCurrency}
-      onCurrency={code=>{setFxCurrency(code);setFxQuote(null);setFxForeignAmount("");}}
+      onCurrency={code=>{setFxCurrency(code);setFxQuote(null);setFxForeignAmount("");writeFxCurrencyPreference(user?.id,code,localStorage);}}
       foreignAmount={fxForeignAmount} onForeignAmount={setFxForeignAmount}
       quote={fxQuote} onQuote={setFxQuote} disabled={!initialDataReady||dataLoading}/>
   </div>

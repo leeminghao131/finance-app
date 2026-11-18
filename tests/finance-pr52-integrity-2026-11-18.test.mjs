@@ -15,7 +15,7 @@ test("PR52: every savings goal uses its own saved amount, not one shared availab
   assert.equal(savingsGoalProgress(second).percent,40);
   assert.equal(savingsGoalProgress(first).completed,false);
   const ui=read("FinanceSavingsGoals.jsx");
-  assert.match(ui,/savingsGoalProgress\(g\)/);
+  assert.match(ui,/savingsGoalProgress\(g,autoContext\)/);
   assert.match(ui,/value=\{draft\.saved\}/);
   assert.match(ui,/does not create an Income or Transfer/);
   assert.doesNotMatch(ui,/savingsGoalProgress\(\{\.\.\.g,saved:available\}\)/);

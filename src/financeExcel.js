@@ -147,9 +147,10 @@ export function buildFinanceWorkbook({
   }
   makeSheet(wb,"Cloud Settings JSON",["Setting","Part","JSON fragment (remove json: prefix and concatenate)"],jsonRows);
   makeSheet(wb,"Savings Goals",
-    ["Goal ID","Goal Name","Target (RM)","Saved (RM)","Target Date"],
+    ["Goal ID","Goal Name","Target (RM)","Saved (RM)","Target Date","Saved Mode","Budget Multiplier (X)"],
     savingsGoals.map(g=>[safeExcelText(g.id),safeExcelText(g.title),
-      rm(cents(g.target)),rm(cents(g.saved)),safeExcelText(g.deadline||"")]),[],[2,3]);
+      rm(cents(g.target)),rm(cents(g.saved)),safeExcelText(g.deadline||""),
+      g.savedMode==="auto"?"Auto (live estimate)":"Manual",Number(g.budgetMultiplier??1)]),[],[2,3]);
   makeSheet(wb,"Recurring Bills",
     ["Bill ID","Title","Amount (RM)","Category","Method","Cycle","First Due","Lead Days","Active","Occurrences JSON"],
     recurringBills.map(b=>[safeExcelText(b.id),safeExcelText(b.title),rm(cents(b.amount)),

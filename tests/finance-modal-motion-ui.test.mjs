@@ -80,7 +80,7 @@ test("Savings Goal new/edit/update uses a portal and retains cloud guards, unsav
   assert.match(savings, /const ok=await onSave\(normalized,baseline\)/);
   assert.match(savings, /if\(pending\.current\)return false/);
   assert.match(savings, /Discard unsaved Savings Goal changes/);
-  assert.match(savings, /savingsGoalProgress\(g\)/);
+  assert.match(savings, /savingsGoalProgress\(g,autoContext\)/);
   assert.match(savings, /Saved towards this goal \(RM\)/);
   assert.match(savings, /value=\{draft\.saved\}/);
 });

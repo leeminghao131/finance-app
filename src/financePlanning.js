@@ -73,14 +73,50 @@ export function validateSavingsGoals(goals) {
     const target=parse(g.target,true),saved=parse(g.saved,false);
     const deadline=String(g.deadline||"");
     if (deadline) requireCalendarDate(deadline);
-    return {id,title,target,saved,deadline};
+    // Legacy entries retain original saved amounts and their old JSON shape.
+    const hasMode=Object.prototype.hasOwnProperty.call(g,"savedMode");
+    const hasMultiplier=Object.prototype.hasOwnProperty.call(g,"budgetMultiplier");
+    const mode=hasMode?String(g.savedMode):"manual";
+    if (!["manual","auto"].includes(mode)) throw new Error("Choose a valid savings progress mode.");
+    const rawMultiplier=String(g.budgetMultiplier===undefined?"1":g.budgetMultiplier).trim();
+    if (!/^(?:0|[1-9]\d{0,2})(?:\.\d{1,2})?$/.test(rawMultiplier) ||
+        Number(rawMultiplier)>120) {
+      throw new Error("Budget multiplier must be between 0 and 120, with at most two decimals.");
+    }
+    return {id,title,target,saved,deadline,
+      ...(hasMode||hasMultiplier?{savedMode:mode,budgetMultiplier:Number(rawMultiplier)}:{})};
   });
 }
-export function savingsGoalProgress(goal) {
+
+/** Read-only forecast using the full natural-month budget, never recorded as
+ * actual savings, Income, Expense, or Transfer. */
+export function calculateAutomaticGoalSaved(totalBalance,monthlyBudgetTotal,multiplier=1) {
+  const balanceSen=Math.round(Number(totalBalance)*100);
+  const budgetSen=Math.round(Number(monthlyBudgetTotal)*100);
+  const factor=String(multiplier).trim();
+  if (!Number.isFinite(Number(totalBalance)) || !Number.isSafeInteger(balanceSen) ||
+      !Number.isFinite(Number(monthlyBudgetTotal)) || !Number.isSafeInteger(budgetSen) ||
+      budgetSen<0 || !/^(?:0|[1-9]\d{0,2})(?:\.\d{1,2})?$/.test(factor) ||
+      Number(factor)>120) {
+    throw new Error("Automatic savings cannot be calculated from the verified balance and budget.");
+  }
+  const hundredths=Math.round(Number(factor)*100);
+  if(!Number.isSafeInteger(hundredths))throw new Error("Invalid savings budget multiplier.");
+  const reserveSen=(BigInt(budgetSen)*BigInt(hundredths)+50n)/100n;
+  const available=BigInt(balanceSen)-reserveSen;
+  if(available<=0n)return 0;
+  if(available>BigInt(Number.MAX_SAFE_INTEGER))throw new Error("Savings calculation exceeds safe precision.");
+  return Number(available)/100;
+}
+
+export function savingsGoalProgress(goal,context) {
   const [g]=validateSavingsGoals([goal]);
-  return {remaining:rm(Math.max(0,toSen(g.target)-toSen(g.saved))),
-    percent:Math.round((g.saved/g.target)*10000)/100,
-    completed:g.saved>=g.target};
+  const saved=g.savedMode==="auto"
+    ? calculateAutomaticGoalSaved(context?.totalBalance,context?.monthlyBudgetTotal,g.budgetMultiplier??1)
+    : g.saved;
+  return {saved,remaining:rm(Math.max(0,toSen(g.target)-toSen(saved))),
+    percent:Math.round((saved/g.target)*10000)/100,
+    completed:saved>=g.target,mode:g.savedMode||"manual"};
 }
 
 /**
