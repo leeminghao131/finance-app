@@ -75,9 +75,9 @@ export default function FinanceStage2Hub({
     :t("异常记录复查","Review Transactions");
   return <>
     <div className="mh-stage2-notifications" aria-label={t("财务动态通知","Financial notifications")}>
-      <button type="button" disabled={disabled} aria-expanded={menu} aria-label={t("查看财务提醒","Open finance reminders")}
+      <button type="button" disabled={disabled} aria-expanded={menu} aria-haspopup="menu" aria-label={t("查看财务提醒","Open finance reminders")} title={t("查看财务提醒","Open finance reminders")}
         onClick={()=>setMenu(x=>!x)} className="mh-stage2-notifications__bell">
-        <FinanceNotificationEmblem active={alertCount>0} /> <span>{t("提醒","Alerts")}</span>
+        <FinanceNotificationEmblem active={alertCount>0} />
         {alertCount>0&&<span className="mh-stage2-notifications__count">{alertCount>99?"99+":alertCount}</span>}
       </button>
       {menu&&<div className="mh-stage2-notifications__menu"
@@ -87,7 +87,7 @@ export default function FinanceStage2Hub({
         </p>
         <div className="mh-stage2-notifications__alert-list">
           {prioritized.map(item=><button key={item.type+":"+item.id}
-            type="button" onClick={e=>open(item.type,item.ref,e.currentTarget)}>
+            type="button" aria-haspopup="dialog" onClick={e=>open(item.type,item.ref,e.currentTarget)}>
             <span aria-hidden="true">{item.type==="bill"?"🗓️":"🔎"}</span>
             <span className="min-w-0 flex-1">
               <b className="block">{item.type==="bill"?t("账单到期提醒","Bill due"):
@@ -103,7 +103,7 @@ export default function FinanceStage2Hub({
           </p>}
         </div>
       </div>}
-      {!menu&&prioritized.slice(0,3).map(item=><button type="button" key={item.type+":"+item.id}
+      {!menu&&prioritized.slice(0,3).map(item=><button type="button" key={item.type+":"+item.id} aria-haspopup="dialog"
         onClick={e=>open(item.type,item.ref,e.currentTarget)}
         className="mh-stage2-notifications__toast" title={t("点开查看并处理","Open to review and act")}>
         <span aria-hidden="true">{item.type==="bill"?"🗓️":"🔎"}</span>
@@ -114,7 +114,7 @@ export default function FinanceStage2Hub({
         </span>
         <span aria-hidden="true">›</span>
       </button>)}
-      {!menu&&alerts.length>3&&<button type="button"
+      {!menu&&alerts.length>3&&<button type="button" aria-haspopup="menu"
         onClick={()=>setMenu(true)}
         className="mh-stage2-notifications__more">
         {t("另外还有 ","Another ")}{alerts.length-3}{t(" 条待处理提醒"," alerts")}
