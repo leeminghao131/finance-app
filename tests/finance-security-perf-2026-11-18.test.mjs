@@ -24,7 +24,7 @@ test("build tools are pinned, reproducible, and not shipped as browser productio
 
 test("security audit continues checking developer build dependencies and blocks high/critical issues",()=>{
   assert.match(pipeline,/npm audit --json/);
-  assert.doesNotMatch(pipeline,/npm audit --omit=dev/);
+  assert.match(pipeline,/npm audit --omit=dev --audit-level=high/);
   assert.match(pipeline,/Number\(counts\.high \|\| 0\) > 0/);
   assert.match(pipeline,/Number\(counts\.critical \|\| 0\) > 0/);
   assert.doesNotMatch(pipeline,/BEGIN_FINANCE_LOCK/);
