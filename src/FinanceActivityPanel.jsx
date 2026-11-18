@@ -79,8 +79,7 @@ export default function FinanceActivityPanel({
     </button>
     <FinanceOverlay open={open} onClose={()=>{if(!busy)setOpen(false);}}
       title={t("旅行／活动记账","Travel & Activity Mode")} triggerRef={triggerRef} widthClass="max-w-5xl">
-      <p className="text-xs text-slate-500">{t("开启期间，新保存的 Expense 自动关联活动；Income、Transfer 和预计收入不会计入活动消费。",
-        "While an Activity is active, newly saved Expenses are linked. Income, Transfers and expected income are excluded.")}</p>
+      
       {busyAction&&<p role="status" aria-live="polite" className="mt-2 rounded-lg bg-blue-50 px-3 py-2 text-sm font-semibold text-blue-800">
         ⏳ {({create:t("正在新建活动…","Creating Activity…"),active:t("正在继续活动…","Resuming Activity…"),
           paused:t("正在暂停活动…","Pausing Activity…"),finished:t("正在结束活动…","Finishing Activity…"),
@@ -180,8 +179,7 @@ export default function FinanceActivityPanel({
             </details>
             <div className="rounded-xl border p-3">
               <h4 className="text-sm font-bold">{t("手动关联历史 Expense","Link a Past Expense")}</h4>
-              <p className="mt-1 text-xs text-slate-500">{t("只增加活动标签，不修改交易金额、日期或原本的备注。",
-                "Adds only an Activity association. Amount, date and Note stay unchanged.")}</p>
+              
               <input className={"mt-2 "+input} placeholder={t("搜索日期、分类、备注或金额","Search date, category, note or RM")}
                 value={search} onChange={e=>setSearch(e.target.value)}/>
               <select className={"mt-2 "+input} value={recordId} onChange={e=>setRecordId(e.target.value)}>
