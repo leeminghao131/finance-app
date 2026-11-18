@@ -98,7 +98,7 @@ export default function FinanceActivityPanel({
           </label>
           <label className="mt-2 block text-xs">{t("活动预算（RM，可选）","Budget (RM, optional)")}
             <input className={"mt-1 "+input} inputMode="decimal" value={budget}
-              onChange={e=>setBudget(e.target.value)} placeholder="1500.00"/>
+              onChange={e=>setBudget(e.target.value)}/>
           </label>
           <button type="button" onClick={create} disabled={busy||disabled||!!active||!title.trim()}
             className="mt-3 min-h-10 w-full rounded-xl bg-slate-900 px-3 py-2 text-sm font-bold text-white disabled:opacity-40">
