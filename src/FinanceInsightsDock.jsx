@@ -5,6 +5,7 @@ import FinanceScenarioSimulator from "./FinanceScenarioSimulator.jsx";
 import FinanceMonthComparison from "./FinanceMonthComparison.jsx";
 import FinanceSavingsGoals from "./FinanceSavingsGoals.jsx";
 import FinanceOverlay from "./FinanceOverlay.jsx";
+import FinanceDataToolsLauncher from "./FinanceDataToolsLauncher.jsx";
 import {useFinanceLanguage} from "./FinanceLanguageLayer.jsx";
 import {readDockOrder,saveDockOrder,moveDockItem} from "./financeDockOrder.js";
 
@@ -25,11 +26,11 @@ function DockCardPopup({title,icon,children,disabled=false,widthClass="max-w-5xl
   </>;
 }
 
-/** Long-hold to reorder only the eight drawer launchers, never their stored data. */
+/** Long-hold to reorder only the drawer launchers, never their stored data. */
 export default function FinanceInsightsDock({
   records,monthRows,budgetTemplate,totalBalance,userId,
   goals=[],onSaveSavingsGoals,savingsAvailability,budgetMonth,calculationError,
-  disabled=false,onOpenStage2Tool=()=>{},
+  disabled=false,onOpenStage2Tool=()=>{},onOpenDataTool=()=>{},
   activities=[],activityLinks=[],onCreateActivity,onUpdateActivity,onLinkActivity,onUnlinkActivity,
 }){
   const {language}=useFinanceLanguage(),zh=language==="zh";
@@ -168,7 +169,10 @@ export default function FinanceInsightsDock({
         className="mh-insights-dock__button">
         <span className="mh-insights-dock__label">{zh?"余额对账":"Balance Check"}</span>
         <span className="mh-insights-dock__icon" aria-hidden="true">🏦</span>
-      </button>}
+      </button>},
+    {id:"data-tools",label:zh?"导入／导出":"Import / Export",icon:"⇅",node:
+      <FinanceDataToolsLauncher disabled={disabled} onOpen={onOpenDataTool}/>}
+
   ];
   const dragging=slots.find(s=>s.id===draggingId);
   return <>
