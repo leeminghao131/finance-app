@@ -16,9 +16,12 @@ const files=[
 ];
 
 test("Language selector is next to the Sound button and both views offer a switch",()=>{
-  assert.match(app,/\{soundEnabled \? "🔊" : "🔇"\} Sound<\/button><FinanceLanguageButton/);
+  assert.match(app,/aria-label=\{isChinese \? \(soundEnabled \? "关闭声音" : "开启声音"\)/);
+  assert.match(app,/\{soundEnabled \? "🔊" : "🔇"\}/);
+  assert.match(app,/<FinanceLanguageButton className="mh-dashboard-action" \/>/);
+  assert.match(app,/const \{ language \} = useFinanceLanguage\(\)/);
   assert.match(app,/<FinanceLanguageProvider><FinanceVisualizerAppContent \/><\/FinanceLanguageProvider>/);
-  assert.ok((app.match(/<FinanceLanguageButton \/>/g)||[]).length>=2);
+  assert.ok((app.match(/<FinanceLanguageButton(?: className="mh-dashboard-action")? \/>/g)||[]).length>=2);
   assert.match(layer,/🌐 \{language === "zh" \? "中文" : "EN"\}/);
   assert.match(layer,/const toggleLanguage = \(\) => setLanguage\(current => current === "zh" \? "en" : "zh"\)/);
 });

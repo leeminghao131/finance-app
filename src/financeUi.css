@@ -848,3 +848,191 @@
   .mh-steampunk-assistant-emblem__gear,
   .mh-steampunk-assistant-emblem__eyes { animation: none !important; }
 }
+
+
+/* PR48 UI-only refinement: compact always-visible header; existing actions unchanged. */
+.mh-ui .mh-dashboard-header {
+  position: sticky;
+  top: env(safe-area-inset-top, 0px);
+  z-index: 42;
+  min-width: 0;
+  background: linear-gradient(125deg, #151b24 0%, #26303b 65%, #30202a 100%);
+  border: 1px solid #4d5560;
+  box-shadow: inset 0 1px 0 #ffffff22, 0 9px 24px #0f172a27;
+  backdrop-filter: blur(14px);
+}
+.mh-ui .mh-dashboard-header h1 { letter-spacing: -.025em; line-height: 1.2; }
+.mh-ui .mh-dashboard-header .mh-dashboard-actions { min-width: max-content; }
+.mh-ui .mh-dashboard-header .mh-dashboard-action {
+  min-height: 40px;
+  border-radius: 11px;
+  white-space: nowrap;
+}
+.mh-ui .mh-dashboard-quick-actions {
+  min-height: 54px;
+  margin-top: 10px;
+  background: linear-gradient(115deg, #ffffff 0%, #f0f3f7 100%);
+}
+.mh-ui .mh-dashboard-quick-actions button { min-height: 38px; }
+
+/* The final card stays the same familiar component, but its own Save may
+   adhere to the bottom of the phone viewport while this card is in view.
+   No overflow clipping on the card: overflow:hidden prevents sticky buttons. */
+.mh-ui .mh-add-card { min-width: 0; }
+.mh-ui .mh-add-header { overflow: hidden; }
+.mh-ui .mh-entry-aux-toggle { display: none; }
+.mh-ui .mh-entry-category-chips { display: none; }
+
+@media (max-width: 767px) {
+  .mh-ui .mh-dashboard-header {
+    gap: 6px;
+    padding: 9px 10px;
+    border-radius: 13px;
+  }
+  .mh-ui .mh-dashboard-header h1 {
+    max-width: 100%;
+    font-size: clamp(13px, 4.2vw, 17px);
+  }
+  .mh-ui .mh-dashboard-header .mh-dashboard-brand { flex: 1 1 0; min-width: 0; }
+  .mh-ui .mh-dashboard-header .mh-dashboard-actions { gap: 5px; }
+  .mh-ui .mh-dashboard-header .mh-dashboard-action {
+    padding: 9px 7px;
+    min-width: 37px;
+    min-height: 40px;
+    font-size: 12px;
+  }
+
+  .mh-ui .mh-add-card {
+    padding: 12px 12px 14px;
+    border-radius: 17px;
+  }
+  .mh-ui .mh-add-header {
+    margin: -12px -12px 9px;
+    padding: 11px 12px;
+    border-radius: 16px 16px 0 0;
+  }
+  .mh-ui .mh-add-header__main {
+    display: flex;
+    flex: 1;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+  }
+  .mh-ui .mh-add-header h2 {
+    font-size: 16px;
+    line-height: 1.3;
+    white-space: nowrap;
+  }
+  .mh-ui .mh-add-header__icon { display: none; }
+  .mh-ui .mh-add-header .mh-add-records-link {
+    margin-top: 0;
+    min-height: 35px;
+    padding: 6px 8px;
+    gap: 4px;
+    font-size: 11px;
+    white-space: nowrap;
+  }
+  .mh-ui .mh-add-card > p[role="status"] { margin: 8px 0; }
+  .mh-ui .mh-add-form {
+    display: flex;
+    flex-direction: column;
+    gap: 9px;
+    margin-top: 10px;
+    scroll-margin-top: 78px;
+  }
+  .mh-ui .mh-add-form > * ~ * { margin-top: 0 !important; }
+  .mh-ui .mh-entry-type { order: 0; gap: 4px; border-radius: 13px; }
+  .mh-ui .mh-entry-type button { min-height: 38px; padding: 7px 9px; }
+  .mh-ui .mh-entry-amount { order: 1; }
+  .mh-ui .mh-entry-category { order: 2; }
+  .mh-ui .mh-entry-category-chips {
+    display: flex;
+    order: 3;
+    gap: 6px;
+    min-width: 0;
+    padding: 2px 0;
+    overflow-x: auto;
+    overscroll-behavior-x: contain;
+    scrollbar-width: thin;
+  }
+  .mh-ui .mh-entry-category-chips button {
+    flex: 0 0 auto;
+    min-height: 33px;
+    max-width: 125px;
+    padding: 5px 10px;
+    border: 1px solid #dce1e7;
+    border-radius: 10px;
+    background: #f3f5f7;
+    color: #334155;
+    font-size: 12px;
+    font-weight: 700;
+    white-space: nowrap;
+  }
+  .mh-ui .mh-entry-category-chips button[aria-pressed="true"] {
+    border-color: #dc4747;
+    background: #fff2ef;
+    color: #a92c33;
+  }
+  .mh-ui .mh-entry-method { order: 4; }
+  .mh-ui .mh-entry-date { order: 5; }
+  .mh-ui .mh-entry-note { order: 6; }
+  .mh-ui .mh-entry-note-quick { order: 7; min-width: 0; }
+  .mh-ui .mh-entry-note-quick > div { margin-top: 0; }
+  .mh-ui .mh-entry-note-quick button {
+    min-height: 32px;
+    padding: 5px 8px;
+    font-size: 11px;
+  }
+  .mh-ui .mh-entry-currency { order: 8; min-width: 0; }
+  .mh-ui .mh-entry-currency--active { order: 1; }
+  .mh-ui .mh-entry-calculator { order: 9; min-width: 0; }
+  .mh-ui .mh-entry-aux-toggle {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    width: 100%;
+    min-height: 42px;
+    padding: 9px 12px;
+    border: 1px solid #dce2e9;
+    border-radius: 12px;
+    background: #f4f6f8;
+    color: #334155;
+    font-size: 13px;
+    font-weight: 700;
+    text-align: left;
+  }
+  .mh-ui .mh-entry-aux-toggle:disabled { opacity: 1; cursor: default; }
+  .mh-ui .mh-entry-tool-content { padding-top: 6px; }
+  .mh-ui .mh-entry-tool-content--closed { display: none; }
+  .mh-ui .mh-add-form label > span:first-child { font-size: 12px; }
+  .mh-ui .mh-add-form input,
+  .mh-ui .mh-add-form select,
+  .mh-ui .mh-add-form textarea {
+    min-width: 0;
+    font-size: 16px;
+    border-radius: 11px;
+  }
+  .mh-ui .mh-entry-amount > input,
+  .mh-ui .mh-entry-category > select,
+  .mh-ui .mh-entry-method > select,
+  .mh-ui .mh-entry-date > input,
+  .mh-ui .mh-entry-note > input {
+    padding: 10px 12px;
+  }
+  .mh-ui .mh-entry-save {
+    order: 10;
+    position: sticky;
+    bottom: calc(8px + env(safe-area-inset-bottom, 0px));
+    z-index: 20;
+    width: 100%;
+    min-height: 48px;
+    margin-top: 5px !important;
+    border-radius: 13px;
+    box-shadow: 0 6px 22px #17202b34, 0 0 0 5px #f8fafce8;
+  }
+}
+/* The two secondary tools are always available on the desktop: no duplicate
+   FinanceCurrencyInput mounts, no extra exchange-rate lookups or state changes. */
+@media (min-width: 768px) {
+  .mh-ui .mh-entry-tool-content--closed { display: block !important; }
+}

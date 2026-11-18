@@ -39,7 +39,7 @@ import { normalizeRecord, normalizeTransfer, toRecordPayload } from "./financeRe
 import { fetchFinanceSnapshot } from "./financeCloudService.js";
 import { getRecordRequestId, confirmRecordRequest, getTransferRequestId, confirmTransferRequest, assertRecoveredRecordMatchesPayload, assertRecoveredTransferMatchesPayload } from "./financeSaveIdempotency.js";
 import { CoinRainEffect, IncomeCoinSpinEffect } from "./FinanceVisualEffects.jsx";
-import { FinanceLanguageProvider, FinanceLanguageButton, localizedFinanceAlert, localizedFinanceConfirm } from "./FinanceLanguageLayer.jsx";
+import { FinanceLanguageProvider, FinanceLanguageButton, useFinanceLanguage, localizedFinanceAlert, localizedFinanceConfirm } from "./FinanceLanguageLayer.jsx";
 import {
   BarChart, Bar, XAxis, YAxis, Tooltip,
   ResponsiveContainer, CartesianGrid, Legend, LineChart, Line,
@@ -586,6 +586,8 @@ function AuthScreen() {
 }
 
 function FinanceVisualizerAppContent() {
+  const { language } = useFinanceLanguage();
+  const isChinese = language === "zh";
   const [session, setSession] = useState(null);
   const [user, setUser] = useState(null);
   const [authLoading, setAuthLoading] = useState(true);
@@ -601,7 +603,11 @@ function FinanceVisualizerAppContent() {
   const [budgetMonth, setBudgetMonth] = useState(monthNow());
   const [budgetOpen, setBudgetOpen] = useState(false);
   const [recordsOpen, setRecordsOpen] = useState(false);
+  const [recordsOpenSource, setRecordsOpenSource] = useState("card");
+  const [currencyToolsOpen, setCurrencyToolsOpen] = useState(false);
+  const [calculatorOpen, setCalculatorOpen] = useState(false);
   const recordsTriggerRef = useRef(null);
+  const recordsNavTriggerRef = useRef(null);
   const budgetTriggerRef = useRef(null);
   const spendingTrendTriggerRef = useRef(null);
   const balanceTrendTriggerRef = useRef(null);
@@ -2107,7 +2113,7 @@ const addRecordTheme =
         icon: "💸",
       };
 return (
-  <div onClickCapture={(e) => e.target.closest("button,select") && playSound()} className="mh-ui min-h-screen bg-slate-50 p-3 text-slate-900 sm:p-4 md:p-8">
+  <div onClickCapture={(e) => e.target.closest("button,select") && playSound()} className="mh-ui min-h-screen bg-slate-50 p-3 text-slate-900 sm:p-4 md:p-6">
 <CoinRainEffect trigger={coinRainTrigger} />
 <FinanceStage2Hub toolRequest={stage2ToolRequest}
   bills={recurringBills} reviewState={reviewState} checks={accountChecks}
@@ -2127,11 +2133,43 @@ return (
   disabled={!initialDataReady||dataLoading}
 />
 <IncomeCoinSpinEffect trigger={incomeCoinTrigger} />
-      <div className="mx-auto max-w-7xl space-y-6">
-        <header className="flex flex-col gap-4 rounded-3xl bg-slate-900 p-6 text-white md:flex-row md:items-center md:justify-between">
-          <div><p className="text-sm font-medium text-slate-300">Personal Finance Dashboard</p><h1 className="mt-2 text-3xl font-bold md:text-4xl">记账可视化软件</h1></div>
-          <div className="flex flex-wrap gap-3"><button onClick={() => setSoundEnabled((v) => !v)} className="rounded-2xl bg-slate-800 px-4 py-3 text-sm font-semibold text-white ring-1 ring-slate-600">{soundEnabled ? "🔊" : "🔇"} Sound</button><FinanceLanguageButton /><button onClick={signOut} className="rounded-2xl bg-white px-4 py-3 text-sm font-semibold text-slate-900">Sign out</button></div>
+      <div className="mh-dashboard-shell mx-auto max-w-7xl space-y-5">
+        <header className="mh-dashboard-header flex items-center justify-between gap-2 rounded-2xl bg-slate-900 px-3 py-2.5 text-white sm:px-5 sm:py-3">
+          <div className="mh-dashboard-brand min-w-0">
+            <p className="mh-dashboard-eyebrow hidden text-xs font-medium text-slate-300 sm:block">Personal Finance Dashboard</p>
+            <h1 className="truncate text-base font-bold sm:mt-0.5 sm:text-xl md:text-2xl">记账可视化软件</h1>
+          </div>
+          <div className="mh-dashboard-actions flex shrink-0 items-center gap-1.5 sm:gap-2">
+            <button type="button" aria-label={isChinese ? (soundEnabled ? "关闭声音" : "开启声音") : (soundEnabled ? "Mute sound" : "Enable sound")}
+              title={soundEnabled ? "Sound on" : "Sound off"}
+              onClick={() => setSoundEnabled((v) => !v)}
+              className="mh-dashboard-action rounded-xl bg-slate-800 px-2.5 py-2 text-sm font-semibold text-white ring-1 ring-slate-600 sm:px-3">
+              <span aria-hidden="true">{soundEnabled ? "🔊" : "🔇"}</span><span className="hidden sm:inline"> Sound</span>
+            </button>
+            <FinanceLanguageButton className="mh-dashboard-action" />
+            <button type="button" onClick={signOut} aria-label={isChinese ? "退出登录" : "Sign out"} title={isChinese ? "退出登录" : "Sign out"}
+              className="mh-dashboard-action rounded-xl bg-white px-2.5 py-2 text-sm font-semibold text-slate-900 sm:px-3">
+              <span className="sm:hidden" aria-hidden="true">↪</span><span className="hidden sm:inline">Sign out</span>
+            </button>
+          </div>
         </header>
+        <nav className="mh-dashboard-quick-actions hidden items-center gap-2 rounded-2xl border border-slate-200 bg-white px-3 py-2 shadow-sm md:flex"
+          aria-label={isChinese ? "仪表板快捷导航" : "Dashboard quick navigation"}>
+          <button type="button" onClick={() => {
+            setForm(previous => ({ ...previous, type: "expense" }));
+            document.getElementById("mh-stage2-add-record-form")?.scrollIntoView({ behavior: "smooth", block: "start" });
+          }} className="rounded-xl bg-red-600 px-4 py-2 text-sm font-semibold text-white hover:bg-red-700">{isChinese ? "＋ 新增支出" : "＋ Add Expense"}</button>
+          <button type="button" onClick={() => {
+            setForm(previous => ({ ...previous, type: "income" }));
+            document.getElementById("mh-stage2-add-record-form")?.scrollIntoView({ behavior: "smooth", block: "start" });
+          }} className="rounded-xl border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-800 hover:bg-slate-100">{isChinese ? "＋ 新增收入" : "＋ Add Income"}</button>
+          <span className="mx-1 h-6 w-px bg-slate-200" aria-hidden="true" />
+          <button type="button" ref={recordsNavTriggerRef} aria-haspopup="dialog" aria-expanded={recordsOpen}
+            onClick={() => { setRecordsOpenSource("nav"); setRecordsOpen(true); }}
+            className="mh-modal-trigger rounded-xl px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-100">{isChinese ? "▤ 交易记录" : "▤ Transaction Records"}</button>
+          <button type="button" onClick={() => document.getElementById("mh-dashboard-statistics")?.scrollIntoView({ behavior: "smooth", block: "start" })}
+            className="rounded-xl px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-100">{isChinese ? "▥ 数据统计" : "▥ Statistics"}</button>
+        </nav>
         <FinanceOverlay open={importOpen} title="CSV Import / 导入"
           widthClass="max-w-4xl" showTitle={false} triggerRef={dataToolTriggerRef}
           onClose={() => setImportOpen(false)}>
@@ -2190,7 +2228,7 @@ return (
   </div>
 </div>
 
-        <section className="grid gap-4 md:grid-cols-3"><StatCard title="Total Income" value={money(income)} icon="📈" desc="Overall records" /><StatCard title="Total Expense" value={money(expense)} icon="📉" desc="Overall records" /><BalanceCard
+        <section id="mh-dashboard-statistics" className="grid gap-4 scroll-mt-24 md:grid-cols-3"><StatCard title="Total Income" value={money(income)} icon="📈" desc="Overall records" /><StatCard title="Total Expense" value={money(expense)} icon="📉" desc="Overall records" /><BalanceCard
   title="Balance"
   value={totalBalance}
   desc="Including Opening Balance"
@@ -2203,26 +2241,26 @@ return (
 
 <section className="grid gap-6 lg:grid-cols-[380px_1fr]">
   <div className="space-y-6">
-<Card className={`overflow-hidden ${addRecordTheme.card}`}>
-  <div className={`-mx-5 -mt-5 mb-5 bg-gradient-to-r ${addRecordTheme.header} px-5 py-4 text-white`}>
+<Card className={`mh-add-card ${addRecordTheme.card}`}>
+  <div className={`mh-add-header -mx-5 -mt-5 mb-5 rounded-t-2xl bg-gradient-to-r ${addRecordTheme.header} px-5 py-4 text-white`}>
     <div className="flex items-center justify-between gap-3">
-      <div className="min-w-0">
+      <div className="mh-add-header__main min-w-0">
         <h2 className="text-xl font-bold">{addRecordTheme.title}</h2>
         
-        <button type="button" ref={recordsTriggerRef} onClick={() => setRecordsOpen(true)}
+        <button type="button" ref={recordsTriggerRef} onClick={() => { setRecordsOpenSource("card"); setRecordsOpen(true); }}
           aria-haspopup="dialog" aria-expanded={recordsOpen}
-          className="mh-modal-trigger mt-3 inline-flex min-h-11 items-center gap-2 rounded-xl border border-white/35 bg-white/15 px-3 py-2 text-sm font-bold text-white transition hover:bg-white/25 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white">
+          className="mh-add-records-link mh-modal-trigger mt-3 inline-flex min-h-11 items-center gap-2 rounded-xl border border-white/35 bg-white/15 px-3 py-2 text-sm font-bold text-white transition hover:bg-white/25 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white">
           <span aria-hidden="true">📋</span><span>Transaction Records</span>
         </button>
       </div>
-      <div className="shrink-0 rounded-2xl bg-white/20 px-3 py-2 text-2xl">{addRecordTheme.icon}</div>
+      <div className="mh-add-header__icon shrink-0 rounded-2xl bg-white/20 px-3 py-2 text-2xl">{addRecordTheme.icon}</div>
     </div>
   </div>
             {activeActivity(activities)&&<p className="mx-4 mt-3 rounded-xl bg-amber-50 px-3 py-2 text-xs font-bold text-amber-900">
               🎒 {activeActivity(activities).title} · {form.type==="expense"?"New Expenses auto-tagged":"Income excluded from Activity spending"}
             </p>}
-            <form id="mh-stage2-add-record-form" onSubmit={addRecord} className="mt-5 space-y-4">
-              <div className="grid grid-cols-2 gap-3 rounded-2xl bg-slate-100 p-1"><button
+            <form id="mh-stage2-add-record-form" onSubmit={addRecord} className="mh-add-form mt-5 space-y-4 scroll-mt-24">
+              <div className="mh-entry-type grid grid-cols-2 gap-3 rounded-2xl bg-slate-100 p-1"><button
   type="button"
   onClick={() => setForm((p) => ({ ...p, type: "expense" }))}
   className={`rounded-xl px-3 py-2 text-sm font-semibold transition ${form.type === "expense" ? "bg-red-600 text-white shadow-sm" : "text-slate-500 hover:bg-red-50 hover:text-red-700"}`}
@@ -2237,11 +2275,22 @@ return (
 >
   💰 Income
 </button></div>
-<FinanceCurrencyInput date={form.date} currency={fxCurrency}
-  onCurrency={code=>{setFxCurrency(code);setFxQuote(null);setFxForeignAmount("");}}
-  foreignAmount={fxForeignAmount} onForeignAmount={setFxForeignAmount}
-  quote={fxQuote} onQuote={setFxQuote} disabled={!initialDataReady||dataLoading}/>
-<label className={fxCurrency==="MYR"?"block":"hidden"}>
+<section className={"mh-entry-currency" + (fxCurrency !== "MYR" ? " mh-entry-currency--active" : "")}>
+  <button type="button" className="mh-entry-aux-toggle" aria-expanded={currencyToolsOpen || fxCurrency !== "MYR"}
+    aria-controls="mh-entry-currency-panel" disabled={fxCurrency !== "MYR"}
+    title={fxCurrency !== "MYR" ? (isChinese ? "外币交易需要显示原始外币金额" : "Foreign currency details must remain visible") : ""}
+    onClick={() => setCurrencyToolsOpen(value => !value)}>
+    <span aria-hidden="true">◈</span> {isChinese ? "交易货币" : "Transaction currency"} · {fxCurrency}
+    <span className="ml-auto" aria-hidden="true">{currencyToolsOpen || fxCurrency !== "MYR" ? "⌃" : "⌄"}</span>
+  </button>
+  <div id="mh-entry-currency-panel" className={currencyToolsOpen || fxCurrency !== "MYR" ? "mh-entry-tool-content" : "mh-entry-tool-content mh-entry-tool-content--closed"}>
+    <FinanceCurrencyInput date={form.date} currency={fxCurrency}
+      onCurrency={code=>{setFxCurrency(code);setFxQuote(null);setFxForeignAmount("");}}
+      foreignAmount={fxForeignAmount} onForeignAmount={setFxForeignAmount}
+      quote={fxQuote} onQuote={setFxQuote} disabled={!initialDataReady||dataLoading}/>
+  </div>
+</section>
+<label className={"mh-entry-amount " + (fxCurrency==="MYR"?"block":"hidden")}>
   <span className="flex flex-wrap items-center justify-between gap-2 text-sm font-medium text-slate-600">
     <span>Amount (RM)</span>
     <span className="inline-flex rounded-lg bg-slate-100 p-1 text-xs" role="group" aria-label="Amount input mode">
@@ -2282,14 +2331,23 @@ return (
   />
 
 </label>
-              <div className="rounded-2xl bg-slate-50 p-4 ring-1 ring-slate-200"><p className="text-sm font-bold text-slate-700">小计算器</p><textarea
-  value={calculationText}
-  onChange={(event) => setCalculationText(formatCalculatorTyping(event.target.value))}
-  rows={3}
-  className="mt-3 w-full rounded-2xl border border-slate-200 px-4 py-3 text-sm outline-none"
-/><div className="mt-3 flex items-center justify-between gap-2"><span className="text-sm text-slate-600">{calculationResult !== null ? `Total: ${money(calculationResult)}` : ""}</span><button type="button" onClick={fillCalculation} className="rounded-xl bg-slate-900 px-3 py-2 text-xs font-bold text-white">Calculate & Fill</button></div></div>
+              <section className="mh-entry-calculator">
+                <button type="button" aria-expanded={calculatorOpen} aria-controls="mh-entry-calculator-panel"
+                  className="mh-entry-aux-toggle" onClick={() => setCalculatorOpen(value => !value)}>
+                  <span aria-hidden="true">▦</span> {isChinese ? "小计算器" : "Calculator"}
+                  <span className="ml-auto" aria-hidden="true">{calculatorOpen ? "⌃" : "⌄"}</span>
+                </button>
+                <div id="mh-entry-calculator-panel" className={calculatorOpen ? "mh-entry-tool-content" : "mh-entry-tool-content mh-entry-tool-content--closed"}>
+                  <div className="rounded-2xl bg-slate-50 p-4 ring-1 ring-slate-200"><p className="text-sm font-bold text-slate-700">小计算器</p><textarea
+                    value={calculationText}
+                    onChange={(event) => setCalculationText(formatCalculatorTyping(event.target.value))}
+                    rows={3}
+                    className="mt-3 w-full rounded-2xl border border-slate-200 px-4 py-3 text-sm outline-none"
+                  /><div className="mt-3 flex items-center justify-between gap-2"><span className="text-sm text-slate-600">{calculationResult !== null ? `Total: ${money(calculationResult)}` : ""}</span><button type="button" onClick={fillCalculation} className="rounded-xl bg-slate-900 px-3 py-2 text-xs font-bold text-white">Calculate & Fill</button></div></div>
+                </div>
+              </section>
            
-<label className="block">
+<label className="mh-entry-category block">
   <span className="text-sm font-medium text-slate-600">Category</span>
   <select
     value={form.category}
@@ -2324,9 +2382,20 @@ return (
 
   {renderDeleteCustomOptionPanel("category", form.type)}
 </label>
-<FinanceQuickNotes records={records} type={form.type} category={form.category}
-  onChoose={note=>setForm(previous=>({...previous,note}))} />
-              <label className="block">
+<div className="mh-entry-category-chips" role="group" aria-label={isChinese ? "常用分类快捷选择" : "Quick category choices"}>
+  {[...new Set([...(form.type === "expense" ? ["饮食","交通","日用","娱乐"] : ["Salary","Allowance","Gift","Others"])
+    .filter(category => categoryOptionsFor(form.type).includes(category)),form.category])].map(category => (
+    <button key={category} type="button" aria-pressed={form.category === category}
+      onClick={() => { setForm(previous => ({ ...previous, category })); setDeleteOptionPanel({kind:"",type:""}); }}>
+      {formatCategoryLabel(category)}
+    </button>
+  ))}
+</div>
+<div className="mh-entry-note-quick">
+  <FinanceQuickNotes records={records} type={form.type} category={form.category}
+    onChoose={note=>setForm(previous=>({...previous,note}))} />
+</div>
+              <label className="mh-entry-method block">
   <span className="text-sm font-medium text-slate-600">Method</span>
   <select
     value={form.method}
@@ -2361,9 +2430,9 @@ return (
 
   {renderDeleteCustomOptionPanel("method", form.type)}
 </label>
-              <label className="block"><span className="text-sm font-medium text-slate-600">Date</span><DateInput value={form.date} onChange={(date) => setForm((p) => ({ ...p, date }))} /></label>
-              <label className="block"><span className="text-sm font-medium text-slate-600">Note</span><input value={form.note} onChange={(e) => setForm((p) => ({ ...p, note: e.target.value }))} className="mt-1 w-full rounded-2xl border border-slate-200 px-4 py-3 outline-none" /></label>
-              <button className={`w-full rounded-2xl px-4 py-3 text-sm font-bold text-white transition ${addRecordTheme.button}`}>
+              <label className="mh-entry-date block"><span className="text-sm font-medium text-slate-600">Date</span><DateInput value={form.date} onChange={(date) => setForm((p) => ({ ...p, date }))} /></label>
+              <label className="mh-entry-note block"><span className="text-sm font-medium text-slate-600">Note</span><input value={form.note} onChange={(e) => setForm((p) => ({ ...p, note: e.target.value }))} className="mt-1 w-full rounded-2xl border border-slate-200 px-4 py-3 outline-none" /></label>
+              <button type="submit" className={`mh-entry-save w-full rounded-2xl px-4 py-3 text-sm font-bold text-white transition ${addRecordTheme.button}`}>
   {form.type === "income" ? "Add Income" : "Add Expense"}
 </button>
     </form>
@@ -2493,7 +2562,7 @@ return (
         </section>
 
        <FinanceOverlay open={recordsOpen} title="Transaction Records"
-         onClose={() => { setRecordsOpen(false); setDeleteConfirm(null); }} widthClass="max-w-6xl" showTitle={false} triggerRef={recordsTriggerRef}>
+         onClose={() => { setRecordsOpen(false); setDeleteConfirm(null); }} widthClass="max-w-6xl" showTitle={false} triggerRef={recordsOpenSource === "nav" ? recordsNavTriggerRef : recordsTriggerRef}>
        <Card>
   <div className="flex flex-col gap-2 md:flex-row md:items-end md:justify-between">
     <div>

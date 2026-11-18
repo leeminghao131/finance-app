@@ -39,7 +39,9 @@ test("Every FinanceOverlay uses the 300ms button-origin animation, reversed on c
 test("Previous dialogs preserve all callbacks while opening and closing from their own triggers", () => {
   assert.match(app, /triggerRef=\{methodTriggerRef\}/);
   assert.match(app, /triggerRef=\{budgetTriggerRef\}/);
-  assert.match(app, /triggerRef=\{recordsTriggerRef\}/);
+  assert.match(app, /triggerRef=\{recordsOpenSource === "nav" \? recordsNavTriggerRef : recordsTriggerRef\}/);
+  assert.match(app, /setRecordsOpenSource\("card"\)/);
+  assert.match(app, /setRecordsOpenSource\("nav"\)/);
   assert.match(app, /ref=\{spendingTrendTriggerRef\}/);
   assert.match(app, /ref=\{balanceTrendTriggerRef\}/);
   assert.match(app, /triggerRef=\{expandedTrend === "balance" \? balanceTrendTriggerRef : spendingTrendTriggerRef\}/);
