@@ -2136,26 +2136,26 @@ return (
         </header>
         <FinanceOverlay open={importOpen} title="CSV Import / 导入"
           widthClass="max-w-4xl" showTitle={false} triggerRef={dataToolTriggerRef}
-          onClose={()=>setImportOpen(false)}>
+          onClose={() => setImportOpen(false)}>
           <React.Suspense fallback={<div role="status" className="p-4 text-sm text-slate-600">Loading...</div>}>
-            {importOpen&&<FinanceCsvImportPanel
+            {importOpen && <FinanceCsvImportPanel
               supabase={supabase} user={user}
               existingRecords={[...records,...deletedRecords]}
-              onClose={()=>setImportOpen(false)}
-              onImported={()=>loadCloudData({background:true})}/>}
+              onClose={() => setImportOpen(false)}
+              onImported={() => loadCloudData({background:true})}/>}
           </React.Suspense>
         </FinanceOverlay>
         <FinanceOverlay open={exportOpen} title="Excel Export / 导出"
           widthClass="max-w-4xl" showTitle={false} triggerRef={dataToolTriggerRef}
-          onClose={()=>setExportOpen(false)}>
+          onClose={() => setExportOpen(false)}>
           <React.Suspense fallback={<div role="status" className="p-4 text-sm text-slate-600">Loading...</div>}>
-            {exportOpen&&<FinanceExcelExportPanel
+            {exportOpen && <FinanceExcelExportPanel
               records={records} deletedRecords={deletedRecords}
               transfers={transfers} deletedTransfers={deletedTransfers}
               monthRows={monthRows} budgetTemplate={budgets}
               forecastPlans={forecastPlans} openingBalances={openingBalances}
               dataReady={initialDataReady} dataLoading={dataLoading}
-              onClose={()=>setExportOpen(false)}/>}
+              onClose={() => setExportOpen(false)}/>}
           </React.Suspense>
         </FinanceOverlay>
         <div className="rounded-2xl bg-white px-4 py-3 text-sm text-slate-600 ring-1 ring-slate-200">
