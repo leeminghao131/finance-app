@@ -117,7 +117,7 @@ export default function FinanceAccountReconciliation({
           <label className="block text-xs font-medium text-slate-700">
             {t("实际余额（RM）","Actual balance (RM)")}
             <input value={actualByMethod[b.method]??""} onChange={e=>update(b.method,e.target.value)}
-              className={"mt-1 "+field} placeholder="0.00" type="text" inputMode="decimal"
+              className={"mt-1 "+field} type="text" inputMode="decimal"
               aria-label={b.method+" "+t("实际余额","actual balance")}/>
           </label>
           {complete&&plan&&<p className={"mt-1 text-xs font-semibold "+
