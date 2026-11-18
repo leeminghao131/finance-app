@@ -41,7 +41,7 @@ export default function FinanceCurrencyInput({date,currency,onCurrency,foreignAm
         <input type="text" inputMode="decimal" value={foreignAmount} disabled={disabled}
           onChange={e=>onForeignAmount(e.target.value)}
           className="mt-1 w-full rounded-xl border border-slate-300 bg-white px-3 py-2.5"
-          placeholder={currency==="JPY"?"3000":"24.50"}/>
+          />
       </label>
       {busy&&<p role="status" className="text-xs text-blue-700">{zh?"正在读取参考汇率…":"Fetching reference rate…"}</p>}
       {error&&<p role="alert" className="text-xs font-semibold text-red-700">{error}. {zh?"无法保存外币交易，请更改日期或联网后重试。":"Cannot save foreign transaction. Retry online or change date."}</p>}
