@@ -5,7 +5,7 @@ export function orbitGeometry(methods=[]){
   const count=unique.length;
   // Every method shares one equally spaced ring. Large rings scroll on mobile
   // instead of shrinking touch targets, hiding custom methods or overlapping.
-  const radius=count<3?116:Math.max(116,Math.ceil(112/(2*Math.sin(Math.PI/count))));
+  const radius=count<3?143:Math.max(143,Math.ceil(112/(2*Math.sin(Math.PI/count))));
   const center=radius+56,size=center*2;
   const nodes=unique.map((method,index)=>{
     const angle=-Math.PI/2+index*2*Math.PI/count;
