@@ -643,6 +643,7 @@ function FinanceVisualizerAppContent() {
   const settingsQueueRef = useRef(Promise.resolve());
   const budgetSaveTimerRef = useRef(null);
   const pendingBudgetTemplateRef = useRef(null);
+  const pendingBudgetBaselineRef = useRef(null);
   const recordsLoadCounterRef = useRef(0);
   const liveUserIdRef = useRef(null);
   const undoTimeoutRef = useRef(null);
@@ -797,6 +798,7 @@ function FinanceVisualizerAppContent() {
       setAdvancedFilter(null);
       setUndoTransfer(null);
       pendingBudgetTemplateRef.current = null;
+      pendingBudgetBaselineRef.current = null;
       setBudgetTemplateSaveStatus("saved");
       setBudgets(DEFAULT_BUDGETS);
       confirmedCustomOptionsRef.current = DEFAULT_CUSTOM_OPTIONS;
@@ -1241,6 +1243,7 @@ useEffect(() => {
         budgetsRef.current = nextBudgets;
         setBudgets(nextBudgets);
         pendingBudgetTemplateRef.current = null;
+        pendingBudgetBaselineRef.current = null;
         setBudgetTemplateSaveStatus("saved");
       } else {
         // Keep the confirmed budget on the dashboard; preserve only a retryable draft.
@@ -1304,6 +1307,7 @@ useEffect(() => {
     if(ok) {
       clearTimeout(budgetSaveTimerRef.current);
       pendingBudgetTemplateRef.current = null;
+      pendingBudgetBaselineRef.current = null;
       setBudgetTemplateSaveStatus("saved");
       budgetsRef.current = clean;setBudgets(clean);
     } else localizedFinanceAlert("Default budget template was not saved. Please refresh and try again.");
@@ -1504,6 +1508,7 @@ function renderDeleteCustomOptionPanel(kind, type) {
 }
   function updateBudgets(updater) {
     const baseline = pendingBudgetTemplateRef.current || budgetsRef.current;
+    if (!pendingBudgetTemplateRef.current) pendingBudgetBaselineRef.current = budgetsRef.current;
     const next = typeof updater === "function" ? updater(baseline) : updater;
     pendingBudgetTemplateRef.current = next;
     setBudgetTemplateSaveStatus("pending");
@@ -2329,6 +2334,10 @@ return (
             className="ml-3 rounded-lg border border-amber-400 px-3 py-1 font-bold" onClick={() => {
               const draft = pendingBudgetTemplateRef.current;
               if (!draft) return;
+              if (JSON.stringify(budgetsRef.current)!==JSON.stringify(pendingBudgetBaselineRef.current)) {
+                localizedFinanceAlert("The cloud budget template changed on another device. Review the latest saved template before applying your old draft.");
+                return;
+              }
               setBudgetTemplateSaveStatus("pending");
               saveBudgets(draft);
             }}>{isChinese ? "重试保存" : "Retry save"}</button>}
