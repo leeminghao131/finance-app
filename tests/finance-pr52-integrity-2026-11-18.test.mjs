@@ -72,7 +72,7 @@ test("PR52: workbook includes all additional cloud settings, planning fields and
 });
 
 test("PR52: exported settings larger than a single Excel cell remain lossless and inert",()=>{
-  const payload="=SAFE?"+("中文Test".repeat(7000));
+  const payload="=SAFE?"+("中文🧾Test".repeat(7000));
   const {workbook,stats}=buildFinanceWorkbook({reviewState:{threshold:500,note:payload}});
   const items=rows(workbook,"Cloud Settings JSON").filter(row=>row.Setting==="review_state");
   assert.ok(items.length>1);
