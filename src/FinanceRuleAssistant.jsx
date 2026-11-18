@@ -36,6 +36,7 @@ export default function FinanceRuleAssistant({ctx,userId,onOpenTool=()=>{}}){
           <p className="rounded-lg bg-slate-100 px-3 py-2 text-slate-800">{entry.question}</p>
           <p className="rounded-lg bg-blue-50 px-3 py-2 text-blue-900">{entry.reply.answer}</p>
           {entry.reply.action&&<button type="button"
+            aria-haspopup={entry.reply.action==="transfer"?undefined:"dialog"}
             className="min-h-10 rounded-lg border border-blue-200 px-3 text-xs font-bold text-blue-700"
             onClick={()=>{
               if(entry.reply.action==="transfer"){
