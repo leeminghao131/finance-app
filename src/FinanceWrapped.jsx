@@ -162,7 +162,7 @@ export default function FinanceWrapped({records=[],monthRows=[],budgetTemplate={
     {title:zh?"下一个目标":"Your next chapter",body:<div className="text-center"><p className="text-3xl">✨</p><p className="mt-4 text-xl font-bold">{cur.count} {zh?"笔收支记录":"recorded transactions"}</p></div>},
   ]);
   return <>
-    <button ref={triggerRef} type="button" disabled={disabled} onClick={()=>{setSlide(0);setOpen(true);}}
+    <button ref={triggerRef} type="button" disabled={disabled} aria-haspopup="dialog" aria-expanded={open} onClick={()=>{setSlide(0);setOpen(true);}}
       className={dockButton
         ? "mh-insights-dock__button"
         : "mh-modal-trigger rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm font-bold text-slate-800 disabled:opacity-50"}>
