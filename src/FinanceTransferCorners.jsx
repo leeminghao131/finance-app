@@ -12,6 +12,7 @@ export default function FinanceTransferCorners({
   const [pendingSource,setPendingSource]=useState(null);
   const [drag,setDrag]=useState(null);
   const [hoverTarget,setHoverTarget]=useState(null);
+  const [needsScroll,setNeedsScroll]=useState(false);
   const pointerRef=useRef(null),viewportRef=useRef(null),stageRef=useRef(null);
   const previousPairRef=useRef(null),suppressClickRef=useRef(false),suppressTimerRef=useRef(null);
   const stableId=useId().replace(/:/g,"");
@@ -21,7 +22,13 @@ export default function FinanceTransferCorners({
   },[]);
   useEffect(()=>{
     const viewport=viewportRef.current;
-    if(viewport)viewport.scrollLeft=(viewport.scrollWidth-viewport.clientWidth)/2;
+    if(!viewport)return undefined;
+    const measure=()=>{
+      setNeedsScroll(viewport.scrollWidth>viewport.clientWidth+2);
+      viewport.scrollLeft=Math.max(0,(viewport.scrollWidth-viewport.clientWidth)/2);
+    };
+    measure();window.addEventListener("resize",measure);
+    return ()=>window.removeEventListener("resize",measure);
   },[size]);
   useEffect(()=>{
     if(pendingSource&&!nodes.some(node=>node.method===pendingSource))setPendingSource(null);
@@ -100,7 +107,9 @@ export default function FinanceTransferCorners({
       {zh?"点击转出账户，再点击转入账户；也可以按住账户拖出一条资金流线。":
         "Select the source then the destination, or drag a flowing line between methods."}
     </p>
-    <div ref={viewportRef} className="mh-transfer-orbit__viewport">
+    <div ref={viewportRef} className="mh-transfer-orbit__viewport"
+      tabIndex={needsScroll?0:undefined}
+      aria-label={zh?"可横向滑动的账户圆环":"Horizontally scrollable method orbit"}>
       <div ref={stageRef} className="mh-transfer-orbit__stage" style={{width:size,height:size}}>
         <svg viewBox={"0 0 "+size+" "+size} className="mh-transfer-orbit__svg" aria-hidden="true">
           <defs>
@@ -167,7 +176,7 @@ export default function FinanceTransferCorners({
         </label>
       </div>
     </div>
-    {count>6&&<p className="mh-transfer-orbit__scroll-hint">{zh?
+    {needsScroll&&<p className="mh-transfer-orbit__scroll-hint">{zh?
       "账户较多：可横向滑动查看整个圆环。":"More methods: scroll horizontally to view the complete ring."}</p>}
     <div role="status" aria-live="polite" className="mh-transfer-orbit__selection">
       <div><small>{zh?"从":"FROM"}</small><strong data-i18n-ignore>{pendingSource||fromMethod||"—"}</strong></div>
