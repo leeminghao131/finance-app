@@ -33,7 +33,7 @@ test("Empty new-entry fields never present a prefilled 0.00; stored historical v
   for(const [raw,expected] of [["100",100],["24.55",24.55],["0.01",0.01],["2500",2500]]) {
     assert.equal(parseEditedAmount(raw),expected);
   }
-  assert.match(app, /async function addRecord\(event\)/);
+  assert.match(app, /async function addRecord\(e\)/);
   assert.match(app, /async function updateRecord\(/);
   assert.match(app, /async function deleteRecord\(/);
 });
