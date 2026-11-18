@@ -33,6 +33,8 @@ import FinanceTrendSummaryTooltip from "./FinanceTrendSummaryTooltip.jsx";
 import FinanceExpandedTrendOverlay from "./FinanceExpandedTrendOverlay.jsx";
 import FinanceCategoryBubbleChart from "./FinanceCategoryBubbleChart.jsx";
 import FinanceMethodDonutChart from "./FinanceMethodDonutChart.jsx";
+import FinanceCategoryFilterPicker from "./FinanceCategoryFilterPicker.jsx";
+import { makeDashboardCategoryChoices, selectedDashboardCategory, categoryOnlyRows, categoryComparisonRows } from "./financeDashboardCategoryFilter.js";
 import "./financeUi.css";
 // Load import/export tools only when opened; keep spreadsheet parsing out of the dashboard bundle.
 const FinanceCsvImportPanel = React.lazy(() => import("./FinanceCsvImportPanel.jsx"));
@@ -681,6 +683,10 @@ function FinanceVisualizerAppContent() {
   const [selectedMonth, setSelectedMonth] = useState(monthNow());
   const [selectedYear, setSelectedYear] = useState(yearNow());
   const [keyword, setKeyword] = useState("");
+  const [categoryFilterKey, setCategoryFilterKey] = useState("all");
+  const [categoryPickerOpen, setCategoryPickerOpen] = useState(false);
+  const [textSearchOpen, setTextSearchOpen] = useState(false);
+  const categoryPickerTriggerRef = useRef(null);
   const [selectedPieCategory, setSelectedPieCategory] = useState(null);
   const [trendCategory, setTrendCategory] = useState("all");
   const [expandedTrend, setExpandedTrend] = useState(null);
@@ -1516,17 +1522,34 @@ const incomeMethodOptions = useMemo(
 
 const categoryOptionsFor = (type) => (type === "expense" ? expenseCategoryOptions : incomeCategoryOptions);
 const methodOptionsFor = () => expenseMethodOptions;
-  const filteredRecords = useMemo(() => filterRecords(records, filterMode, selectedMonth, selectedYear, keyword), [records, filterMode, selectedMonth, selectedYear, keyword]);
+  // The time period is the immutable baseline for real period net movement.
+  // Category and text search are read-only analysis filters, not account balances.
+  const periodRecords = useMemo(() => filterRecords(records, filterMode, selectedMonth, selectedYear, ""),
+    [records, filterMode, selectedMonth, selectedYear]);
+  const searchPeriodRecords = useMemo(() => filterRecords(records, filterMode, selectedMonth, selectedYear, keyword),
+    [records, filterMode, selectedMonth, selectedYear, keyword]);
+  const categoryChoices = useMemo(() => makeDashboardCategoryChoices(expenseCategoryOptions, incomeCategoryOptions),
+    [expenseCategoryOptions, incomeCategoryOptions]);
+  const selectedCategoryFilter = useMemo(() => selectedDashboardCategory(categoryChoices, categoryFilterKey),
+    [categoryChoices, categoryFilterKey]);
+  const filteredRecords = useMemo(() => categoryOnlyRows(searchPeriodRecords, selectedCategoryFilter),
+    [searchPeriodRecords, selectedCategoryFilter]);
+  const chartRecords = useMemo(() => categoryComparisonRows(searchPeriodRecords, selectedCategoryFilter),
+    [searchPeriodRecords, selectedCategoryFilter]);
+  const periodIncome = sumType(periodRecords, "income");
+  const periodExpense = sumType(periodRecords, "expense");
+  const transactionFilteredIncome = sumType(filteredRecords, "income");
+  const transactionFilteredExpense = sumType(filteredRecords, "expense");
   const advancedResults = useMemo(() => {
     if (!advancedFilter) return {rows:null,error:""};
     try { return {rows:filterFinanceRecordsAdvanced(records.map(row=>({...row,method:recordMethod(row)})),advancedFilter),error:""}; }
     catch (error) { return {rows:[],error:error.message}; }
   },[records,advancedFilter]);
-  const expenseRecords = filteredRecords.filter((r) => r.type === "expense");
+  const expenseRecords = chartRecords.filter((r) => r.type === "expense");
   const income = sumType(records, "income");
   const expense = sumType(records, "expense");
-  const filteredIncome = sumType(filteredRecords, "income");
-  const filteredExpense = sumType(filteredRecords, "expense");
+  const filteredIncome = sumType(chartRecords, "income");
+  const filteredExpense = sumType(chartRecords, "expense");
   const filterLabel = filterMode === "all" ? "全部" : filterMode === "month" ? selectedMonth : filterMode === "year" ? selectedYear : filterMode === "recent30" ? "最近 30 天" : filterMode === "recent7" ? "最近 7 天" : "最近 3 天";
   const chartLabel = (d) => filterMode === "month" ? d.slice(8) : filterMode === "all" ? d : d.slice(5);
   const categoryData = useMemo(() => group(expenseRecords, (r) => r.category), [expenseRecords]);
@@ -1561,6 +1584,7 @@ const methodBalances = useMemo(() => calculateMethodBalances(
   });
   return map;
 }, [expenseRecords, expenseCategoryOptions]);
+  const activeExpenseCategory = selectedCategoryFilter?.type === "expense" ? selectedCategoryFilter.category : null;
   const selectedCategoryRecords = useMemo(() => selectedPieCategory ? expenseRecords.filter((r) => r.category === selectedPieCategory).sort((a, b) => new Date(a.date) - new Date(b.date)) : [], [expenseRecords, selectedPieCategory]);
   useEffect(() => {
     if (!categoryData.length) setSelectedPieCategory(null);
@@ -1569,20 +1593,29 @@ const methodBalances = useMemo(() => calculateMethodBalances(
 
   const dailyData = useMemo(() => {
     const out = {};
-    filteredRecords.forEach((r) => {
+    chartRecords.forEach((r) => {
       if (!out[r.date]) out[r.date] = { dateKey: r.date, day: chartLabel(r.date), income: 0, expense: 0 };
       out[r.date][r.type] += Number(r.amount || 0);
     });
     return Object.values(out).sort((a, b) => new Date(a.dateKey) - new Date(b.dateKey));
-  }, [filteredRecords, filterMode]);
+  }, [chartRecords, filterMode]);
+  // Daily details in the balance overlay must describe the full period.
+  const periodDailyData = useMemo(() => {
+    const out = {};
+    periodRecords.forEach((r) => {
+      if (!out[r.date]) out[r.date] = { dateKey: r.date, day: chartLabel(r.date), income: 0, expense: 0 };
+      out[r.date][r.type] += Number(r.amount || 0);
+    });
+    return Object.values(out).sort((a, b) => new Date(a.dateKey) - new Date(b.dateKey));
+  }, [periodRecords, filterMode]);
 
   const trendData = useMemo(() => {
     const out = {};
-    filteredRecords.forEach((r) => {
+    periodRecords.forEach((r) => {
       if (!out[r.date]) out[r.date] = { dateKey: r.date, day: chartLabel(r.date), expense: 0, dailyBalance: 0 };
       out[r.date].dailyBalance += r.type === "income" ? Number(r.amount || 0) : -Number(r.amount || 0);
     });
-    expenseRecords.filter((r) => trendCategory === "all" || r.category === trendCategory).forEach((r) => {
+    expenseRecords.filter((r) => selectedCategoryFilter?.type === "expense" || trendCategory === "all" || r.category === trendCategory).forEach((r) => {
       if (!out[r.date]) out[r.date] = { dateKey: r.date, day: chartLabel(r.date), expense: 0, dailyBalance: 0 };
       out[r.date].expense += Number(r.amount || 0);
     });
@@ -1592,7 +1625,7 @@ const methodBalances = useMemo(() => calculateMethodBalances(
 const limit = Number(balanceLimit || 1500);
 return { ...row, balanceGreen: balance > limit ? balance : null, balanceRed: balance <= limit ? balance : null };
     });
-}, [filteredRecords, expenseRecords, trendCategory, filterMode, balanceLimit]);
+}, [periodRecords, expenseRecords, trendCategory, selectedCategoryFilter, filterMode, balanceLimit]);
 
   const forecastMonth = filterMode === "month" ? selectedMonth : monthNow();
   const heatmapDays = useMemo(() => {
@@ -1603,12 +1636,12 @@ return { ...row, balanceGreen: balance > limit ? balance : null, balanceRed: bal
     else if (filterMode === "recent30") dates = dateRange(recentStart(30), 30);
     else if (filterMode === "recent7") dates = dateRange(recentStart(7), 7);
     else if (filterMode === "recent3") dates = dateRange(recentStart(3), 3);
-    else dates = Array.from(new Set(filteredRecords.map((r) => r.date))).sort((a, b) => new Date(a) - new Date(b)).slice(-35);
+    else dates = Array.from(new Set(periodRecords.map((r) => r.date))).sort((a, b) => new Date(a) - new Date(b)).slice(-35);
     return dates.map((date) => ({ date, amount: Number(amounts[date] || 0) }));
-  }, [expenseRecords, filteredRecords, filterMode, selectedMonth]);
+  }, [expenseRecords, periodRecords, filterMode, selectedMonth]);
 
   const topExpenses = useMemo(() => {
-  const source = topExpenseCategory === "all"
+  const source = selectedCategoryFilter?.type === "expense" || topExpenseCategory === "all"
     ? expenseRecords
     : expenseRecords.filter((record) => record.category === topExpenseCategory);
 
@@ -1616,7 +1649,7 @@ return { ...row, balanceGreen: balance > limit ? balance : null, balanceRed: bal
     .slice()
     .sort((a, b) => Number(b.amount || 0) - Number(a.amount || 0))
     .slice(0, 5);
-}, [expenseRecords, topExpenseCategory]);
+}, [expenseRecords, topExpenseCategory, selectedCategoryFilter]);
   const todaySummaryStats = useMemo(() => {
   const todayRecords = records.filter((record) => record.date === today());
   const todayExpenseRecords = todayRecords.filter((record) => record.type === "expense");
