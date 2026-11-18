@@ -45,7 +45,8 @@ test("month budgets are separate from filtered transactions and revision-checked
 test("expected salary plans are stored outside real transactions",()=>{
  assert.match(app,/queueSettingsField\("forecast_plans",normalized\)/);
  assert.match(forecast,/Expected Income/);
- assert.match(forecast,/Real income is never mixed with planned income/);
+ assert.match(forecast,/Expected future income \(not real\)/);
+ assert.match(forecast,/onSavePlans\(\[\.\.\.plannedIncomes,newPlan\]\)/);
  assert.match(forecast,/Next 90 days/);
  assert.match(forecast,/strokeDasharray="6 4"/);
  assert.match(db,/forecast_plans jsonb NOT NULL DEFAULT '\[\]'::jsonb/);
