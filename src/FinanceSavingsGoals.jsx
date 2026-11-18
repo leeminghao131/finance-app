@@ -1,11 +1,13 @@
 import React,{useRef,useState} from "react";
 import FinanceOverlay from "./FinanceOverlay.jsx";
+import {useFinanceLanguage} from "./FinanceLanguageLayer.jsx";
 import {validateSavingsGoals,savingsGoalProgress,calculateAutomaticGoalSaved} from "./financePlanning.js";
 import {requireCalendarDate} from "./financeCalendar.js";
 
 const money=n=>new Intl.NumberFormat("en-MY",{currency:"MYR",style:"currency"}).format(Number(n||0));
 const blank=()=>({title:"",target:"",saved:"0.00",savedMode:"manual",budgetMultiplier:"1",deadline:""});
 export default function FinanceSavingsGoals({goals=[],onSave,disabled=false,savingsAvailability,budgetMonth,calculationError}) {
+  const {language}=useFinanceLanguage(),zh=language==="zh";
   // Shared, read-only available savings. Existing persisted goal.saved values are retained.
   const available=savingsAvailability?.available ?? 0;
   const reservedBudget=savingsAvailability?.monthlyBudget ?? 0;
@@ -112,8 +114,8 @@ export default function FinanceSavingsGoals({goals=[],onSave,disabled=false,savi
           </div>
           <p className="mt-2 text-xs text-slate-600">{p.percent.toFixed(1)}% · {money(p.remaining)} remaining</p>
           <p className="mt-1 text-xs text-slate-500">{p.mode==="auto"
-            ? "Auto · Balance − monthly budget × "+(g.budgetMultiplier??1)
-            : "Manual saved amount"}</p>
+            ? (zh?"自动 · 总余额 − 月度预算 × ":"Auto · Balance − monthly budget × ")+(g.budgetMultiplier??1)
+            : (zh?"手动已存金额":"Manual saved amount")}</p>
           {g.deadline&&<p className="mt-1 text-xs text-slate-500">Target date: {g.deadline}</p>}
           <div className="mt-3 flex gap-2">
             <button type="button" disabled={disabled||busy} onClick={event=>start(g,event.currentTarget)}
@@ -138,15 +140,15 @@ export default function FinanceSavingsGoals({goals=[],onSave,disabled=false,savi
             className="mt-1 w-full rounded-xl border border-slate-300 px-3 py-2"/>
         </label>
         <fieldset className="min-w-0 rounded-xl border border-slate-200 p-3 sm:col-span-2">
-          <legend className="px-1 text-sm font-semibold text-slate-700">Saved amount calculation</legend>
+          <legend className="px-1 text-sm font-semibold text-slate-700">{zh?"已存金额计算方式":"Saved amount calculation"}</legend>
           <div className="mt-1 flex flex-wrap gap-4 text-sm">
             <label className="flex cursor-pointer items-center gap-2">
               <input type="radio" name="savingsMode" value="manual" checked={draft.savedMode==="manual"}
-                onChange={()=>setDraft(p=>({...p,savedMode:"manual"}))}/> Manual input
+                onChange={()=>setDraft(p=>({...p,savedMode:"manual"}))}/> {zh?"手动输入":"Manual input"}
             </label>
             <label className="flex cursor-pointer items-center gap-2">
               <input type="radio" name="savingsMode" value="auto" checked={draft.savedMode==="auto"}
-                onChange={()=>setDraft(p=>({...p,savedMode:"auto"}))}/> Auto: Balance − Monthly Budget × X
+                onChange={()=>setDraft(p=>({...p,savedMode:"auto"}))}/> {zh?"自动：总余额 − 月度预算 × X":"Auto: Balance − Monthly Budget × X"}
             </label>
           </div>
         </fieldset>
@@ -159,15 +161,15 @@ export default function FinanceSavingsGoals({goals=[],onSave,disabled=false,savi
           </label>
           :
           <div className="min-w-0 rounded-xl bg-slate-50 p-3 text-sm">
-            <label className="block font-medium text-slate-700">Monthly Budget multiplier (X)
+            <label className="block font-medium text-slate-700">{zh?"月度预算倍数（X）":"Monthly Budget multiplier (X)"}
               <input type="number" min="0" max="120" step="0.01" required value={draft.budgetMultiplier}
                 onChange={e=>setDraft(p=>({...p,budgetMultiplier:e.target.value}))}
                 className="mt-1 w-full rounded-xl border border-slate-300 bg-white px-3 py-2"/>
             </label>
-            <p className="mt-2 text-xs text-slate-600">Current Balance {money(overallBalance)} − Monthly Budget {money(fullMonthBudget)} × {draft.budgetMultiplier||"?"}</p>
+            <p className="mt-2 text-xs text-slate-600">{zh?"当前总余额":"Current Balance"} {money(overallBalance)} − {zh?"当月完整预算":"Full monthly budget"} {money(fullMonthBudget)} × {draft.budgetMultiplier||"?"}</p>
             {autoPreviewError?<p role="alert" className="mt-1 text-xs font-semibold text-red-700">{autoPreviewError}</p>
-              :<p className="mt-1 font-bold text-slate-900">Auto saved estimate: {money(autoPreview)}</p>}
-            <p className="mt-1 text-xs text-slate-500">Calculated live for this goal. Does not change your stored manual saved amount or move money.</p>
+              :<p className="mt-1 font-bold text-slate-900">{zh?"自动计算的已存金额：":"Auto saved estimate:"} {money(autoPreview)}</p>}
+            <p className="mt-1 text-xs text-slate-500">{zh?"实时计算此目标的进度，不会覆盖原来的手动已存金额，也不会实际转移资金。":"Calculated live for this goal. Does not change your stored manual saved amount or move money."}</p>
           </div>}
 
         <div className="rounded-xl bg-slate-50 p-3 text-sm">
