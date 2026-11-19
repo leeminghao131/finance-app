@@ -38,6 +38,7 @@ import FinanceCategoryFilterPicker from "./FinanceCategoryFilterPicker.jsx";
 import { makeDashboardCategoryChoices, selectedDashboardCategory, categoryOnlyRows, categoryComparisonRows } from "./financeDashboardCategoryFilter.js";
 import "./financeUi.css";
 import "./financeCosmicPilot.css";
+import "./financeCosmicPremium.css";
 // Load import/export tools only when opened; keep spreadsheet parsing out of the dashboard bundle.
 const FinanceCsvImportPanel = React.lazy(() => import("./FinanceCsvImportPanel.jsx"));
 const FinanceExcelExportPanel = React.lazy(() => import("./FinanceExcelExportPanel.jsx"));
@@ -335,13 +336,13 @@ function DateInput({ value, onChange }) {
 function HeatmapCard({ days, label }) {
   const max = Math.max(1, ...days.map((d) => d.amount));
   return (
-    <Card>
+    <Card className="mh-cosmic-panel mh-cosmic-heatmap">
       <h2 className="text-xl font-bold">Spending Heatmap / 消费热力图</h2>
       
       <div className="mt-4 grid gap-2" style={{ gridTemplateColumns: "repeat(auto-fit, minmax(80px, 1fr))" }}>
         {days.map((d) => {
           const intensity = d.amount > 0 ? 0.18 + (d.amount / max) * 0.72 : 0.06;
-          return <div key={d.date} title={`${d.date}: ${money(d.amount)}`} className="rounded-xl p-2 text-center text-xs font-bold ring-1 ring-slate-100" style={{ backgroundColor: `rgba(239, 68, 68, ${intensity})`, color: d.amount > 0 ? "#7f1d1d" : "#64748b" }}><p>{d.date.slice(8)}</p><p className="mt-1 break-words text-[11px] font-bold leading-tight tabular-nums" style={{ overflowWrap: "anywhere" }}>{d.amount > 0 ? money(d.amount).replace("MYR", "RM") : "-"}</p></div>;
+          return <div key={d.date} title={`${d.date}: ${money(d.amount)}`} className={"mh-cosmic-heat__day text-center text-xs font-bold " + (d.amount > 0 ? "is-active" : "is-empty")} style={{ "--mh-day-intensity": intensity }}><p>{d.date.slice(8)}</p><p className="mt-1 break-words text-[11px] font-bold leading-tight tabular-nums" style={{ overflowWrap: "anywhere" }}>{d.amount > 0 ? money(d.amount).replace("MYR", "RM") : "-"}</p></div>;
         })}
       </div>
     </Card>
@@ -350,11 +351,11 @@ function HeatmapCard({ days, label }) {
 
 function TopExpensesCard({ records, label, category, setCategory, expenseCategoryOptions, lockedCategory = false }) {
   return (
-    <Card>
+    <Card className="mh-cosmic-panel mh-cosmic-top5">
       <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
         <div>
           <h2 className="text-xl font-bold">Top 5 Highest Expenses</h2>
-          <p className="mt-1 text-sm text-slate-500">
+          <p className="mh-cosmic-top5__detail mt-1 text-sm text-slate-500">
             最大消费排行 · {label}{category !== "all" ? ` · ${category}` : ""}
           </p>
         </div>
@@ -363,7 +364,7 @@ function TopExpensesCard({ records, label, category, setCategory, expenseCategor
           value={category}
           disabled={lockedCategory}
           onChange={(event) => setCategory(event.target.value)}
-          className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-semibold outline-none"
+          className="mh-cosmic-top5__select rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-semibold outline-none"
         >
           <option value="all">全部分类</option>
           {expenseCategoryOptions.map((item) => (
@@ -374,20 +375,20 @@ function TopExpensesCard({ records, label, category, setCategory, expenseCategor
 
       <div className="mt-3 grid gap-2 sm:grid-cols-2 xl:grid-cols-5">
         {records.length ? records.map((record, index) => (
-          <div key={record.id} className="flex min-w-0 flex-col justify-between gap-2 rounded-xl bg-slate-50 p-3 text-sm ring-1 ring-slate-100">
+          <div key={record.id} className="mh-cosmic-top5__record flex min-w-0 flex-col justify-between gap-2 rounded-xl bg-slate-50 p-3 text-sm ring-1 ring-slate-100">
             <div className="flex min-w-0 items-start gap-2">
-              <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-slate-900 text-xs font-bold text-white">
+              <span className="mh-cosmic-top5__rank flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-slate-900 text-xs font-bold text-white">
                 {index + 1}
               </span>
               <div>
-                <p className="break-words font-bold text-slate-900">{formatCategoryLabel(record.category)} · {recordMethod(record)}</p>
-                <p className="break-words text-xs text-slate-500">{record.date} · {record.note ? <span data-i18n-ignore>{record.note}</span> : "No note"}</p>
+                <p className="mh-cosmic-top5__name break-words font-bold text-slate-900">{formatCategoryLabel(record.category)} · {recordMethod(record)}</p>
+                <p className="mh-cosmic-top5__meta break-words text-xs text-slate-500">{record.date} · {record.note ? <span data-i18n-ignore>{record.note}</span> : "No note"}</p>
               </div>
             </div>
-            <p className="break-words text-right font-bold tabular-nums text-red-600">{money(record.amount)}</p>
+            <p className="mh-cosmic-top5__amount break-words text-right font-bold tabular-nums text-red-600">{money(record.amount)}</p>
           </div>
         )) : (
-          <div className="rounded-2xl bg-slate-50 p-6 text-center text-sm text-slate-500">
+          <div className="mh-cosmic-top5__empty rounded-2xl bg-slate-50 p-6 text-center text-sm text-slate-500">
             No expense data for this category.
           </div>
         )}
