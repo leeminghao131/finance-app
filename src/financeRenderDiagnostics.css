@@ -1,0 +1,56 @@
+/* Test-only, explicitly opted-in ?perfLab=1. Does not ship a user toggle. */
+.mh-perf-lab {
+  position: fixed; z-index: 2147483647; left: 9px; bottom: 9px;
+  width: min(330px, calc(100vw - 18px)); max-height: min(460px, 75dvh);
+  overflow: auto; padding: 12px; border: 1px solid #d3ab6d;
+  border-radius: 12px; color: #fff6e6; background: #102030f7;
+  box-shadow: 0 6px 20px #0009;
+  font: 13px/1.4 system-ui, sans-serif; color-scheme: dark;
+}
+.mh-perf-lab__head {display:flex;gap:7px;align-items:center;justify-content:space-between}
+.mh-perf-lab button,.mh-perf-lab select {
+  min-height: 35px; padding: 6px 9px; border: 1px solid #9f8054;
+  border-radius: 7px; color: #fff; background:#253950; cursor:pointer;
+}
+.mh-perf-lab label,.mh-perf-lab select,.mh-perf-lab__result {
+  display:block; width:100%; margin-top:8px;
+}
+.mh-perf-lab__result {border-top:1px solid #64748b;padding-top:7px;font-variant-numeric:tabular-nums}
+.mh-perf-lab small {display:block;color:#c7d4e1;margin-top:5px}
+.mh-perf-lab.is-folded {width:auto}
+/* One-variable-at-a-time A/B controls. Nothing affects finance event handlers. */
+:root[data-mh-perf-mode="no-blur"] .mh-ui .mh-dashboard-header,
+:root[data-mh-perf-mode="minimal"] .mh-ui .mh-dashboard-header {
+  -webkit-backdrop-filter:none!important;backdrop-filter:none!important;
+}
+:root[data-mh-perf-mode="no-sticky"] .mh-ui .mh-dashboard-header {
+  position:relative!important; top:auto!important;
+}
+:root[data-mh-perf-mode="no-animation"] .mh-ui *,
+:root[data-mh-perf-mode="no-animation"] .mh-ui *::before,
+:root[data-mh-perf-mode="no-animation"] .mh-ui *::after,
+:root[data-mh-perf-mode="minimal"] .mh-ui *,
+:root[data-mh-perf-mode="minimal"] .mh-ui *::before,
+:root[data-mh-perf-mode="minimal"] .mh-ui *::after {
+  animation:none!important;transition:none!important;
+}
+:root[data-mh-perf-mode="no-space"] .mh-ui.mh-cosmic-pilot,
+:root[data-mh-perf-mode="minimal"] .mh-ui.mh-cosmic-pilot {
+  background-image:none!important;
+}
+:root[data-mh-perf-mode="no-metal"] .mh-ui.mh-cosmic-pilot .mh-dashboard-header,
+:root[data-mh-perf-mode="no-metal"] .mh-ui.mh-cosmic-pilot .mh-transfer-console,
+:root[data-mh-perf-mode="no-metal"] .mh-ui.mh-cosmic-pilot .mh-cosmic-panel,
+:root[data-mh-perf-mode="minimal"] .mh-ui.mh-cosmic-pilot .mh-dashboard-header,
+:root[data-mh-perf-mode="minimal"] .mh-ui.mh-cosmic-pilot .mh-transfer-console,
+:root[data-mh-perf-mode="minimal"] .mh-ui.mh-cosmic-pilot .mh-cosmic-panel {
+  background-image:none!important;box-shadow:none!important;
+}
+:root[data-mh-perf-mode="no-metal"] .mh-ui.mh-cosmic-pilot .mh-dashboard-header::after,
+:root[data-mh-perf-mode="no-metal"] .mh-ui.mh-cosmic-pilot .mh-transfer-console::after,
+:root[data-mh-perf-mode="no-metal"] .mh-ui.mh-cosmic-pilot .mh-cosmic-panel::after,
+:root[data-mh-perf-mode="minimal"] .mh-ui.mh-cosmic-pilot .mh-dashboard-header::after,
+:root[data-mh-perf-mode="minimal"] .mh-ui.mh-cosmic-pilot .mh-transfer-console::after,
+:root[data-mh-perf-mode="minimal"] .mh-ui.mh-cosmic-pilot .mh-cosmic-panel::after {
+  display:none!important;
+}
