@@ -2,7 +2,7 @@ import React,{useEffect,useState} from "react";
 import {FX_FAVORITES,normalizeFxInput,convertForeignToMYR,getReferenceFxRate,getSupportedFxCurrencies} from "./financeFx.js";
 import {useFinanceLanguage} from "./FinanceLanguageLayer.jsx";
 /** Never allows manual exchange-rate substitution or pretending a live bank debit. */
-export default function FinanceCurrencyInput({date,currency,onCurrency,foreignAmount,onForeignAmount,quote,onQuote,disabled=false}){
+export default function FinanceCurrencyInput({date,currency,onCurrency,foreignAmount,onForeignAmount,quote,onQuote,disabled=false,compact=false}){
   const {language}=useFinanceLanguage(),zh=language==="zh";
   const [busy,setBusy]=useState(false),[error,setError]=useState("");
   const [currencies,setCurrencies]=useState(FX_FAVORITES);
@@ -29,14 +29,17 @@ export default function FinanceCurrencyInput({date,currency,onCurrency,foreignAm
     try{converted=convertForeignToMYR(normalizeFxInput(foreignAmount,currency),quote.rate,currency);}
     catch(e){inputError=e.message;}
   }
-  return <section className="rounded-xl border border-slate-200 bg-slate-50 p-3">
-    <label className="text-sm font-semibold text-slate-700">{zh?"交易货币":"Transaction currency"}
+  return <section className={compact?"mh-entry-fx-direct":"rounded-xl border border-slate-200 bg-slate-50 p-3"}>
+    <label className={compact?"mh-entry-fx-direct__picker":"text-sm font-semibold text-slate-700"}>
+      {compact&&<span aria-hidden="true" className="shrink-0">◈</span>}
+      <span className={compact?"sr-only":""}>{zh?"交易货币":"Transaction currency"}</span>
       <select aria-label={zh?"交易货币":"Transaction currency"} value={currency} disabled={disabled}
-        onChange={e=>onCurrency(e.target.value)} className="mt-1 w-full rounded-xl border border-slate-300 bg-white px-3 py-2.5">
+        onChange={e=>onCurrency(e.target.value)}
+        className={compact?"mh-entry-fx-direct__select":"mt-1 w-full rounded-xl border border-slate-300 bg-white px-3 py-2.5"}>
         {[...new Set([...currencies,currency])].map(code=><option key={code} value={code}>{code}{code==="MYR"?" · RM":""}</option>)}
       </select>
     </label>
-    {currency!=="MYR"&&<div className="mt-3 space-y-2">
+    {currency!=="MYR"&&<div className={compact?"mh-entry-fx-direct__details mt-2 space-y-2":"mt-3 space-y-2"}>
       <label className="block text-sm font-semibold">{zh?"原始外币金额":"Original foreign amount"} ({currency})
         <input type="text" inputMode="decimal" value={foreignAmount} disabled={disabled}
           onChange={e=>onForeignAmount(e.target.value)}

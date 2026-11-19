@@ -32,6 +32,7 @@ export default function FinanceInsightsDock({
   goals=[],onSaveSavingsGoals,savingsAvailability,budgetMonth,calculationError,
   disabled=false,onOpenStage2Tool=()=>{},onOpenDataTool=()=>{},
   activities=[],activityLinks=[],onCreateActivity,onUpdateActivity,onLinkActivity,onUnlinkActivity,
+  activityOpenRequest=0,activityStatusTriggerRef=null,onActivityOpenRequestHandled=()=>{},
 }){
   const {language}=useFinanceLanguage(),zh=language==="zh";
   const [expanded,setExpanded]=useState(false);
@@ -132,7 +133,9 @@ export default function FinanceInsightsDock({
     {id:"activity",label:zh?"旅行／活动记账":"Activity Mode",icon:"🎒",node:
       <FinanceActivityPanel activities={activities} links={activityLinks}
         records={records} onCreate={onCreateActivity} onUpdate={onUpdateActivity}
-        onLink={onLinkActivity} onUnlink={onUnlinkActivity} disabled={disabled} dockButton/>},
+        onLink={onLinkActivity} onUnlink={onUnlinkActivity} disabled={disabled} dockButton
+        activityOpenRequest={activityOpenRequest} activityStatusTriggerRef={activityStatusTriggerRef}
+        onActivityOpenRequestHandled={onActivityOpenRequestHandled}/>},
     {id:"simulator",label:zh?"情境模拟":"Scenario Simulator",icon:"🧮",node:
       <FinanceScenarioSimulator records={records} totalBalance={totalBalance}
         userId={userId} disabled={disabled} dockButton/>},

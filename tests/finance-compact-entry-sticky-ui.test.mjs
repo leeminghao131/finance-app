@@ -16,23 +16,23 @@ test("Sticky compact header reuses Sound, Language, Sign out and accessible shor
   assert.match(app, /onClick=\{\(\) => setSoundEnabled\(\(v\) => !v\)\}/);
   assert.match(app, /onClick=\{signOut\}/);
   assert.match(app, /isChinese \? "仪表板快捷导航" : "Dashboard quick navigation"/);
-  assert.match(app, /isChinese \? "交易货币" : "Transaction currency"/);
+  assert.match(currency, /zh\?"交易货币":"Transaction currency"/);
   assert.match(app, /id="mh-dashboard-statistics"/);
   assert.match(app, /id="mh-stage2-add-record-form"/);
   assert.match(app, /scrollIntoView\(\{ behavior: "smooth", block: "start" \}\)/);
   assert.match(app, /recordsOpenSource === "nav" \? recordsNavTriggerRef : recordsTriggerRef/);
 });
 
-test("Currency is collapsible on phone and desktop, and existing FX conversion stays mounted", () => {
-  assert.match(app, /const \[currencyToolsOpen, setCurrencyToolsOpen\] = useState\(false\)/);
-  assert.match(app, /aria-controls="mh-entry-currency-panel"/);
-  assert.match(app, /currencyToolsOpen \|\| fxCurrency !== "MYR"/);
-  assert.match(app, /disabled=\{fxCurrency !== "MYR"\}/);
-  assert.match(app, /mh-entry-currency--active/);
-  assert.match(app, /<FinanceCurrencyInput date=\{form\.date\} currency=\{fxCurrency\}/);
+test("FX currency is directly selectable on mobile and desktop with no second toggle", () => {
+  assert.doesNotMatch(app, /currencyToolsOpen|setCurrencyToolsOpen|mh-entry-currency-panel/);
+  assert.match(app, /<FinanceCurrencyInput compact date=\{form\.date\} currency=\{fxCurrency\}/);
   assert.match(app, /onForeignAmount=\{setFxForeignAmount\}/);
-  assert.match(css, /\.mh-ui \.mh-entry-tools \.mh-entry-tool-content--closed \{[\s\S]*?display: none !important;/);
+  assert.match(app, /mh-entry-currency--active/);
+  assert.match(currency, /<select aria-label=\{zh\?"交易货币":"Transaction currency"\} value=\{currency\}/);
+  assert.match(currency, /compact\?"mh-entry-fx-direct"/);
   assert.match(currency, /getReferenceFxRate\(currency,date,fetch,ctrl\.signal\)/);
+  assert.match(css, /\.mh-ui \.mh-entry-fx-direct__select \{/);
+  assert.doesNotMatch(css, /"chips chips"/);
 });
 
 test("Calculator moved to the existing button-origin overlay with click-only keypad", () => {
@@ -56,10 +56,11 @@ test("Calculator moved to the existing button-origin overlay with click-only key
   assert.match(keypad, /<button key=\{key\} type="button"/);
 });
 
-test("Quick category chips are draft-only and all current methods and note suggestions remain", () => {
-  assert.match(app, /className="mh-entry-category-chips"/);
-  assert.match(app, /categoryOptionsFor\(form\.type\)\.includes\(category\)/);
-  assert.match(app, /setForm\(previous => \(\{ \.\.\.previous, category \}\)\)/);
+test("Category dropdown stays clean and custom options and note suggestions remain", () => {
+  assert.doesNotMatch(app, /mh-entry-category-chips|Quick category choices/);
+  assert.doesNotMatch(css, /mh-entry-category-chips/);
+  assert.match(app, /value=\{form\.category\}/);
+  assert.match(app, /setForm\(\(previous\) => \(\{ \.\.\.previous, category: value \}\)\)/);
   assert.match(app, /<FinanceQuickNotes records=\{records\} type=\{form\.type\} category=\{form\.category\}/);
   assert.match(app, /<option value=\{ADD_CATEGORY_VALUE\}>/);
   assert.match(app, /<option value=\{DELETE_CATEGORY_VALUE\}>/);
