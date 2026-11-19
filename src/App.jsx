@@ -37,6 +37,7 @@ import FinanceMethodDonutChart from "./FinanceMethodDonutChart.jsx";
 import FinanceCategoryFilterPicker from "./FinanceCategoryFilterPicker.jsx";
 import { makeDashboardCategoryChoices, selectedDashboardCategory, categoryOnlyRows, categoryComparisonRows } from "./financeDashboardCategoryFilter.js";
 import "./financeUi.css";
+import "./financeCosmicPilot.css";
 // Load import/export tools only when opened; keep spreadsheet parsing out of the dashboard bundle.
 const FinanceCsvImportPanel = React.lazy(() => import("./FinanceCsvImportPanel.jsx"));
 const FinanceExcelExportPanel = React.lazy(() => import("./FinanceExcelExportPanel.jsx"));
@@ -2199,7 +2200,7 @@ const addRecordTheme =
         icon: "💸",
       };
 return (
-  <div onClickCapture={(e) => e.target.closest("button,select") && playSound()} className="mh-ui min-h-screen bg-slate-50 p-3 text-slate-900 sm:p-4 md:p-6">
+  <div onClickCapture={(e) => e.target.closest("button,select") && playSound()} className="mh-ui mh-cosmic-pilot min-h-screen bg-slate-50 p-3 text-slate-900 sm:p-4 md:p-6">
 <CoinRainEffect trigger={coinRainTrigger} />
 <FinanceStage2Hub toolRequest={stage2ToolRequest}
   bills={recurringBills} reviewState={reviewState} checks={accountChecks}
