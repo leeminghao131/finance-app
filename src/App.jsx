@@ -610,7 +610,9 @@ function FinanceVisualizerAppContent() {
   const [budgetOpen, setBudgetOpen] = useState(false);
   const [recordsOpen, setRecordsOpen] = useState(false);
   const [recordsOpenSource, setRecordsOpenSource] = useState("card");
-  const [currencyToolsOpen, setCurrencyToolsOpen] = useState(false);
+  // The Activity status banner opens the existing Activity Mode floating panel.
+  const [activityOpenRequest, setActivityOpenRequest] = useState(0);
+  const activityStatusTriggerRef = useRef(null);
   const [calculatorOpen, setCalculatorOpen] = useState(false);
   const calculatorTriggerRef = useRef(null);
   const recordsTriggerRef = useRef(null);
@@ -2374,9 +2376,20 @@ return (
       <div className="mh-add-header__icon shrink-0 rounded-2xl bg-white/20 px-3 py-2 text-2xl">{addRecordTheme.icon}</div>
     </div>
   </div>
-            {activeActivity(activities)&&<p className="mx-4 mt-3 rounded-xl bg-amber-50 px-3 py-2 text-xs font-bold text-amber-900">
-              🎒 {activeActivity(activities).title} · {form.type==="expense"?"New Expenses auto-tagged":"Income excluded from Activity spending"}
-            </p>}
+            {activeActivity(activities)&&<button type="button"
+              ref={activityStatusTriggerRef} disabled={!initialDataReady||dataLoading}
+              aria-haspopup="dialog"
+              aria-label={isChinese?"打开旅行／活动记账以暂停活动":"Open Activity Mode to pause this activity"}
+              onClick={()=>setActivityOpenRequest(count=>count+1)}
+              className="mh-modal-trigger mx-4 mt-3 flex max-w-[calc(100%-2rem)] items-center gap-2 rounded-xl bg-amber-50 px-3 py-2 text-left text-xs font-bold text-amber-900 transition hover:bg-amber-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-amber-600 disabled:opacity-60">
+              <span aria-hidden="true">🎒</span>
+              <span className="min-w-0 break-words" data-i18n-ignore>{activeActivity(activities).title}</span>
+              <span aria-hidden="true">·</span>
+              <span>{form.type==="expense"
+                ? (isChinese?"新支出自动关联 · 点击暂停":"New Expenses auto-tagged · Tap to pause")
+                : (isChinese?"收入不计入活动消费 · 点击管理":"Income excluded from activity spending · Tap to manage")}</span>
+              <span className="ml-auto shrink-0" aria-hidden="true">↗</span>
+            </button>}
             <form id="mh-stage2-add-record-form" onSubmit={addRecord} className="mh-add-form mt-5 space-y-4 scroll-mt-24">
               <div className="mh-entry-type grid grid-cols-2 gap-3 rounded-2xl bg-slate-100 p-1"><button
   type="button"
@@ -2506,35 +2519,16 @@ return (
 </label>
               <label className="mh-entry-date block"><span className="text-sm font-medium text-slate-600">Date</span><DateInput value={form.date} onChange={(date) => setForm((p) => ({ ...p, date }))} /></label>
               <label className="mh-entry-note block"><span className="text-sm font-medium text-slate-600">Note</span><input value={form.note} onChange={(e) => setForm((p) => ({ ...p, note: e.target.value }))} className="mt-1 w-full rounded-2xl border border-slate-200 px-4 py-3 outline-none" /></label>
-<div className="mh-entry-category-chips" role="group" aria-label={isChinese ? "常用分类快捷选择" : "Quick category choices"}>
-  {[...new Set([...(form.type === "expense" ? ["饮食","交通","日用","娱乐"] : ["Salary","Allowance","Gift","Others"])
-    .filter(category => categoryOptionsFor(form.type).includes(category)),
-    ...(categoryOptionsFor(form.type).includes(form.category) ? [form.category] : [])])].map(category => (
-    <button key={category} type="button" aria-pressed={form.category === category}
-      onClick={() => { setForm(previous => ({ ...previous, category })); setDeleteOptionPanel({kind:"",type:""}); }}>
-      {formatCategoryLabel(category)}
-    </button>
-  ))}
-</div>
 <div className="mh-entry-note-quick">
   <FinanceQuickNotes records={records} type={form.type} category={form.category}
     onChoose={note=>setForm(previous=>({...previous,note}))} />
 </div>
 <div className="mh-entry-tools">
 <section className={"mh-entry-currency" + (fxCurrency !== "MYR" ? " mh-entry-currency--active" : "")}>
-  <button type="button" className="mh-entry-aux-toggle" aria-expanded={currencyToolsOpen || fxCurrency !== "MYR"}
-    aria-controls="mh-entry-currency-panel" disabled={fxCurrency !== "MYR"}
-    title={fxCurrency !== "MYR" ? (isChinese ? "外币交易需要显示原始外币金额" : "Foreign currency details must remain visible") : ""}
-    onClick={() => setCurrencyToolsOpen(value => !value)}>
-    <span aria-hidden="true">◈</span> {isChinese ? "交易货币" : "Transaction currency"} · {fxCurrency}
-    <span className="ml-auto" aria-hidden="true">{currencyToolsOpen || fxCurrency !== "MYR" ? "⌃" : "⌄"}</span>
-  </button>
-  <div id="mh-entry-currency-panel" className={currencyToolsOpen || fxCurrency !== "MYR" ? "mh-entry-tool-content" : "mh-entry-tool-content mh-entry-tool-content--closed"}>
-    <FinanceCurrencyInput date={form.date} currency={fxCurrency}
-      onCurrency={code=>{setFxCurrency(code);setFxQuote(null);setFxForeignAmount("");writeFxCurrencyPreference(user?.id,code,localStorage);}}
-      foreignAmount={fxForeignAmount} onForeignAmount={setFxForeignAmount}
-      quote={fxQuote} onQuote={setFxQuote} disabled={!initialDataReady||dataLoading}/>
-  </div>
+  <FinanceCurrencyInput compact date={form.date} currency={fxCurrency}
+    onCurrency={code=>{setFxCurrency(code);setFxQuote(null);setFxForeignAmount("");writeFxCurrencyPreference(user?.id,code,localStorage);}}
+    foreignAmount={fxForeignAmount} onForeignAmount={setFxForeignAmount}
+    quote={fxQuote} onQuote={setFxQuote} disabled={!initialDataReady||dataLoading}/>
 </section>
 <section className="mh-entry-calculator">
   <button type="button" ref={calculatorTriggerRef} className="mh-entry-aux-toggle mh-entry-calculator-button mh-modal-trigger"
@@ -3023,6 +3017,9 @@ categoryOptionsFor={categoryOptionsFor}
             setImportOpen(kind==="import");setExportOpen(kind==="export");
           }}
           activities={activities} activityLinks={activityLinks}
+          activityOpenRequest={activityOpenRequest}
+          activityStatusTriggerRef={activityStatusTriggerRef}
+          onActivityOpenRequestHandled={()=>setActivityOpenRequest(0)}
           onCreateActivity={startActivity} onUpdateActivity={changeActivity}
           onLinkActivity={associateActivityExpense} onUnlinkActivity={detachActivityExpense}
           disabled={!initialDataReady||dataLoading}
