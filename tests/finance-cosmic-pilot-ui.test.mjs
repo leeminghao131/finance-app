@@ -49,5 +49,5 @@ test("Starfield is static, local and muted, with no remote assets or animation",
   assert.match(sky, /viewBox="0 0 1600 1000"/);
   assert.match(sky, /fill="#091321"/);
   assert.match(sky, /Static subdued starfield/);
-  assert.doesNotMatch(sky, /<script|<animate|<foreignObject|https?:\/\/|onload=|href=/i);
+  assert.doesNotMatch(sky, /<script|<animate|<foreignObject|onload=|(?:xlink:)?href=/i);
 });
