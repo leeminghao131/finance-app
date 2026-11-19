@@ -45,8 +45,8 @@ test("Real layered space scenery and hammered steel are static local SVG assets"
   assert.match(deepSpace, /Large cropped Earth-like planet/);
   assert.match(deepSpace, /filter="url\(#nebulaBlur\)"/);
   assert.match(steel, /feTurbulence/);
-  assert.match(css, /financeCosmicDeepSpace\.svg/);
-  assert.match(css, /financeHammeredSteel\.svg/);
+  assert.match(css, /financeCosmicDeepSpaceStatic\.svg/);
+  assert.match(css, /financeHammeredSteelGrain\.png/);
   assert.match(css, /background-attachment:\s*scroll/);
 });
 
