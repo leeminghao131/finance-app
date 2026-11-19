@@ -881,7 +881,6 @@
 .mh-ui .mh-add-card { min-width: 0; }
 .mh-ui .mh-add-header { overflow: hidden; }
 .mh-ui .mh-entry-aux-toggle { display: none; }
-.mh-ui .mh-entry-category-chips { display: none; }
 
 @media (max-width: 767px) {
   .mh-ui .mh-dashboard-header {
@@ -945,34 +944,6 @@
   .mh-ui .mh-entry-type button { min-height: 38px; padding: 7px 9px; }
   .mh-ui .mh-entry-amount { order: 1; }
   .mh-ui .mh-entry-category { order: 2; }
-  .mh-ui .mh-entry-category-chips {
-    display: flex;
-    order: 3;
-    gap: 6px;
-    min-width: 0;
-    padding: 2px 0;
-    overflow-x: auto;
-    overscroll-behavior-x: contain;
-    scrollbar-width: thin;
-  }
-  .mh-ui .mh-entry-category-chips button {
-    flex: 0 0 auto;
-    min-height: 33px;
-    max-width: 125px;
-    padding: 5px 10px;
-    border: 1px solid #dce1e7;
-    border-radius: 10px;
-    background: #f3f5f7;
-    color: #334155;
-    font-size: 12px;
-    font-weight: 700;
-    white-space: nowrap;
-  }
-  .mh-ui .mh-entry-category-chips button[aria-pressed="true"] {
-    border-color: #dc4747;
-    background: #fff2ef;
-    color: #a92c33;
-  }
   .mh-ui .mh-entry-method { order: 4; }
   .mh-ui .mh-entry-date { order: 5; }
   .mh-ui .mh-entry-note { order: 6; }
@@ -1075,7 +1046,6 @@
     "type type"
     "amount amount"
     "category method"
-    "chips chips"
     "date note"
     "quicknotes quicknotes"
     "tools tools"
@@ -1094,37 +1064,6 @@
 .mh-ui .mh-entry-amount [role="group"] button { min-height: 28px; padding: 4px 6px; }
 .mh-ui .mh-entry-category { grid-area: category; order: initial; }
 .mh-ui .mh-entry-method { grid-area: method; order: initial; }
-.mh-ui .mh-entry-category-chips {
-  grid-area: chips;
-  order: initial;
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  padding: 0 0 2px;
-  min-width: 0;
-  max-width: 100%;
-  overflow-x: auto;
-  scrollbar-width: thin;
-  overscroll-behavior-x: contain;
-}
-.mh-ui .mh-entry-category-chips button {
-  flex: 0 0 auto;
-  min-height: 33px;
-  max-width: 140px;
-  padding: 5px 9px;
-  border: 1px solid #dce1e7;
-  border-radius: 10px;
-  background: #f3f5f7;
-  color: #334155;
-  font-size: 12px;
-  font-weight: 700;
-  white-space: nowrap;
-}
-.mh-ui .mh-entry-category-chips button[aria-pressed="true"] {
-  border-color: #dc4747;
-  background: #fff2ef;
-  color: #a92c33;
-}
 .mh-ui .mh-entry-date { grid-area: date; order: initial; }
 .mh-ui .mh-entry-note { grid-area: note; order: initial; }
 .mh-ui .mh-entry-note-quick { grid-area: quicknotes; order: initial; min-width: 0; }
@@ -1279,7 +1218,7 @@
 @media (max-width: 350px) {
   .mh-ui .mh-add-form {
     grid-template-areas:
-      "type type" "amount amount" "category method" "chips chips"
+      "type type" "amount amount" "category method"
       "date date" "note note" "quicknotes quicknotes" "tools tools" "save save";
   }
 }
@@ -1492,4 +1431,49 @@
   /* Allow mouse to cross the small gap between the bell and its menu.
      Keep other dashboard cards clickable when the menu is collapsed. */
   .mh-stage2-notifications[data-menu-open="true"] { pointer-events: auto; }
+}
+
+/* One-step native transaction currency picker. FX details appear only after
+   a foreign currency is selected; the existing calculator remains separate. */
+.mh-ui .mh-entry-fx-direct { min-width: 0; }
+.mh-ui .mh-entry-fx-direct__picker {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 43px;
+  width: 100%;
+  min-width: 0;
+  padding: 7px 8px;
+  border: 1px solid #d6dce5;
+  border-radius: 11px;
+  background: linear-gradient(145deg, #f7f8fa, #e9edf3);
+  color: #29384a;
+  box-sizing: border-box;
+}
+.mh-ui .mh-entry-fx-direct__picker:focus-within {
+  outline: 2px solid #2563eb;
+  outline-offset: 2px;
+}
+.mh-ui .mh-entry-fx-direct__select {
+  display: block;
+  flex: 1 1 auto;
+  width: 100%;
+  min-width: 0;
+  min-height: 27px;
+  padding: 0 3px;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
+}
+.mh-ui .mh-entry-fx-direct__select:focus { outline: none; }
+.mh-ui .mh-entry-fx-direct__select:disabled { cursor: not-allowed; opacity: .55; }
+.mh-ui .mh-entry-fx-direct__details {
+  min-width: 0;
+  padding: 10px;
+  border: 1px solid #dce2e9;
+  border-radius: 12px;
+  background: #f8fafc;
 }
