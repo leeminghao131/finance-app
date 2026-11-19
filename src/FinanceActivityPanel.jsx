@@ -1,4 +1,4 @@
-import React,{useMemo,useRef,useState} from "react";
+import React,{useEffect,useMemo,useRef,useState} from "react";
 import FinanceOverlay from "./FinanceOverlay.jsx";
 import {activitySummary,activityRecords,activeActivity} from "./financeActivity.js";
 import {useFinanceLanguage} from "./FinanceLanguageLayer.jsx";
@@ -9,6 +9,7 @@ const button="min-h-12 min-w-16 touch-manipulation rounded-xl border border-slat
 export default function FinanceActivityPanel({
   activities=[],links=[],records=[],onCreate,onUpdate,onLink,onUnlink,
   disabled=false,dockButton=false,
+  activityOpenRequest=0,activityStatusTriggerRef=null,onActivityOpenRequestHandled=()=>{},
 }){
   const {language}=useFinanceLanguage(),zh=language==="zh",t=(a,b)=>zh?a:b;
   const [open,setOpen]=useState(false),[selectedId,setSelectedId]=useState("");
@@ -18,6 +19,17 @@ export default function FinanceActivityPanel({
   const [busy,setBusy]=useState(false),[busyAction,setBusyAction]=useState(""),[error,setError]=useState(""),[success,setSuccess]=useState("");
   const pendingRef=useRef(false);
   const triggerRef=useRef(null);
+  const returnFocusRef=useRef(null);
+  // Open the SAME Activity Mode panel from the active-activity banner.
+  // The banner is a launcher only; the existing pause/resume/save logic stays here.
+  useEffect(()=>{
+    if(!activityOpenRequest)return;
+    if(!disabled){
+      returnFocusRef.current=activityStatusTriggerRef?.current||triggerRef.current;
+      setOpen(true);
+    }
+    onActivityOpenRequestHandled();
+  },[activityOpenRequest]);
   const active=activeActivity(activities);
   const selected=activities.find(a=>a.id===selectedId)||active||activities[0]||null;
   const summary=useMemo(()=>{
@@ -72,13 +84,13 @@ export default function FinanceActivityPanel({
   const linked=selected?activityRecords(records,links,selected.id):[];
   return <>
     <button type="button" disabled={disabled} ref={triggerRef} aria-haspopup="dialog"
-      aria-expanded={open} onClick={()=>setOpen(true)}
+      aria-expanded={open} onClick={()=>{returnFocusRef.current=triggerRef.current;setOpen(true);}}
       className={dockButton?"mh-insights-dock__button":"min-h-10 rounded-xl border px-3 py-2 text-sm font-semibold"}>
       <span className={dockButton?"mh-insights-dock__label":""}>{t("旅行／活动记账","Activity Mode")}{active?" ●":""}</span>
       <span className={dockButton?"mh-insights-dock__icon":""} aria-hidden="true">🎒</span>
     </button>
     <FinanceOverlay open={open} onClose={()=>{if(!busy)setOpen(false);}}
-      title={t("旅行／活动记账","Travel & Activity Mode")} triggerRef={triggerRef} widthClass="max-w-5xl">
+      title={t("旅行／活动记账","Travel & Activity Mode")} triggerRef={returnFocusRef} widthClass="max-w-5xl">
       
       {busyAction&&<p role="status" aria-live="polite" className="mt-2 rounded-lg bg-blue-50 px-3 py-2 text-sm font-semibold text-blue-800">
         ⏳ {({create:t("正在新建活动…","Creating Activity…"),active:t("正在继续活动…","Resuming Activity…"),
