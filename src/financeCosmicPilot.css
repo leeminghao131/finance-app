@@ -1,0 +1,217 @@
+
+/*
+ * MH Finance — Steam × Cosmos pilot, based on PR #55.
+ * FIRST BATCH ONLY: signed-in dashboard backdrop, sticky summary,
+ * desktop quick navigation, Transfer console shell, notification and robot launchers.
+ * Business logic, forms, charts, alerts and floating sheet interactions are untouched.
+ * Remove this import and "mh-cosmic-pilot" class for a clean visual rollback.
+ */
+.mh-ui.mh-cosmic-pilot {
+  --mh-cosmic-void: #091321;
+  --mh-cosmic-panel: #172536;
+  --mh-cosmic-steel: #273749;
+  --mh-cosmic-brass: #bf9a68;
+  --mh-cosmic-faint: #ddc49b;
+  background-color: var(--mh-cosmic-void);
+  background-image: url("./financeCosmicSky.svg");
+  background-size: 1600px 1000px;
+  background-position: center top;
+  background-repeat: repeat;
+  background-attachment: fixed;
+  /* No filter on the dashboard: text remains crisp and scroll stays responsive. */
+}
+
+/* 1 — Calm, perfectly aligned brass-and-gunmetal sticky summary. */
+.mh-ui.mh-cosmic-pilot .mh-dashboard-header {
+  background: #172331;
+  border: 1px solid rgba(191, 154, 104, .73);
+  border-radius: 17px;
+  box-shadow: 0 8px 22px rgba(2, 8, 18, .26),
+              inset 0 1px 0 rgba(248, 221, 173, .13);
+}
+.mh-ui.mh-cosmic-pilot .mh-dashboard-header .mh-dashboard-brand h1 {
+  color: #f7f4ec;
+}
+.mh-ui.mh-cosmic-pilot .mh-dashboard-header .mh-dashboard-eyebrow {
+  color: #d7bf99;
+}
+.mh-ui.mh-cosmic-pilot .mh-dashboard-today__metric {
+  border: 1px solid #546378;
+  background: #263549;
+  box-shadow: inset 0 1px 0 rgba(255, 244, 220, .045);
+}
+.mh-ui.mh-cosmic-pilot .mh-dashboard-today__metric span {
+  color: #d1d7df;
+}
+.mh-ui.mh-cosmic-pilot .mh-dashboard-today__metric--income strong {
+  color: #77dec0;
+}
+.mh-ui.mh-cosmic-pilot .mh-dashboard-today__metric--expense strong {
+  color: #ff9791;
+}
+.mh-ui.mh-cosmic-pilot .mh-dashboard-today__metric--neutral strong {
+  color: #f4efe5;
+}
+.mh-ui.mh-cosmic-pilot .mh-dashboard-actions .mh-dashboard-action {
+  border: 1px solid #8b785e;
+  background: #253346;
+  color: #f7f1e4;
+  box-shadow: none;
+}
+.mh-ui.mh-cosmic-pilot .mh-dashboard-actions button:last-child {
+  background: #efe9df;
+  border-color: #d1c0a9;
+  color: #24303c;
+}
+.mh-ui.mh-cosmic-pilot .mh-dashboard-actions .mh-dashboard-action:focus-visible,
+.mh-ui.mh-cosmic-pilot .mh-dashboard-quick-actions button:focus-visible {
+  outline: 2px solid #dabb86;
+  outline-offset: 2px;
+}
+
+/* 2 — Slim desktop action strip, aligned with the summary bar.
+ * Expense stays muted red; Income stays green. No new navigation behavior.
+ */
+.mh-ui.mh-cosmic-pilot .mh-dashboard-quick-actions {
+  border: 1px solid rgba(191, 154, 104, .48);
+  background: #182636;
+  box-shadow: 0 4px 15px rgba(5, 13, 25, .18);
+}
+.mh-ui.mh-cosmic-pilot .mh-dashboard-quick-actions > span {
+  background: #697483;
+}
+.mh-ui.mh-cosmic-pilot .mh-dashboard-quick-actions button {
+  border: 1px solid transparent;
+  color: #dfdfdc;
+  background: #263648;
+}
+.mh-ui.mh-cosmic-pilot .mh-dashboard-quick-actions button:first-child {
+  border-color: #ad6662;
+  background: #a64248;
+  color: #fff;
+}
+.mh-ui.mh-cosmic-pilot .mh-dashboard-quick-actions button:nth-child(2) {
+  border-color: #4d7f71;
+  background: #213c37;
+  color: #bbecd9;
+}
+.mh-ui.mh-cosmic-pilot .mh-dashboard-quick-actions button:hover {
+  filter: brightness(1.08);
+}
+
+/* 3 — Money Transfer retains its working orbit, editable field, date and
+ * existing animated money flow. Only the decorative shell is refined.
+ */
+.mh-ui.mh-cosmic-pilot .mh-transfer-console {
+  border: 1px solid #b39568;
+  border-radius: 20px;
+  background: #182532;
+  box-shadow: 0 14px 28px rgba(4, 12, 22, .26),
+              inset 0 0 0 1px rgba(241, 209, 155, .12);
+}
+.mh-ui.mh-cosmic-pilot .mh-transfer-console::before {
+  opacity: .095;
+}
+.mh-ui.mh-cosmic-pilot .mh-transfer-console::after {
+  content: "";
+  position: absolute;
+  inset: 7px;
+  z-index: 1;
+  border: 1px solid rgba(179, 148, 104, .26);
+  border-radius: 14px;
+  pointer-events: none;
+  background-image:
+    radial-gradient(circle at 10px 10px, #c5a77b 0 2px, #66573f 2.5px 3.5px, transparent 4px),
+    radial-gradient(circle at calc(100% - 10px) 10px, #c5a77b 0 2px, #66573f 2.5px 3.5px, transparent 4px),
+    radial-gradient(circle at 10px calc(100% - 10px), #c5a77b 0 2px, #66573f 2.5px 3.5px, transparent 4px),
+    radial-gradient(circle at calc(100% - 10px) calc(100% - 10px), #c5a77b 0 2px, #66573f 2.5px 3.5px, transparent 4px);
+}
+.mh-ui.mh-cosmic-pilot .mh-transfer-console__eyebrow {
+  color: #d8b682;
+  letter-spacing: .12em;
+}
+.mh-ui.mh-cosmic-pilot .mh-transfer-console__title {
+  color: #f6f1e8;
+}
+.mh-ui.mh-cosmic-pilot .mh-transfer-console__subtitle {
+  color: #d1d6db;
+}
+.mh-ui.mh-cosmic-pilot .mh-transfer-console__history {
+  background: #263648;
+  border-color: rgba(193, 157, 109, .75);
+  color: #f1d9b4;
+  box-shadow: none;
+}
+.mh-ui.mh-cosmic-pilot .mh-transfer-console__history:hover:not(:disabled) {
+  background: #33465a;
+  box-shadow: 0 3px 12px rgba(0,0,0,.17);
+}
+.mh-ui.mh-cosmic-pilot .mh-transfer-orbit {
+  background: #142131;
+  border-color: rgba(191, 154, 104, .38);
+}
+.mh-ui.mh-cosmic-pilot .mh-transfer-console__submit {
+  /* Keep original validation, disabled states and text; avoid excessive glow. */
+  box-shadow: 0 4px 12px rgba(0,0,0,.20);
+}
+.mh-ui.mh-cosmic-pilot .mh-transfer-console__submit:not(:disabled):hover {
+  box-shadow: 0 6px 14px rgba(0,0,0,.25);
+  filter: brightness(1.04);
+}
+
+/* 4 — Notification and Assistant become a matching pair of dark-steel and brass
+ * launchers. Both remain icon-only and keep existing popup/hover behavior.
+ */
+.mh-ui.mh-cosmic-pilot .mh-stage2-notifications__bell,
+.mh-ui.mh-cosmic-pilot .mh-rule-assistant__launcher {
+  border: 1px solid #bfa071;
+  border-radius: 16px;
+  background: #1c2d3c;
+  box-shadow: 0 7px 17px rgba(2, 9, 18, .32),
+              inset 0 1px 0 rgba(252, 228, 187, .16);
+}
+.mh-ui.mh-cosmic-pilot .mh-stage2-notifications__bell {
+  width: 56px;
+  height: 56px;
+  padding: 0;
+}
+.mh-ui.mh-cosmic-pilot .mh-rule-assistant__launcher {
+  width: 58px;
+  height: 58px;
+  padding: 3px;
+}
+.mh-ui.mh-cosmic-pilot .mh-stage2-notifications__count {
+  background: #b52e37;
+  border: 1px solid #f4c6ae;
+  color: #fff;
+  box-shadow: none;
+}
+.mh-ui.mh-cosmic-pilot .mh-stage2-notifications__bell:focus-visible,
+.mh-ui.mh-cosmic-pilot .mh-rule-assistant__launcher:focus-visible {
+  outline: 2px solid #e4c18c;
+  outline-offset: 3px;
+}
+
+/* No visual style is injected into Records, Budget, charts or editing overlays
+ * during this limited pilot. Keep their current proven layouts intact. */
+@media (max-width: 767px) {
+  .mh-ui.mh-cosmic-pilot {
+    /* Static scroll background avoids Android fixed-background jank. */
+    background-attachment: scroll;
+    background-size: 1100px auto;
+  }
+  .mh-ui.mh-cosmic-pilot .mh-transfer-console::after {
+    inset: 5px;
+    border-radius: 14px;
+  }
+  .mh-ui.mh-cosmic-pilot .mh-stage2-notifications__bell,
+  .mh-ui.mh-cosmic-pilot .mh-rule-assistant__launcher {
+    width: 50px;
+    height: 50px;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .mh-ui.mh-cosmic-pilot .mh-dashboard-quick-actions button {
+    transition: none !important;
+  }
+}
