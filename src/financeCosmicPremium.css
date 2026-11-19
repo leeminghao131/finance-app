@@ -1,4 +1,8 @@
 /*
+ * PR #59 performance: gradient-baked local scene + precomputed tile bitmap.
+ * Avoid costly filter primitives on repeated SVG backgrounds while retaining
+ * the same ornament and financial UI structure. Existing files remain as rollback.
+ *
  * STEAM × COSMOS — luxury mechanical UI, visual-only second pilot (PR #56 base).
  * Explicitly limited to the signed-in dashboard background, sticky cockpit,
  * Transfer console, Spending Heatmap, Top 5, and two floating launcher badges.
@@ -20,7 +24,7 @@
   --mh-steel-3: #3d5266;
   --mh-cream: #f5ecdd;
   background-color: #050d1a;
-  background-image: url("./financeCosmicDeepSpace.svg");
+  background-image: url("./financeCosmicDeepSpaceStatic.svg");
   /* PR #57 scroll fix: the root grows with the complete dashboard.
      'cover' made the filtered SVG scale to the FULL document height (often
      many thousands of pixels), while fixed attachment forced costly scroll
@@ -44,7 +48,7 @@
   background-color: #142335;
   background-image:
     linear-gradient(165deg, rgba(102,116,129,.14) 0%, rgba(8,19,29,.26) 37%, rgba(4,11,22,.54) 100%),
-    url("./financeHammeredSteel.svg"),
+    url("./financeHammeredSteelGrain.png"),
     linear-gradient(160deg,#27394a 0%,#162535 32%,#0e1b2a 68%,#243342 100%);
   background-size: auto, 256px 256px, auto;
   background-blend-mode: normal, screen, normal;
@@ -126,7 +130,7 @@
   border-radius: 13px;
   background-color: #152638;
   background-image:
-    url("./financeHammeredSteel.svg"),
+    url("./financeHammeredSteelGrain.png"),
     linear-gradient(155deg,#344759 0%,#223548 25%,#112132 75%,#253746 100%);
   background-size: 220px,auto;
   background-blend-mode: overlay, normal;
@@ -192,7 +196,7 @@
   border-radius: 15px;
   padding: 12px 19px;
   background:
-    url("./financeHammeredSteel.svg") repeat,
+    url("./financeHammeredSteelGrain.png") repeat,
     linear-gradient(170deg,#263447,#12202e);
   background-size: 250px,auto;
   background-blend-mode: overlay,normal;
@@ -238,7 +242,7 @@
     radial-gradient(ellipse at 50% 47%,#28576a70,transparent 42%),
     radial-gradient(ellipse at 84% 12%,#a77d3c27,transparent 30%),
     radial-gradient(circle at 94% 19%,#e4ba7027 0 2px,transparent 3px),
-    url("./financeHammeredSteel.svg");
+    url("./financeHammeredSteelGrain.png");
   background-size:auto,auto,auto,256px 256px;
 }
 .mh-ui.mh-cosmic-pilot .mh-transfer-console .mh-transfer-console__header,
@@ -278,7 +282,7 @@
   border-radius:20px;
   background:
     radial-gradient(circle at center,#142e38 0%,#132333 44%,#0a1523 78%),
-    url("./financeHammeredSteel.svg");
+    url("./financeHammeredSteelGrain.png");
   box-shadow: 0 6px 18px #0007,
     inset 0 2px 10px #0009,
     inset 0 0 0 3px #372e24,
@@ -411,7 +415,7 @@
   border:1px solid #99734c;
   border-radius:13px;
   background:
-    url("./financeHammeredSteel.svg"),
+    url("./financeHammeredSteelGrain.png"),
     linear-gradient(155deg,#2d3e50,#162536 67%,#0e1c2b);
   background-size:205px,auto;
   background-blend-mode:overlay,normal;

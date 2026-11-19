@@ -12,7 +12,7 @@ test("PR57 regression: the tall dashboard MUST NOT scale expensive SVG backgroun
   assert.match(app,/className="mh-ui mh-cosmic-pilot min-h-screen/);
   const first=css.match(/\.mh-ui\.mh-cosmic-pilot\s*\{([^}]+)\}/);
   assert.ok(first,"scoped cosmic theme rule is retained");
-  assert.match(first[1],/background-image:\s*url\("\.\/financeCosmicDeepSpace\.svg"\)/);
+  assert.match(first[1], /background-image:\s*url\("\.\/financeCosmicDeepSpaceStatic\.svg"\)/);
   assert.match(first[1],/background-size:\s*1920px 1200px/);
   assert.match(first[1],/background-attachment:\s*scroll/);
   assert.match(first[1],/background-repeat:\s*repeat/);
@@ -26,7 +26,7 @@ test("PR57 perf: retain exact premium artwork and separate mobile density settin
   assert.match(scene,/<filter id="nebulaBlur"/);
   assert.match(scene,/<filter id="planetSurface"/);
   assert.match(steel,/<filter id="grain"/);
-  assert.match(css,/financeHammeredSteel\.svg/);
+  assert.match(css,/financeHammeredSteelGrain\.png/);
   assert.match(css,/financeOrnateBrassFrame\.svg/);
   assert.match(css,/@media \(max-width: 767px\)/);
   assert.match(css,/background-size:auto 980px/);
