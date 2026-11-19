@@ -76,7 +76,7 @@ test("Heatmap still uses real daily amounts and ranking still uses real records"
   assert.match(app, /"--mh-day-intensity": intensity/);
   assert.match(app, /d\.amount > 0 \? money\(d\.amount\)\.replace\("MYR", "RM"\) : "-"/);
   assert.match(app, /records\.map\(\(record, index\) =>/);
-  assert.match(app, /formatCategoryLabel\(record\.category\) \}\s*· \{recordMethod\(record\)\}/);
+  assert.match(app, /formatCategoryLabel\(record\.category\)\}\s*· \{recordMethod\(record\)\}/);
   assert.match(app, /money\(record\.amount\)/);
   assert.match(app, /disabled=\{lockedCategory\}/);
   assert.match(app, /onChange=\{\(event\) => setCategory\(event\.target\.value\)\}/);
