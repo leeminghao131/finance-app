@@ -21,10 +21,15 @@
   --mh-cream: #f5ecdd;
   background-color: #050d1a;
   background-image: url("./financeCosmicDeepSpace.svg");
-  background-size: cover;
+  /* PR #57 scroll fix: the root grows with the complete dashboard.
+     'cover' made the filtered SVG scale to the FULL document height (often
+     many thousands of pixels), while fixed attachment forced costly scroll
+     compositing. Keep the exact original artwork at its native bounded size;
+     reuse its tile as the user scrolls instead of repainting a huge filter. */
+  background-size: 1920px 1200px;
   background-position: center top;
-  background-repeat: no-repeat;
-  background-attachment: fixed;
+  background-repeat: repeat;
+  background-attachment: scroll;
 }
 
 /* Hard-edged, depth-mapped metalwork: the same nine-slice material for
