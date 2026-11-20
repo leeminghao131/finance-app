@@ -10,7 +10,7 @@ const charts=read("financeCosmicCharts.css");
 
 test("whole-app palette is opt-in within existing cosmic dashboard only",()=>{
   for(const name of ["financeCosmicWholeApp","financeCosmicModules","financeCosmicDialogs","financeCosmicCharts"])
-    assert.match(app,new RegExp('import "\\./'+name+'\\\\.css";'));
+    assert.ok(app.includes('import "./'+name+'.css";'), "missing CSS import: "+name);
   assert.match(core,/\.mh-ui\.mh-cosmic-pilot/);
   assert.match(core,/--mh-full-green/);
   assert.match(core,/--mh-full-red/);
