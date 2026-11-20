@@ -80,11 +80,18 @@ export default function FinanceNativeChart({
   const view=chartViewport(data,kind,size.width,size.height);
   const {width,height,margin,pw,ph,x,y,baseline}=view;
   const fields=chartFields(kind);
-  const isMobile=size.width<540;
+  const isMobile=size.width<540 || Boolean(window.matchMedia?.("(pointer: coarse)")?.matches);
   const capacity=Math.max(2,Math.floor(pw/(isMobile?77:83))+1);
   const ticks=new Set(chartTickIndices(data.length,
     Math.min(capacity,isMobile?maxTicksMobile:maxTicksDesktop)));
   const selectedIndex=data.findIndex(row=>row?.dateKey===selectedDate);
+  // Bars use centered bins; line plots use first/last at the plot edges.
+  const barSlot=pw/Math.max(1,data.length);
+  const position=index=>kind==="bars"?margin.left+barSlot*(index+.5):x(index);
+  const axisLabel=row=>{
+    const raw=String(row?.day||row?.dateKey||row?.date||"");
+    return /^\d{4}-\d{2}-\d{2}$/.test(raw)?raw.slice(5):raw.slice(0,7);
+  };
   const showMarkers=showPoints&&!(hidePointsOnMobile&&isMobile)&&data.length<=45;
   const choose=index=>{
     setActive(index);
@@ -153,17 +160,18 @@ export default function FinanceNativeChart({
       <line x1={margin.left} x2={margin.left+pw} y1={baseline} y2={baseline}
         stroke="#bea989" strokeOpacity=".65" strokeWidth="1"/>
       {data.map((row,index)=>ticks.has(index)?<text key={"date-"+index}
-        x={x(index)} y={height-(isMobile?8:9)} fill="#d3dce3"
+        x={position(index)} y={height-(isMobile?8:9)} fill="#d3dce3"
         fontSize={isMobile?9.5:10.5}
-        textAnchor={index===0?"start":index===data.length-1?"end":"middle"}>
-        {String(row?.day||row?.dateKey||row?.date||"").slice(0,7)}
+        textAnchor={kind==="bars"?"middle":index===0?"start":index===data.length-1?"end":"middle"}>
+        {axisLabel(row)}
       </text>:null)}
       {kind==="bars"?data.map((row,index)=>{
-        const band=Math.max(1.8,Math.min(14,pw/Math.max(2,data.length*3.5)));
+        const gap=Math.min(1.5,barSlot*.12);
+        const band=Math.max(.15,Math.min(13,(barSlot-gap)/2));
         return fields.map((field,offset)=>{
           const value=chartNumber(row?.[field]);
           if(value===null)return null;
-          const barX=x(index)+(offset===0?-band-1:1);
+          const barX=position(index)+(offset===0?-band-gap/2:gap/2);
           const pointY=y(value);
           return <rect key={index+"-"+field} x={barX}
             y={Math.min(baseline,pointY)}
@@ -219,16 +227,16 @@ export default function FinanceNativeChart({
         </g>;
       })}
       {data.map((row,index)=>{
-        const spacing=data.length<2?pw:pw/(data.length-1);
-        const left=Math.max(margin.left,x(index)-spacing/2);
-        const right=Math.min(margin.left+pw,x(index)+spacing/2);
+        const spacing=kind==="bars"?barSlot:data.length<2?pw:pw/(data.length-1);
+        const left=Math.max(margin.left,position(index)-spacing/2);
+        const right=Math.min(margin.left+pw,position(index)+spacing/2);
         return <rect key={"hit-"+index} {...marker(index)}
           x={left} y={margin.top} width={Math.max(1,right-left)}
           height={ph} fill="transparent" style={{cursor:"crosshair",touchAction:"pan-y"}}/>;
       })}
       {(active!==null||selectedIndex>=0)&&(()=>{
         const index=active!==null?active:selectedIndex;
-        return <line x1={x(index)} x2={x(index)}
+        return <line x1={position(index)} x2={position(index)}
           y1={margin.top} y2={margin.top+ph}
           stroke="#f5cd8b" strokeDasharray="3 4" strokeOpacity=".6"
           pointerEvents="none"/>;
