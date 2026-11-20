@@ -356,9 +356,9 @@ function HeatmapCard({ days, label, records = [] }) {
             onClick={event => { heatmapTriggerRef.current = event.currentTarget; setSelectedDate(d.date); }}
             className={"mh-cosmic-heat__day text-center text-xs font-bold " + (d.amount > 0 ? "is-active" : "is-empty")}
             style={{ "--mh-day-intensity": intensity }}>
-            <p>{d.date.slice(8)}</p>
-            <p className="mt-1 break-words text-[11px] font-bold leading-tight tabular-nums"
-              style={{ overflowWrap: "anywhere" }}>{d.amount > 0 ? money(d.amount).replace("MYR", "RM") : "-"}</p>
+            <span className="block">{d.date.slice(8)}</span>
+            <span className="mt-1 block break-words text-[11px] font-bold leading-tight tabular-nums"
+              style={{ overflowWrap: "anywhere" }}>{d.amount > 0 ? money(d.amount).replace("MYR", "RM") : "-"}</span>
           </button>;
         })}
       </div>
