@@ -22,3 +22,12 @@
   border:1px solid #9d7c50;
 }
 @media(max-width:767px){.mh-native-chart__tooltip{font-size:10px;padding:4px 6px}}
+
+.mh-native-chart__legend{
+  position:absolute;right:7px;top:5px;max-width:80%;
+  display:flex;align-items:center;justify-content:flex-end;gap:9px;
+  flex-wrap:wrap;pointer-events:none;color:#e5e8e7;font-size:10px;
+}
+.mh-native-chart__legend span{display:inline-flex;align-items:center;gap:4px;white-space:nowrap}
+.mh-native-chart__legend i{display:block;width:11px;height:3px;border-radius:2px}
+@media(max-width:767px){.mh-native-chart__legend{font-size:9px;gap:6px;max-width:86%}}
