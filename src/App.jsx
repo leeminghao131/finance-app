@@ -29,6 +29,7 @@ import {validateSavingsGoals,calculateSavingsAvailable} from "./financePlanning.
 import {readFxCurrencyPreference,writeFxCurrencyPreference} from "./financeFxCurrencyPreference.js";
 import { openingTotal, calculateMethodBalances } from "./financeOpeningBalance.js";
 import FinanceOverlay from "./FinanceOverlay.jsx";
+import FinanceHeatmapDayDetails from "./FinanceHeatmapDayDetails.jsx";
 import FinanceMobileRecords from "./FinanceMobileRecords.jsx";
 import FinanceTrendSummaryTooltip from "./FinanceTrendSummaryTooltip.jsx";
 import FinanceExpandedTrendOverlay from "./FinanceExpandedTrendOverlay.jsx";
@@ -44,6 +45,7 @@ import "./financeCosmicModules.css";
 import "./financeCosmicDialogs.css";
 import "./financeCosmicCharts.css";
 import "./financeNativeCharts.css";
+import "./financeHeatmapDetails.css";
 import FinanceNativeChart from "./FinanceNativeChart.jsx";
 // Load import/export tools only when opened; keep spreadsheet parsing out of the dashboard bundle.
 const FinanceCsvImportPanel = React.lazy(() => import("./FinanceCsvImportPanel.jsx"));
@@ -336,21 +338,43 @@ function DateInput({ value, onChange }) {
   return <input type="date" value={value} onChange={(e) => onChange(e.target.value)} className="w-full cursor-pointer rounded-2xl border border-slate-200 bg-white px-4 py-3 outline-none" />;
 }
 
-function HeatmapCard({ days, label }) {
+function HeatmapCard({ days, label, records = [] }) {
+  const [selectedDate, setSelectedDate] = useState(null);
+  const heatmapTriggerRef = useRef(null);
   const max = Math.max(1, ...days.map((d) => d.amount));
+  const selectedDay = days.find(day => day.date === selectedDate) || null;
   return (
     <Card className="mh-cosmic-panel mh-cosmic-heatmap">
       <h2 className="text-xl font-bold">Spending Heatmap / 消费热力图</h2>
-      
+      <p className="mt-1 text-xs text-slate-500">点击日期查看当天真实收入与支出 · Tap a date for daily records</p>
       <div className="mt-4 grid gap-2" style={{ gridTemplateColumns: "repeat(auto-fit, minmax(80px, 1fr))" }}>
         {days.map((d) => {
           const intensity = d.amount > 0 ? 0.18 + (d.amount / max) * 0.72 : 0.06;
-          return <div key={d.date} title={`${d.date}: ${money(d.amount)}`} className={"mh-cosmic-heat__day text-center text-xs font-bold " + (d.amount > 0 ? "is-active" : "is-empty")} style={{ "--mh-day-intensity": intensity }}><p>{d.date.slice(8)}</p><p className="mt-1 break-words text-[11px] font-bold leading-tight tabular-nums" style={{ overflowWrap: "anywhere" }}>{d.amount > 0 ? money(d.amount).replace("MYR", "RM") : "-"}</p></div>;
+          return <button key={d.date} type="button" title={d.date + ": " + money(d.amount)}
+            aria-label={d.date + " · Spending " + money(d.amount) + " · Open daily details"}
+            aria-haspopup="dialog" aria-expanded={selectedDate === d.date}
+            onClick={event => { heatmapTriggerRef.current = event.currentTarget; setSelectedDate(d.date); }}
+            className={"mh-cosmic-heat__day text-center text-xs font-bold " + (d.amount > 0 ? "is-active" : "is-empty")}
+            style={{ "--mh-day-intensity": intensity }}>
+            <span className="block">{d.date.slice(8)}</span>
+            <span className="mt-1 block break-words text-[11px] font-bold leading-tight tabular-nums"
+              style={{ overflowWrap: "anywhere" }}>{d.amount > 0 ? money(d.amount).replace("MYR", "RM") : "-"}</span>
+          </button>;
         })}
       </div>
+      <FinanceHeatmapDayDetails
+        open={Boolean(selectedDay)}
+        date={selectedDate}
+        records={records}
+        heatmapSpending={selectedDay?.amount ?? 0}
+        scopeLabel={label}
+        triggerRef={heatmapTriggerRef}
+        onClose={() => setSelectedDate(null)}
+      />
     </Card>
   );
 }
+
 
 function TopExpensesCard({ records, label, category, setCategory, expenseCategoryOptions, lockedCategory = false }) {
   return (
@@ -2716,7 +2740,7 @@ return (
                 openingBalanceTotal={openingBalanceTotal}
                 onSavePlans={saveExpectedIncomePlans}
               />
-              <HeatmapCard days={heatmapDays} label={filterLabel} />
+              <HeatmapCard days={heatmapDays} label={filterLabel} records={periodRecords} />
               <div className="min-w-0">
                 <TopExpensesCard
                   records={topExpenses} label={filterLabel}

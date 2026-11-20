@@ -1,6 +1,6 @@
 import { localizedFinanceAlert, localizedFinanceConfirm } from "./FinanceLanguageLayer.jsx";
 import React, { useMemo, useRef, useState } from "react";
-import { CartesianGrid, Legend, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
+import FinanceNativeChart from "./FinanceNativeChart.jsx";
 import { localDateMY, shiftCalendarDay, requireCalendarDate } from "./financeCalendar.js";
 import { calculateCashForecast } from "./financeInsights.js";
 import { parseEditedAmount } from "./financeData.js";
@@ -115,17 +115,11 @@ export default function FinanceForecastPanel({records,selectedMonth,asOfDate,pla
         {!outcome.error && (
           <div className="min-w-0">
             <div className="h-64 min-w-0">
-            <ResponsiveContainer width="100%" height="100%">
-              <LineChart data={data.timeline} margin={{top:8,right:12,left:0,bottom:0}}>
-                <CartesianGrid strokeDasharray="3 3"/>
-                <XAxis dataKey="day" minTickGap={20} fontSize={10}/>
-                <YAxis fontSize={10} width={52} tickFormatter={(n)=>String(Math.round(n))}/>
-                <Tooltip formatter={v=>money(v)}/>
-                <Legend/>
-                <Line isAnimationActive={false} name="Actual ledger" type="monotone" dataKey="actual" stroke="#334155" strokeWidth={2} dot={false} connectNulls={false}/>
-                <Line isAnimationActive={false} name="Forecast" type="monotone" dataKey="forecast" stroke="#2563eb" strokeWidth={2} strokeDasharray="6 4" dot={false} connectNulls={false}/>
-              </LineChart>
-            </ResponsiveContainer>
+            <FinanceNativeChart
+              rows={data.timeline}
+              kind="forecast"
+              label="Cash Flow Forecast / 现金流预测"
+            />
           </div>
             <p className="mt-2 text-xs text-slate-500">{data.note} · Forecasts are estimates, not guarantees.</p>
           </div>

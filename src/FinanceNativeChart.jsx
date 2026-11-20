@@ -12,11 +12,15 @@ const compactRM = value => {
 const money = value => "RM " + (Number(value)||0).toLocaleString("en-MY",{
   minimumFractionDigits:2,maximumFractionDigits:2
 });
-const palette = {income:GREEN,expense:RED,balanceGreen:GREEN,balanceRed:RED};
+const palette = {income:GREEN,expense:RED,balanceGreen:GREEN,balanceRed:RED,actual:"#cbd5e1",forecast:"#60a5fa"};
 function valueLabel(row,kind){
   const date=row?.dateKey || row?.day || "";
   if(kind==="bars")return date+" · Income "+money(row.income)+" · Expense "+money(row.expense);
   if(kind==="expense")return date+" · Expense "+money(row.expense);
+  if(kind==="forecast"){
+    const actual=chartNumber(row?.actual),future=chartNumber(row?.forecast);
+    return date+(actual===null?"":" · Actual ledger "+money(actual))+(future===null?"":" · Forecast (not real) "+money(future));
+  }
   const val=chartNumber(row?.balanceGreen)??chartNumber(row?.balanceRed);
   return date+(val===null?" · Future / no actual balance":" · Balance "+money(val));
 }
@@ -73,7 +77,8 @@ export default function FinanceNativeChart({
   const alertLabel="RM"+Number(alertLimit||1500).toLocaleString("en-MY",{maximumFractionDigits:2});
   const legend=kind==="bars"?[
       {name:"Income",color:GREEN},{name:"Expense",color:RED}]
-    :kind==="expense"?[{name:"Expense",color:BLUE}]:[
+    :kind==="expense"?[{name:"Expense",color:BLUE}]
+    :kind==="forecast"?[{name:"Actual ledger",color:palette.actual},{name:"Forecast (not real)",color:palette.forecast}]:[
       {name:"Balance > "+alertLabel,color:GREEN},
       {name:"Balance ≤ "+alertLabel,color:RED}];
   return <div ref={rootRef} className="mh-native-chart" aria-label={label} onMouseLeave={() => setActive(null)}>
@@ -111,7 +116,8 @@ export default function FinanceNativeChart({
         const color=kind==="expense"?BLUE:palette[field];
         return <g key={field}>
           {points.length>1&&<polyline fill="none" points={points.map(p=>p.x+","+p.y).join(" ")}
-            stroke={color} strokeWidth={compact?2.8:3} strokeLinejoin="round"
+            stroke={color} strokeDasharray={kind==="forecast" && field==="forecast" ? "7 5" : undefined}
+            strokeWidth={compact?2.8:3} strokeLinejoin="round"
             strokeLinecap="round" vectorEffect="non-scaling-stroke"/>}
           {points.map(p=><circle key={p.index} cx={p.x} cy={p.y}
             r={active===p.index||selectedIndex===p.index?5:compact?2.6:3.5}

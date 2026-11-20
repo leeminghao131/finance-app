@@ -8,6 +8,7 @@ export function chartFields(kind) {
   if (kind === "bars") return ["income", "expense"];
   if (kind === "balance") return ["balanceGreen", "balanceRed"];
   if (kind === "expense") return ["expense"];
+  if (kind === "forecast") return ["actual", "forecast"];
   throw new Error("Unsupported chart kind");
 }
 export function chartViewport(rows, kind, width, height) {
