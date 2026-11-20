@@ -7,6 +7,7 @@ const app = source("../src/App.jsx");
 const transfers = source("../src/FinanceTransferPanel.jsx");
 const budgets = source("../src/FinanceBudgetPanel.jsx");
 const forecast = source("../src/FinanceForecastPanel.jsx");
+const nativeChart = source("../src/FinanceNativeChart.jsx");
 const db = source("../docs/database/preview_finance_transfers_budget_forecast.sql");
 const client = source("../src/supabaseClient.js");
 
@@ -48,7 +49,9 @@ test("expected salary plans are stored outside real transactions",()=>{
  assert.match(forecast,/Expected future income \(not real\)/);
  assert.match(forecast,/onSavePlans\(\[\.\.\.plannedIncomes,newPlan\]\)/);
  assert.match(forecast,/Next 90 days/);
- assert.match(forecast,/strokeDasharray="6 4"/);
+ assert.match(forecast,/kind="forecast"/);
+ assert.match(forecast,/rows=\{data.timeline\}/);
+ assert.ok(nativeChart.includes('strokeDasharray={kind==="forecast" && field==="forecast" ? "7 5" : undefined}'));
  assert.match(db,/forecast_plans jsonb NOT NULL DEFAULT '\[\]'::jsonb/);
 });
 

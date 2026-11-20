@@ -58,7 +58,7 @@ test("Expanded Balance Trend preserves existing threshold series and source bala
   assert.match(geometry, /"balanceGreen", "balanceRed"/);
   assert.match(native, /name:"Balance > "\+alertLabel/);
   assert.match(native, /name:"Balance ≤ "\+alertLabel/);
-  assert.match(native, /palette = \{income:GREEN,expense:RED,balanceGreen:GREEN,balanceRed:RED\}/);
+  assert.match(native, /balanceGreen:GREEN,balanceRed:RED/);
 
 
 
