@@ -30,7 +30,8 @@ test("Expanded graph stays in a separate fixed overlay with desktop hover and mo
   assert.match(overlay, /lg:grid-cols-\[minmax\(0,1\.9fr\)_minmax\(260px,1fr\)\]/);
   assert.match(overlay, /onSelectDate=\{row => selectFromChart\(\{activePayload:\[\{payload:row\}\]\}\)\}/);
   assert.match(native, /onMouseEnter:\(\)=>choose\(index\)/);
-  assert.match(native, /onTouchStart:\(\)=>choose\(index\)/);
+  assert.doesNotMatch(native, /onTouchStart:\(\)=>choose\(index\)/);
+  assert.match(native, /style=\{\{cursor:"crosshair",touchAction:"pan-y"\}\}/);
   assert.match(native, /onClick:\(\)=>choose\(index\)/);
   assert.match(native, /onKeyDown:event=>/);
   assert.match(overlay, /onChange=\{event => setSelectedDate\(event\.target\.value\)\}/);

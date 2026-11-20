@@ -21,7 +21,7 @@ test("forecast uses same native renderer as working ledger charts, without Recha
   assert.deepEqual(chartFields("forecast"),["actual","forecast"]);
   assert.match(native,/name:"Actual ledger"/);
   assert.match(native,/name:"Forecast \(not real\)"/);
-  assert.ok(native.includes('strokeDasharray={kind==="forecast" && field==="forecast" ? "7 5" : undefined}'));
+  assert.ok(native.includes('strokeDasharray={kind==="forecast"&&field==="forecast"?"7 5":undefined}'));
 });
 test("projected income remains forecast-only and actual/future null are not converted into fake zero",()=>{
   const outcome=calculateCashForecast(
