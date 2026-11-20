@@ -1,0 +1,303 @@
+/*
+ * MH FINANCE | COMPLETE COSMIC ATELIER | Layer 3: auth & floating workbenches
+ * FinanceOverlay is portaled to document.body. Unlike dashboard styles these
+ * selectors target a dedicated class on the modal. No finance data changes.
+ */
+
+/* Log-in and TEST fail-closed entry share the official visual vocabulary. */
+.mh-cosmic-auth {
+  min-height:100dvh;
+  color:#f3ebdc;
+  color-scheme:dark;
+  background-color:#07111e;
+  background-image:url("./financeCosmicDeepSpaceStatic.svg");
+  background-size:1920px 1200px;
+  background-position:center top;
+  background-repeat:repeat;
+  background-attachment:scroll;
+  font-family:"Segoe UI Variable","Segoe UI","Noto Sans SC",system-ui,sans-serif;
+}
+.mh-cosmic-auth > div {
+  position:relative;
+  overflow:hidden;
+  color:#f5e8d3;
+  border:1px solid #b18a56;
+  background:
+    linear-gradient(155deg,rgba(255,242,211,.055),transparent 43%),
+    linear-gradient(160deg,#273d4e 0%,#142636 60%,#0b1b2a 100%);
+  box-shadow:inset 0 1px #fff3,0 0 0 4px rgba(5,12,20,.64),0 18px 35px #0008;
+}
+.mh-cosmic-auth > div::before {
+  content:"";
+  position:absolute;
+  inset:9px;
+  border:1px solid rgba(216,171,109,.29);
+  border-radius:18px;
+  pointer-events:none;
+}
+.mh-cosmic-auth > div::after {
+  content:"";
+  position:absolute;
+  top:0;left:20px;right:20px;height:3px;
+  border-radius:0 0 6px 6px;
+  background:linear-gradient(90deg,transparent,#d8aa64 17%,#fae2a8 50%,#d8aa64 83%,transparent);
+  pointer-events:none;
+}
+.mh-cosmic-auth h1 {
+  color:#fff0d5;
+  font-family:Georgia,"Noto Serif SC",serif;
+  letter-spacing:.025em;
+  line-height:1.18;
+}
+.mh-cosmic-auth p.text-slate-500,
+.mh-cosmic-auth p.text-slate-600,
+.mh-cosmic-auth span.text-slate-600 {
+  color:#b7c8d2;
+}
+.mh-cosmic-auth label{color:#e4dccd}
+.mh-cosmic-auth label span{color:#e7d2ad}
+.mh-cosmic-auth :is(input,select,textarea){
+  color:#f5f1e6;
+  color-scheme:dark;
+  background:#0d2031;
+  border:1px solid #9c774a;
+  caret-color:#eec58e;
+}
+.mh-cosmic-auth input::placeholder{color:#adbcc8;opacity:1}
+.mh-cosmic-auth :is(input,button):focus-visible{
+  outline:2px solid #f3c78c;
+  outline-offset:3px;
+}
+.mh-cosmic-auth button.bg-slate-900 {
+  color:#fff1d9;
+  border:1px solid #d4a86e;
+  background:linear-gradient(135deg,#8c603b,#493323);
+  box-shadow:inset 0 1px #fff3,0 3px 10px #0005;
+}
+.mh-cosmic-auth button.bg-white {
+  color:#f3e8d4;
+  border:1px solid #97754b;
+  background:linear-gradient(135deg,#354c5d,#1b2e3f);
+}
+.mh-cosmic-auth button:disabled{opacity:.58}
+.mh-cosmic-auth .text-red-700{color:#ffaaa1}
+.mh-cosmic-auth .text-slate-900{color:#f2e9dc}
+.mh-cosmic-auth .text-slate-700{color:#e1ded9}
+.mh-cosmic-auth .text-slate-500{color:#bec7ce}
+
+/* Global floating overlay shell: self-contained, scroll-safe and readable. */
+.mh-cosmic-modal-backdrop {
+  background:rgba(2,7,15,.72);
+  color-scheme:dark;
+  -webkit-backdrop-filter:none;
+  backdrop-filter:none;
+}
+.mh-cosmic-modal-sheet {
+  color:#f0e8dc;
+  color-scheme:dark;
+  border:1px solid #bb8e51;
+  border-radius:18px;
+  background:
+    linear-gradient(125deg,rgba(157,180,190,.085),transparent 39%),
+    linear-gradient(160deg,#20394b,#102436 70%,#0b1b29);
+  box-shadow:0 16px 40px rgba(0,0,0,.62),inset 0 1px rgba(255,226,184,.22);
+  scrollbar-width:thin;
+  scrollbar-color:#9d784b #0f2031;
+  overscroll-behavior:contain;
+}
+.mh-cosmic-modal-sheet > div:first-child {
+  background:
+    radial-gradient(circle at 14px 50%,#f0c891 0 2px,transparent 3px),
+    radial-gradient(circle at calc(100% - 14px) 50%,#f0c891 0 2px,transparent 3px),
+    linear-gradient(110deg,#342e2c,#263d4f 56%,#152838);
+  border-bottom:1px solid #ad834e;
+  -webkit-backdrop-filter:none;
+  backdrop-filter:none;
+  box-shadow:inset 0 1px rgba(255,235,182,.19),0 2px 6px #0004;
+}
+.mh-cosmic-modal-sheet > div:first-child h2 {
+  color:#fce1b6;
+  font-family:"Segoe UI Variable","Segoe UI","Noto Sans SC",sans-serif;
+  font-weight:750;
+  letter-spacing:.025em;
+  overflow-wrap:anywhere;
+}
+.mh-cosmic-modal-sheet > div:first-child button {
+  flex:none;
+  min-width:90px;
+  min-height:44px;
+  border:1px solid #a58558;
+  background:linear-gradient(145deg,#405264,#172a3b);
+  color:#f5e5d1;
+  border-radius:10px;
+}
+.mh-cosmic-modal-sheet > div:last-child{
+  min-width:0;
+  color:#eae7df;
+  background:transparent;
+}
+.mh-cosmic-modal-sheet :is(h1,h2,h3,h4) {
+  color:#f2d09b;
+  letter-spacing:.012em;
+}
+.mh-cosmic-modal-sheet :is(.text-slate-900,.text-slate-800,.text-slate-700){
+  color:#f0eee6;
+}
+.mh-cosmic-modal-sheet :is(.text-slate-600,.text-slate-500){
+  color:#c1cbd1;
+}
+.mh-cosmic-modal-sheet .text-slate-400{color:#96a9b5}
+.mh-cosmic-modal-sheet :is(.text-emerald-700,.text-emerald-800,.text-green-700,.text-green-600,.text-green-800){
+  color:#9aebd2;
+}
+.mh-cosmic-modal-sheet :is(.text-red-700,.text-red-800,.text-red-600,.text-rose-800){
+  color:#ffafa8;
+}
+.mh-cosmic-modal-sheet :is(.text-amber-700,.text-amber-800,.text-amber-900,.text-amber-950){
+  color:#f4d59e;
+}
+.mh-cosmic-modal-sheet :is(.text-blue-700,.text-blue-800,.text-blue-900){
+  color:#a8dcff;
+}
+.mh-cosmic-modal-sheet :is(.ring-slate-100,.ring-slate-200,.ring-slate-300){
+  --tw-ring-color:rgba(211,170,111,.33);
+}
+.mh-cosmic-modal-sheet :is(.border-slate-100,.border-slate-200,.border-slate-300){
+  border-color:#665b4b;
+}
+.mh-cosmic-modal-sheet :is(div,section,article).bg-white {
+  background-color:#1b3143;
+  border-color:#7f6647;
+  color:#f3ede2;
+}
+.mh-cosmic-modal-sheet :is(div,section,article).bg-slate-50,
+.mh-cosmic-modal-sheet :is(div,section,article).bg-slate-100 {
+  background-color:#122739;
+  border-color:#4e5a5f;
+  color:#e6e4df;
+}
+.mh-cosmic-modal-sheet :is(div,section,article).bg-green-50,
+.mh-cosmic-modal-sheet :is(div,section,article).bg-emerald-50 {
+  background-color:#153a36;
+  border-color:#42836d;
+}
+.mh-cosmic-modal-sheet :is(div,section,article).bg-red-50,
+.mh-cosmic-modal-sheet :is(div,section,article).bg-rose-50 {
+  background-color:#482a33;
+  border-color:#a0625b;
+}
+.mh-cosmic-modal-sheet :is(div,section,article).bg-amber-50 {
+  background-color:#433422;
+  border-color:#a5814c;
+}
+.mh-cosmic-modal-sheet :is(div,section,article).bg-blue-50 {
+  background-color:#19394d;
+  border-color:#5882a3;
+}
+.mh-cosmic-modal-sheet .bg-slate-200 {background-color:#293f50}
+.mh-cosmic-modal-sheet .bg-amber-100{background-color:#463720}
+.mh-cosmic-modal-sheet .bg-emerald-100{background-color:#173b32}
+.mh-cosmic-modal-sheet .bg-rose-100{background-color:#542a34}
+
+/* Transaction editing, budget templates, expected income, import/export forms. */
+.mh-cosmic-modal-sheet :is(input:not([type="checkbox"]):not([type="radio"]):not([type="range"]),select,textarea) {
+  color:#f6efe3;
+  color-scheme:dark;
+  background-color:#0c1f30;
+  border-color:#91734d;
+  caret-color:#ffdfa6;
+  box-shadow:inset 0 1px 3px #0004;
+}
+.mh-cosmic-modal-sheet :is(input,textarea)::placeholder{color:#aebdc6;opacity:1}
+.mh-cosmic-modal-sheet select option{background:#102538;color:#f5ecd8}
+.mh-cosmic-modal-sheet :is(label,legend){color:#dedbd3}
+.mh-cosmic-modal-sheet :is(input[type="checkbox"],input[type="radio"],input[type="range"]){accent-color:#dcb177}
+.mh-cosmic-modal-sheet :is(input,select,textarea,button):focus-visible{
+  outline:2px solid #f4cb91;
+  outline-offset:2px;
+}
+.mh-cosmic-modal-sheet :is(input,select,textarea,button):disabled{opacity:.63;cursor:not-allowed}
+.mh-cosmic-modal-sheet button.bg-slate-900,
+.mh-cosmic-modal-sheet button.bg-slate-800{
+  color:#faeed9;
+  background:linear-gradient(145deg,#3c5061,#172a3d);
+  border:1px solid #9f825a;
+  box-shadow:inset 0 1px #fff3;
+}
+.mh-cosmic-modal-sheet button.bg-white,
+.mh-cosmic-modal-sheet button.bg-slate-100{
+  color:#f4e9d9;
+  background:linear-gradient(135deg,#314b60,#1d3447);
+  border:1px solid #8b7456;
+}
+.mh-cosmic-modal-sheet button.bg-emerald-700,
+.mh-cosmic-modal-sheet button.bg-emerald-600{
+  color:#f2fffa;
+  background:linear-gradient(145deg,#2c8675,#15584f);
+  border:1px solid #7fd0b5;
+}
+.mh-cosmic-modal-sheet button.bg-red-700,
+.mh-cosmic-modal-sheet button.bg-red-600{
+  color:#fff6f2;
+  background:linear-gradient(145deg,#ab5555,#793339);
+  border:1px solid #d88d85;
+}
+.mh-cosmic-modal-sheet button.bg-blue-600,
+.mh-cosmic-modal-sheet button.bg-blue-700{
+  color:#f7fdff;
+  background:linear-gradient(145deg,#447d9d,#234860);
+  border:1px solid #8bc0d3;
+}
+.mh-cosmic-modal-sheet button:focus-visible{outline:2px solid #f3d29a}
+.mh-cosmic-modal-sheet a{color:#a8dcef;text-underline-offset:3px}
+.mh-cosmic-modal-sheet :is(form,fieldset){min-width:0}
+.mh-cosmic-modal-sheet table{
+  color:#f4ede0;
+  border-collapse:separate;
+  border-spacing:0;
+  font-variant-numeric:tabular-nums;
+}
+.mh-cosmic-modal-sheet table thead{
+  color:#f2d49d;
+  background:#284052;
+}
+.mh-cosmic-modal-sheet table th{
+  color:#f2d49d;
+  border-color:#876c4a;
+  font-size:.75rem;
+  letter-spacing:.045em;
+}
+.mh-cosmic-modal-sheet table td{border-color:#4e5c60}
+.mh-cosmic-modal-sheet table tbody tr:nth-child(even){background-color:#1a3042}
+.mh-cosmic-modal-sheet table tbody tr:hover{background-color:#2b4355}
+.mh-cosmic-modal-sheet [aria-label="CSV Import Preview"],
+.mh-cosmic-modal-sheet [aria-label="Savings Goal Editor"] {
+  border:1px solid #b58b58;
+  background-color:#192f41;
+}
+.mh-cosmic-modal-sheet [aria-label="Savings Goals"] article{
+  border-color:#8d7150;
+  background:#0e2235;
+}
+.mh-cosmic-modal-sheet :where(.overflow-x-auto,.overflow-auto,.overflow-y-auto){
+  scrollbar-width:thin;
+  scrollbar-color:#92714a #122437;
+}
+.mh-cosmic-modal-sheet ::selection{color:#0b1520;background:#deb47e}
+@media(max-width:767px){
+  .mh-cosmic-auth{padding:14px}
+  .mh-cosmic-auth > div{
+    margin-top:min(8dvh,65px);
+    padding:22px;
+    border-radius:20px;
+  }
+  .mh-cosmic-modal-backdrop{padding:8px}
+  .mh-cosmic-modal-sheet{border-radius:13px}
+  .mh-cosmic-modal-sheet > div:first-child{gap:7px;padding:12px}
+  .mh-cosmic-modal-sheet > div:first-child h2{font-size:1rem;line-height:1.4}
+  .mh-cosmic-modal-sheet > div:first-child button{min-width:75px;padding:8px}
+  .mh-cosmic-modal-sheet table{font-size:.8rem}
+}
+@media(prefers-reduced-motion:reduce){
+  .mh-cosmic-modal-sheet :is(button,a){transition-duration:.01ms!important}
+}
