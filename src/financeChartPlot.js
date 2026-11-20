@@ -5,6 +5,7 @@ export function chartNumber(value) {
   return Number.isFinite(n) ? n : null;
 }
 export function chartFields(kind) {
+  if(Array.isArray(kind) && kind.length && kind.every(field=>typeof field==="string" && /^[a-zA-Z][a-zA-Z0-9]*$/.test(field))) return [...kind];
   if (kind === "bars") return ["income", "expense"];
   if (kind === "balance") return ["balanceGreen", "balanceRed"];
   if (kind === "expense") return ["expense"];
@@ -58,4 +59,52 @@ export function chartPercentages(entries) {
     return {...entry,start,end:previous/total,percent:entry.value/total*100};
   });
   return {total,slices};
+}
+
+
+/* Pixel-aware X ticks keep date labels separated on narrow Android screens. */
+export function chartTickIndices(length,maxLabels=5) {
+  const count=Math.max(0,Math.floor(Number(length)||0));
+  if(!count)return [];
+  if(count===1)return [0];
+  const labels=Math.min(count,Math.max(2,Math.floor(Number(maxLabels)||5)));
+  return [...new Set(Array.from({length:labels},(_,i)=>Math.round(i*(count-1)/(labels-1))))];
+}
+
+/* Preserve gaps: a null future actual balance must not be joined to later forecast rows. */
+export function chartLineRuns(rows,field,view) {
+  const runs=[];
+  let current=[];
+  for(let i=0;i<rows.length;i++){
+    const value=chartNumber(rows[i]?.[field]);
+    if(value===null){if(current.length)runs.push(current);current=[];continue;}
+    current.push({index:i,value,x:view.x(i),y:view.y(value),row:rows[i]});
+  }
+  if(current.length)runs.push(current);
+  return runs;
+}
+
+/* Draw a continuous threshold-colored real balance. Changing threshold never
+ * changes the underlying value; crossing segments split at the exact crossing. */
+export function chartBalanceSegments(rows,view,limit=1500) {
+  const threshold=chartNumber(limit)??1500;
+  const data=Array.isArray(rows)?rows:[];
+  const get=row=>chartNumber(row?.balanceGreen)??chartNumber(row?.balanceRed);
+  const result=[];
+  for(let i=1;i<data.length;i++){
+    const before=get(data[i-1]),after=get(data[i]);
+    if(before===null||after===null)continue;
+    const x1=view.x(i-1),x2=view.x(i);
+    const y1=view.y(before),y2=view.y(after);
+    const aAbove=before>threshold,bAbove=after>threshold;
+    if(aAbove===bAbove){
+      result.push({x1,y1,x2,y2,above:aAbove,start:i-1,end:i});
+    } else {
+      const fraction=(threshold-before)/(after-before);
+      const middleX=x1+(x2-x1)*fraction, middleY=view.y(threshold);
+      result.push({x1,y1,x2:middleX,y2:middleY,above:aAbove,start:i-1,end:i});
+      result.push({x1:middleX,y1:middleY,x2,y2,above:bAbove,start:i-1,end:i});
+    }
+  }
+  return result;
 }
