@@ -1,8 +1,5 @@
 import React, { useEffect, useMemo, useState } from "react";
-import {
-  CartesianGrid, Legend, Line, LineChart, ResponsiveContainer,
-  Tooltip, XAxis, YAxis,
-} from "recharts";
+import FinanceNativeChart from "./FinanceNativeChart.jsx";
 import FinanceOverlay from "./FinanceOverlay.jsx";
 import { useFinanceLanguage } from "./FinanceLanguageLayer.jsx";
 import { builtInFinanceCategory } from "./financeLanguage.js";
@@ -95,35 +92,12 @@ export default function FinanceExpandedTrendOverlay({
               <>
                 <div className="h-64 min-w-0 sm:h-80 lg:h-[420px]"
                   aria-label="Expanded daily financial trend chart">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <LineChart data={rows}
-                      margin={{ top: 12, right: 14, bottom: 8, left: 2 }}
-                      onMouseMove={selectFromChart}
-                      onClick={selectFromChart}
-                      onTouchStart={selectFromChart}
-                      onTouchMove={selectFromChart}>
-                      <CartesianGrid strokeDasharray="3 3" />
-                      <XAxis dataKey="day" minTickGap={24} interval="preserveStartEnd" fontSize={11} />
-                      <YAxis width={56} fontSize={11} />
-                      <Tooltip content={() => null}
-                        cursor={{ stroke: "#64748b", strokeDasharray: "4 4" }} />
-                      <Legend verticalAlign="bottom" />
-                      {kind === "expense" ? (
-                        <Line type="monotone" isAnimationActive={false}
-                          name="Expense" dataKey="expense" stroke="#2563eb"
-                          strokeWidth={3} dot={{ r: 3 }} activeDot={{ r: 6 }} />
-                      ) : (
-                        <>
-                          <Line type="monotone" isAnimationActive={false} connectNulls
-                            name={"Balance > " + limitLabel} dataKey="balanceGreen"
-                            stroke="#22c55e" strokeWidth={3} dot={{ r: 3 }} activeDot={{ r: 6 }} />
-                          <Line type="monotone" isAnimationActive={false} connectNulls
-                            name={"Balance ≤ " + limitLabel} dataKey="balanceRed"
-                            stroke="#ef4444" strokeWidth={3} dot={{ r: 3 }} activeDot={{ r: 6 }} />
-                        </>
-                      )}
-                    </LineChart>
-                  </ResponsiveContainer>
+                  <FinanceNativeChart
+                    rows={rows} kind={kind} alertLimit={limit}
+                    selectedDate={selected?.dateKey || ""}
+                    label={kind === "expense" ? "Daily expense" : "Filtered balance"}
+                    onSelectDate={row => selectFromChart({activePayload:[{payload:row}]})}
+                  />
                 </div>
                 <p className="mt-2 text-xs text-slate-500">
                   Hover or tap a point to inspect its date. You can also select a date below.

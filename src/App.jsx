@@ -43,6 +43,8 @@ import "./financeCosmicWholeApp.css";
 import "./financeCosmicModules.css";
 import "./financeCosmicDialogs.css";
 import "./financeCosmicCharts.css";
+import "./financeNativeCharts.css";
+import FinanceNativeChart from "./FinanceNativeChart.jsx";
 // Load import/export tools only when opened; keep spreadsheet parsing out of the dashboard bundle.
 const FinanceCsvImportPanel = React.lazy(() => import("./FinanceCsvImportPanel.jsx"));
 const FinanceExcelExportPanel = React.lazy(() => import("./FinanceExcelExportPanel.jsx"));
@@ -51,10 +53,7 @@ import { fetchFinanceSnapshot } from "./financeCloudService.js";
 import { getRecordRequestId, confirmRecordRequest, getTransferRequestId, confirmTransferRequest, assertRecoveredRecordMatchesPayload, assertRecoveredTransferMatchesPayload } from "./financeSaveIdempotency.js";
 import { CoinRainEffect, IncomeCoinSpinEffect } from "./FinanceVisualEffects.jsx";
 import { FinanceLanguageProvider, FinanceLanguageButton, useFinanceLanguage, localizedFinanceAlert, localizedFinanceConfirm } from "./FinanceLanguageLayer.jsx";
-import {
-  BarChart, Bar, XAxis, YAxis, Tooltip,
-  ResponsiveContainer, CartesianGrid, Legend, LineChart, Line,
-} from "recharts";
+// Chart data remains unchanged; drawing now uses bounded native SVG components.
 
 const RECORDS_KEY = "finance-records-v3";
 const BUDGET_KEY = "finance-category-budget-v3";
@@ -2728,7 +2727,7 @@ return (
               </div>
             </section>
             <section className="grid gap-6 xl:grid-cols-2">
-              <Card><h2 className="text-xl font-bold">Daily Income vs Expense</h2><p className="mt-1 text-sm text-slate-500">Current range: {filterLabel}</p><div className="mt-4 h-64">{dailyData.length ? <ResponsiveContainer width="100%" height="100%"><BarChart data={dailyData}><CartesianGrid strokeDasharray="3 3" /><XAxis dataKey="day" /><YAxis /><Tooltip formatter={(v) => money(v)} /><Legend /><Bar isAnimationActive={false} dataKey="income" name="Income" fill="#22c55e" /><Bar isAnimationActive={false} dataKey="expense" name="Expense" fill="#ef4444" /></BarChart></ResponsiveContainer> : <div className="flex h-full items-center justify-center text-slate-500">No data.</div>}</div><div className="mt-5 rounded-2xl bg-slate-50 p-3 ring-1 ring-slate-200"><div className="mb-2 flex justify-between gap-2"><p className="text-sm font-bold text-slate-700">消费趋势图</p><select
+              <Card><h2 className="text-xl font-bold">Daily Income vs Expense</h2><p className="mt-1 text-sm text-slate-500">Current range: {filterLabel}</p><div className="mt-4 h-64">{dailyData.length ? <FinanceNativeChart rows={dailyData} kind="bars" label="Daily Income vs Expense" /> : <div className="flex h-full items-center justify-center text-slate-500">No data.</div>}</div><div className="mt-5 rounded-2xl bg-slate-50 p-3 ring-1 ring-slate-200"><div className="mb-2 flex justify-between gap-2"><p className="text-sm font-bold text-slate-700">消费趋势图</p><select
   value={activeExpenseCategory || trendCategory}
   disabled={Boolean(activeExpenseCategory)}
   onChange={(e) => setTrendCategory(e.target.value)}
@@ -2744,11 +2743,11 @@ return (
   ref={spendingTrendTriggerRef} role="button" tabIndex={0} aria-label="Expand Spending Trend" title="Click to expand Spending Trend"
   onClick={() => setExpandedTrend("expense")}
   onKeyDown={(event) => { if (event.key === "Enter" || event.key === " ") { event.preventDefault(); setExpandedTrend("expense"); } }}>
-  {trendData.length ? <ResponsiveContainer width="100%" height="100%"><LineChart data={trendData}><CartesianGrid strokeDasharray="3 3" /><XAxis dataKey="day" /><YAxis /><Tooltip content={<FinanceTrendSummaryTooltip kind="expense" />} /><Legend /><Line isAnimationActive={false} type="monotone" dataKey="expense" name="Expense" stroke="#3b82f6" strokeWidth={3} dot={{ r: 4 }} /></LineChart></ResponsiveContainer> : <div className="flex h-full items-center justify-center text-slate-500">No expense trend data.</div>}</div><div className="mt-4 border-t border-slate-200 pt-3"><p className="mb-2 text-sm font-bold text-slate-700">Filtered Balance Trend</p><p className="mb-2 text-xs text-slate-500">Actual cumulative balance including opening amounts and prior records; category and keyword filters do not change it.</p><div className="mh-modal-trigger h-36 cursor-zoom-in rounded-xl focus-visible:outline focus-visible:outline-2 focus-visible:outline-blue-500"
+  {trendData.length ? <FinanceNativeChart rows={trendData} kind="expense" compact label="Spending Trend" /> : <div className="flex h-full items-center justify-center text-slate-500">No expense trend data.</div>}</div><div className="mt-4 border-t border-slate-200 pt-3"><p className="mb-2 text-sm font-bold text-slate-700">Filtered Balance Trend</p><p className="mb-2 text-xs text-slate-500">Actual cumulative balance including opening amounts and prior records; category and keyword filters do not change it.</p><div className="mh-modal-trigger h-36 cursor-zoom-in rounded-xl focus-visible:outline focus-visible:outline-2 focus-visible:outline-blue-500"
   ref={balanceTrendTriggerRef} role="button" tabIndex={0} aria-label="Expand Filtered Balance Trend" title="Click to expand Balance Trend"
   onClick={() => setExpandedTrend("balance")}
   onKeyDown={(event) => { if (event.key === "Enter" || event.key === " ") { event.preventDefault(); setExpandedTrend("balance"); } }}>
-  {trendData.length ? <ResponsiveContainer width="100%" height="100%"><LineChart data={trendData}><CartesianGrid strokeDasharray="3 3" /><XAxis dataKey="day" /><YAxis /><Tooltip content={<FinanceTrendSummaryTooltip kind="balance" />} /><Legend /><Line isAnimationActive={false} connectNulls type="monotone" dataKey="balanceGreen" name={`Balance > ${balanceAlertLimitLabel}`} stroke="#22c55e" strokeWidth={3} dot={{ r: 4 }} /><Line isAnimationActive={false} connectNulls type="monotone" dataKey="balanceRed" name={`Balance ≤ ${balanceAlertLimitLabel}`} stroke="#ef4444" strokeWidth={3} dot={{ r: 4 }} /></LineChart></ResponsiveContainer> : <div className="flex h-full items-center justify-center text-slate-500">No balance trend data.</div>}</div></div></div></Card>
+  {trendData.length ? <FinanceNativeChart rows={trendData} kind="balance" alertLimit={balanceLimit} compact label="Filtered Balance Trend" /> : <div className="flex h-full items-center justify-center text-slate-500">No balance trend data.</div>}</div></div></div></Card>
               <Card>
                 <h2 className="text-xl font-bold">Expense by Category</h2>
                 <div className="mt-4 min-w-0">

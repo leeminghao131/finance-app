@@ -1,0 +1,33 @@
+/* Native charts: bounded geometry, crisp outlines, no real-time SVG filters. */
+.mh-native-chart{position:relative;width:100%;height:100%;min-height:100px;min-width:0;overflow:hidden;isolation:isolate}
+.mh-native-chart svg{display:block;width:100%;height:100%;overflow:visible}
+.mh-native-chart svg rect[role="button"]:focus-visible,
+.mh-native-chart svg rect[role="img"]:focus-visible{outline:none;stroke:#ffe0a9;stroke-width:1.5}
+.mh-native-chart__tooltip{position:absolute;top:5px;right:6px;max-width:min(90%,340px);
+  pointer-events:none;white-space:normal;overflow-wrap:anywhere;background:#122638ee;
+  border:1px solid #d6a96d;border-radius:8px;color:#fff1d9;padding:5px 8px;font-size:11px;
+  box-shadow:0 4px 10px #0008}
+.mh-native-chart-empty{display:flex;align-items:center;justify-content:center;min-height:120px;color:#bac8d2}
+.mh-native-donut{display:block;overflow:visible;filter:none}
+.mh-native-donut circle[role="button"]{cursor:pointer;transition:none}
+.mh-native-donut circle[role="button"]:focus-visible{outline:2px solid #efcc92}
+.mh-cosmic-modal-sheet aside.bg-white{
+  color:#f2eadf;background:linear-gradient(160deg,#1f3547,#0d2031);
+  border-color:#a58354;
+}
+.mh-ui.mh-cosmic-pilot .mh-category-bubble-chart,
+.mh-ui.mh-cosmic-pilot [aria-label="Interactive floating expense category bubbles"]{color:#f7ecda}
+.mh-ui.mh-cosmic-pilot div.bg-gradient-to-br.from-slate-50.via-white.to-slate-100{
+  background:linear-gradient(145deg,#25394b,#122738 65%,#0e1d2e);
+  border:1px solid #9d7c50;
+}
+@media(max-width:767px){.mh-native-chart__tooltip{font-size:10px;padding:4px 6px}}
+
+.mh-native-chart__legend{
+  position:absolute;right:7px;top:5px;max-width:80%;
+  display:flex;align-items:center;justify-content:flex-end;gap:9px;
+  flex-wrap:wrap;pointer-events:none;color:#e5e8e7;font-size:10px;
+}
+.mh-native-chart__legend span{display:inline-flex;align-items:center;gap:4px;white-space:nowrap}
+.mh-native-chart__legend i{display:block;width:11px;height:3px;border-radius:2px}
+@media(max-width:767px){.mh-native-chart__legend{font-size:9px;gap:6px;max-width:86%}}

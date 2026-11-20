@@ -1,6 +1,6 @@
 
 import React, { useId, useMemo, useState } from "react";
-import { Cell, Pie, PieChart, ResponsiveContainer, Tooltip } from "recharts";
+import FinanceNativeDonut from "./FinanceNativeDonut.jsx";
 
 const METHOD_COLOR = { "TNG": "#239D90", "BANK": "#61718B", "CASH": "#C96975", "GRAB PAY": "#C09C52" };
 const OTHER_COLORS = ["#5C9BB3", "#9784BC", "#638D7D", "#AF8B84", "#8F9E59"];
@@ -26,31 +26,7 @@ export default function FinanceMethodDonutChart({ data, emptyText = "No method d
   return (
     <div className="flex min-w-0 flex-col items-center gap-4 sm:flex-row sm:gap-5">
       <div className="relative h-[212px] w-[212px] shrink-0" aria-label="Payment method donut chart">
-        <ResponsiveContainer width="100%" height="100%">
-          <PieChart>
-            <defs>
-              {entries.map((entry, index) => (
-                <linearGradient id={id + "method" + index} key={entry.name} x1="0" y1="0" x2="1" y2="1">
-                  <stop offset="0%" stopColor={colorFor(entry.name)} stopOpacity="0.72" />
-                  <stop offset="100%" stopColor={colorFor(entry.name)} stopOpacity="1" />
-                </linearGradient>
-              ))}
-            </defs>
-            <Pie data={entries} nameKey="name" dataKey="value"
-              innerRadius={67} outerRadius={94} cx="50%" cy="50%"
-              stroke="#FFFFFF" strokeWidth={3} paddingAngle={2} cornerRadius={7}
-              isAnimationActive={false}
-              onMouseEnter={(_, index) => setHighlighted(entries[index]?.name || "")}
-              onMouseLeave={() => setHighlighted("")}
-              onClick={(_, index) => setHighlighted(entries[index]?.name || "")}>
-              {entries.map((entry, index) => (
-                <Cell key={entry.name} fill={"url(#" + id + "method" + index + ")"}
-                  opacity={highlighted && highlighted !== entry.name ? 0.45 : 1} />
-              ))}
-            </Pie>
-            <Tooltip formatter={amount => money(amount)} />
-          </PieChart>
-        </ResponsiveContainer>
+        <FinanceNativeDonut entries={entries} highlighted={highlighted} setHighlighted={setHighlighted} colorFor={colorFor} money={money} />
         <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center px-7 text-center">
           <span className="text-xs font-semibold tracking-wide text-slate-500">Total Expense</span>
           <strong className="mt-1 break-words text-lg font-extrabold leading-tight tabular-nums text-slate-900">{money(total)}</strong>

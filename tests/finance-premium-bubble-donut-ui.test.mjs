@@ -7,6 +7,8 @@ const load = path => readFileSync(new URL("../src/" + path, import.meta.url), "u
 const app = load("App.jsx");
 const bubbles = load("FinanceCategoryBubbleChart.jsx");
 const donut = load("FinanceMethodDonutChart.jsx");
+const native = load("FinanceNativeDonut.jsx");
+const plot = load("financeChartPlot.js");
 
 test("Category chart and Method chart reuse original expense aggregates, never record writers", () => {
   assert.match(app, /<FinanceCategoryBubbleChart data=\{categoryData\}/);
@@ -44,9 +46,13 @@ test("Bubble animation is pauseable and supports accessible mobile and desktop i
 });
 
 test("Premium donut shows all method shares and RM amounts on the right at desktop sizes", () => {
-  assert.match(donut, /<ResponsiveContainer width="100%" height="100%">/);
-  assert.match(donut, /innerRadius=\{67\} outerRadius=\{94\}/);
-  assert.match(donut, /cornerRadius=\{7\}/);
+  assert.match(donut, /<FinanceNativeDonut entries=\{entries\}/);
+  assert.match(native, /viewBox="0 0 212 212"/);
+  assert.match(native, /const r=77,cx=106,cy=106/);
+  assert.match(native, /strokeDasharray=/);
+  assert.match(native, /onMouseEnter=\{\(\)=>setHighlighted\(slice\.name\)\}/);
+  assert.match(native, /onClick=\{\(\)=>setHighlighted\(slice\.name\)\}/);
+  assert.match(plot, /chartPercentages\(entries\)/);
   assert.match(donut, /sm:flex-row/);
   assert.match(donut, /sm:grid-cols-1/);
   assert.match(donut, /Total Expense/);

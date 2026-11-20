@@ -5,6 +5,8 @@ import { readFileSync } from "node:fs";
 const read = name => readFileSync(new URL("../src/" + name, import.meta.url), "utf8");
 const app = read("App.jsx");
 const overlay = read("FinanceExpandedTrendOverlay.jsx");
+const native = read("FinanceNativeChart.jsx");
+const geometry = read("financeChartPlot.js");
 
 test("Expanded trends are opened from both existing small graphs and can be closed", () => {
   assert.match(app, /const \[expandedTrend, setExpandedTrend\] = useState\(null\)/);
@@ -26,14 +28,16 @@ test("Expanded graph stays in a separate fixed overlay with desktop hover and mo
   assert.match(overlay, /<FinanceOverlay open=\{open\}/);
   assert.match(overlay, /widthClass="max-w-7xl"/);
   assert.match(overlay, /lg:grid-cols-\[minmax\(0,1\.9fr\)_minmax\(260px,1fr\)\]/);
-  assert.match(overlay, /onMouseMove=\{selectFromChart\}/);
-  assert.match(overlay, /onClick=\{selectFromChart\}/);
-  assert.match(overlay, /onTouchStart=\{selectFromChart\}/);
-  assert.match(overlay, /onTouchMove=\{selectFromChart\}/);
+  assert.match(overlay, /onSelectDate=\{row => selectFromChart\(\{activePayload:\[\{payload:row\}\]\}\)\}/);
+  assert.match(native, /onMouseEnter:\(\)=>choose\(index\)/);
+  assert.match(native, /onTouchStart:\(\)=>choose\(index\)/);
+  assert.match(native, /onClick:\(\)=>choose\(index\)/);
+  assert.match(native, /onKeyDown:event=>/);
   assert.match(overlay, /onChange=\{event => setSelectedDate\(event\.target\.value\)\}/);
   assert.match(overlay, /role="group" aria-label="Expanded chart"/);
-  assert.match(overlay, /<ResponsiveContainer width="100%" height="100%">/);
-  assert.match(overlay, /<Tooltip content=\{\(\) => null\}/);
+  assert.match(overlay, /<FinanceNativeChart/);
+  assert.match(overlay, /rows=\{rows\} kind=\{kind\} alertLimit=\{limit\}/);
+  assert.match(overlay, /selectedDate=\{selected\?\.dateKey \|\| ""\}/);
 });
 
 test("Expanded Spending Trend is read-only and its daily total matches the existing filtered trend", () => {
@@ -51,10 +55,14 @@ test("Expanded Spending Trend is read-only and its daily total matches the exist
 test("Expanded Balance Trend preserves existing threshold series and source balance without recalculation", () => {
   assert.match(overlay, /selected\?\.balanceGreen \?\? selected\?\.balanceRed/);
   assert.match(overlay, /const limit = Number\(alertLimit \|\| 1500\)/);
-  assert.match(overlay, /name=\{"Balance > " \+ limitLabel\}/);
-  assert.match(overlay, /name=\{"Balance ≤ " \+ limitLabel\}/);
-  assert.match(overlay, /dataKey="balanceGreen"/);
-  assert.match(overlay, /dataKey="balanceRed"/);
+  assert.match(geometry, /"balanceGreen", "balanceRed"/);
+  assert.match(native, /name:"Balance > "\+alertLabel/);
+  assert.match(native, /name:"Balance ≤ "\+alertLabel/);
+  assert.match(native, /palette = \{income:GREEN,expense:RED,balanceGreen:GREEN,balanceRed:RED\}/);
+
+
+
+
   assert.match(overlay, /rm\(day\?\.income\)/);
   assert.match(overlay, /rm\(day\?\.expense\)/);
   assert.match(overlay, /rm\(selected\.dailyBalance\)/);
