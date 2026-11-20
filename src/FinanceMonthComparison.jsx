@@ -1,6 +1,6 @@
 import React,{useMemo,useRef,useState} from "react";
 import FinanceOverlay from "./FinanceOverlay.jsx";
-import {Bar,BarChart,CartesianGrid,Legend,ResponsiveContainer,Tooltip,XAxis,YAxis} from "recharts";
+import FinanceNativeMultiSeriesChart from "./FinanceNativeMultiSeriesChart.jsx";
 import {localMonthMY} from "./financeCalendar.js";
 import {compareFinanceMonths} from "./financePlanning.js";
 
@@ -58,14 +58,14 @@ export default function FinanceMonthComparison({records=[]}) {
         </div>)}
       </div>
       <div className="mt-4 h-56 min-w-0" aria-label="Comparison bar chart">
-        <ResponsiveContainer width="100%" height="100%">
-          <BarChart data={chart} margin={{top:6,right:8,left:2,bottom:0}}>
-            <CartesianGrid strokeDasharray="3 3"/><XAxis dataKey="metric" fontSize={11}/>
-            <YAxis width={48} fontSize={10}/><Tooltip formatter={n=>money(n)}/>
-            <Legend/><Bar isAnimationActive={false} dataKey="first" name={firstMonth} fill="#64748b"/>
-            <Bar isAnimationActive={false} dataKey="second" name={secondMonth} fill="#0f766e"/>
-          </BarChart>
-        </ResponsiveContainer>
+        <FinanceNativeMultiSeriesChart
+          rows={chart} mode="bars" xKey="metric" label="Monthly Financial Comparison"
+          series={[
+            {key:"first",name:firstMonth,color:"#d9e2e9"},
+            {key:"second",name:secondMonth,color:"#2dd4bf"}
+          ]}
+          maxTicksMobile={3} maxTicksDesktop={3}
+        />
       </div>
       <button type="button" ref={categoryCompareTriggerRef} onClick={()=>setShowCategories(true)}
         aria-haspopup="dialog" aria-expanded={showCategories}
