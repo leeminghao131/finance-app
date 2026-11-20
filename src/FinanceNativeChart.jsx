@@ -76,7 +76,7 @@ export default function FinanceNativeChart({
     :kind==="expense"?[{name:"Expense",color:BLUE}]:[
       {name:"Balance > "+alertLabel,color:GREEN},
       {name:"Balance ≤ "+alertLabel,color:RED}];
-  return <div ref={rootRef} className="mh-native-chart" aria-label={label}>
+  return <div ref={rootRef} className="mh-native-chart" aria-label={label} onMouseLeave={() => setActive(null)}>
     <svg viewBox={"0 0 "+width+" "+height} width="100%" height="100%"
       role="group" aria-label={label+" - "+data.length+" dates"}>
       <title>{label}</title>
@@ -84,7 +84,7 @@ export default function FinanceNativeChart({
       <rect x={margin.left} y={margin.top} width={pw} height={ph} fill="#071624" fillOpacity=".20" rx="5"/>
       {view.ticks.map((tick,index)=><g key={"tick-"+index}>
         <line x1={margin.left} x2={margin.left+pw} y1={y(tick)} y2={y(tick)}
-          stroke="#8198a9" strokeOpacity={index===0?.32:.23} strokeDasharray={index===0?"":"3 5"}/>
+          stroke="#8198a9" strokeOpacity={index === 0 ? 0.32 : 0.23} strokeDasharray={index===0?"":"3 5"}/>
         <text x={margin.left-7} y={y(tick)+3.5} fill="#c9d4dc"
           fontSize={compact?9:11} textAnchor="end">{compactRM(tick)}</text>
       </g>)}

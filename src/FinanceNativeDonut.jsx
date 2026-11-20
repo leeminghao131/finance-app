@@ -19,7 +19,7 @@ export default function FinanceNativeDonut({entries,highlighted,setHighlighted,c
         strokeDasharray={Math.max(.1,length-2.3)+" "+(circ-Math.max(.1,length-2.3))}
         strokeDashoffset={-slice.start*circ}
         transform={"rotate(-90 "+cx+" "+cy+")"}
-        strokeLinecap="butt" opacity={faded?.4:1}
+        strokeLinecap="butt" opacity={faded ? 0.4 : 1}
         role="button" tabIndex={0} aria-label={slice.name+" "+slice.percent.toFixed(1)+"% "+money(slice.value)}
         onMouseEnter={()=>setHighlighted(slice.name)}
         onMouseLeave={()=>setHighlighted("")}
