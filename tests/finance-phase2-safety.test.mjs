@@ -51,7 +51,7 @@ test("expected salary plans are stored outside real transactions",()=>{
  assert.match(forecast,/Next 90 days/);
  assert.match(forecast,/kind="forecast"/);
  assert.match(forecast,/rows=\{data.timeline\}/);
- assert.ok(nativeChart.includes('strokeDasharray={kind==="forecast" && field==="forecast" ? "7 5" : undefined}'));
+ assert.ok(nativeChart.includes('strokeDasharray={kind==="forecast"&&field==="forecast"?"7 5":undefined}'));
  assert.match(db,/forecast_plans jsonb NOT NULL DEFAULT '\[\]'::jsonb/);
 });
 

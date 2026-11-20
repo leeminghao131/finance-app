@@ -50,7 +50,7 @@ test("Simulator UI explains results directly but preserves original scenario cal
   assert.ok(s.includes('t("现在的总余额","Balance today")'));
   assert.ok(s.includes('t("两种情况相差","Difference between the two plans")'));
   assert.ok(s.includes("baselineEnd")&&s.includes("scenarioEnd"));
-  assert.ok(s.includes("comparisonData")&&s.includes("ResponsiveContainer"));
+  assert.ok(s.includes("comparisonData")&&s.includes("FinanceNativeMultiSeriesChart")&&s.includes('key:"saved"+p.index'));
   assert.ok(s.includes("needed=money(Math.ceil(target/Number(form.months))/100)"));
   assert.ok(!s.includes("Added difference at the end"));
   assert.ok(!s.includes("Reverse goal planning / 反向目标规划"));

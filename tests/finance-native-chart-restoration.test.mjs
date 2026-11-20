@@ -62,7 +62,8 @@ test("existing chart data and popup triggers remain, new SVG is actually mounted
   assert.match(modal,/selectedDate=\{selected\?\.dateKey \|\| ""\}/);
   assert.match(donut,/<FinanceNativeDonut entries=\{entries\}/);
   assert.match(ring,/chartPercentages\(entries\)/);
-  assert.match(native,/onTouchStart:\(\)=>choose\(index\)/);
+  assert.doesNotMatch(native,/onTouchStart:\(\)=>choose\(index\)/);
+  assert.match(native,/onClick:\(\)=>choose\(index\)/);
   assert.match(native,/onKeyDown:event=>/);
   assert.match(css,/\.mh-native-chart/);
   assert.doesNotMatch(app+modal+donut,/<ResponsiveContainer|<LineChart|<BarChart|<PieChart/);

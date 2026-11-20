@@ -20,8 +20,8 @@ test("Dashboard spending hover only shows date and aggregate expense, not record
 
 test("Dashboard balance hover shows one daily balance without threshold comparison", () => {
   assert.match(app, /<FinanceNativeChart rows=\{trendData\} kind="balance" alertLimit=\{balanceLimit\} compact/);
-  assert.match(native, /const val=chartNumber\(row\?\.balanceGreen\)\?\?chartNumber\(row\?\.balanceRed\)/);
-  assert.match(native, /" · Balance "\+money\(val\)/);
+  assert.match(native, /const value=chartNumber\(row\?\.balanceGreen\)\?\?chartNumber\(row\?\.balanceRed\)/);
+  assert.match(native, /" · Balance "\+money\(value\)/);
   assert.match(summary, /row\.balanceGreen \?\? row\.balanceRed/);
   assert.match(summary, /kind === "balance" \? "Balance" : "Expense"/);
   assert.doesNotMatch(summary, /Balance >|Balance ≤|RM1500/);
@@ -38,8 +38,8 @@ test("Balance legend uses the current Balance Alert Limit, chart colors remain l
   assert.doesNotMatch(app, /name="Balance ≤ RM1500"/);
   assert.match(app, /const limit = Number\(balanceLimit \|\| 1500\)/);
   assert.match(app, /balanceGreen: balance > limit \? balance : null, balanceRed: balance <= limit \? balance : null/);
-  assert.match(native, /GREEN="#22c55e"/);
-  assert.match(native, /RED="#ef4444"/);
+  assert.match(native, /GREEN="#34d399"/);
+  assert.match(native, /RED="#fb8285"/);
 });
 
 test("Detailed record hover remains available for a future large-chart UI, but not active on the small chart", () => {
