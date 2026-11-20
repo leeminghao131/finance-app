@@ -24,7 +24,7 @@ function valueLabel(row,kind){
 // Native SVG, no Recharts ResizeObserver composition or filter/animation pipeline.
 // Draws from the exact rows already calculated by App; never recomputes a financial total.
 export default function FinanceNativeChart({
-  rows=[],kind="expense",selectedDate="",onSelectDate=null,compact=false,
+  rows=[],kind="expense",selectedDate="",onSelectDate=null,compact=false,alertLimit=1500,
   label="Financial chart"
 }){
   const rootRef=useRef(null);
@@ -70,6 +70,12 @@ export default function FinanceNativeChart({
   const selected=hoverIndex===null?null:data[hoverIndex];
   const showLabel=selected?valueLabel(selected,kind):null;
   if(!data.length) return <div className="mh-native-chart-empty" role="status">No data for this period.</div>;
+  const alertLabel="RM"+Number(alertLimit||1500).toLocaleString("en-MY",{maximumFractionDigits:2});
+  const legend=kind==="bars"?[
+      {name:"Income",color:GREEN},{name:"Expense",color:RED}]
+    :kind==="expense"?[{name:"Expense",color:BLUE}]:[
+      {name:"Balance > "+alertLabel,color:GREEN},
+      {name:"Balance ≤ "+alertLabel,color:RED}];
   return <div ref={rootRef} className="mh-native-chart" aria-label={label}>
     <svg viewBox={"0 0 "+width+" "+height} width="100%" height="100%"
       role="group" aria-label={label+" - "+data.length+" dates"}>
@@ -129,5 +135,6 @@ export default function FinanceNativeChart({
       })()}
     </svg>
     {showLabel&&<div className="mh-native-chart__tooltip" role="status">{showLabel}</div>}
+    {!showLabel&&<div className="mh-native-chart__legend" aria-label="Chart legend">{legend.map(item=><span key={item.name}><i style={{backgroundColor:item.color}}/>{item.name}</span>)}</div>}
   </div>;
 }
