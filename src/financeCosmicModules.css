@@ -1,0 +1,299 @@
+/*
+ * MH FINANCE | COMPLETE COSMIC ATELIER | Layer 2: module-specific polish
+ * Independent card/detail styles; original expense/income semantics and
+ * business handlers are completely unchanged. Static decoration only.
+ */
+
+/* ADD EXPENSE / INCOME — machined entry instrument. */
+.mh-ui.mh-cosmic-pilot .mh-add-card {
+  color:#efe9de;
+  background:
+    linear-gradient(145deg,rgba(224,169,97,.09),transparent 43%),
+    linear-gradient(165deg,#1d3246,#102034);
+  border:1px solid #a27b4e;
+  box-shadow:inset 0 1px #fff2,0 9px 24px #0005;
+}
+.mh-ui.mh-cosmic-pilot .mh-add-header {
+  background:
+    radial-gradient(circle at 15px 17px,#efca8d 0 2px,#624d36 2.5px 4px,transparent 4.5px),
+    radial-gradient(circle at calc(100% - 15px) 17px,#efca8d 0 2px,#624d36 2.5px 4px,transparent 4.5px),
+    linear-gradient(115deg,#382d29,#304257 55%,#152538);
+  border:1px solid #967448;
+  border-bottom:2px double #b4915f;
+  color:#fff0d7;
+}
+.mh-ui.mh-cosmic-pilot .mh-add-header h2,
+.mh-ui.mh-cosmic-pilot .mh-add-header p{color:#f9e8c9}
+.mh-ui.mh-cosmic-pilot .mh-add-header__icon {
+  color:#ffe6b5;
+  background:linear-gradient(135deg,#435c6b,#192838);
+  border:1px solid #d0a46b;
+  box-shadow:inset 0 1px #fff4,0 4px 10px #0006;
+}
+.mh-ui.mh-cosmic-pilot .mh-add-records-link{
+  border:1px solid rgba(255,215,145,.57);
+  color:#f9eacf;
+  background:linear-gradient(120deg,#3f4d57,#203446);
+  box-shadow:inset 0 1px #fff2;
+}
+.mh-ui.mh-cosmic-pilot .mh-add-form { color:#ebe4d5; }
+.mh-ui.mh-cosmic-pilot .mh-add-form label > span:first-child {
+  color:#dbd5c9;
+  font-size:.78rem;
+  font-weight:700;
+  letter-spacing:.03em;
+}
+.mh-ui.mh-cosmic-pilot .mh-entry-type {
+  border:1px solid #92724a;
+  background:#0b1a2a;
+  box-shadow:inset 0 2px 7px #0007;
+}
+.mh-ui.mh-cosmic-pilot .mh-entry-type button {
+  min-height:42px;
+  border:1px solid transparent;
+  border-radius:10px;
+}
+.mh-ui.mh-cosmic-pilot .mh-entry-type button.bg-red-600 { border-color:#df9990; }
+.mh-ui.mh-cosmic-pilot .mh-entry-type button.bg-emerald-600 { border-color:#8fdfc2; }
+.mh-ui.mh-cosmic-pilot .mh-entry-save {
+  border:1px solid rgba(255,225,160,.47);
+  box-shadow:inset 0 1px #fff3,0 5px 13px #0005;
+}
+.mh-ui.mh-cosmic-pilot .mh-entry-currency,
+.mh-ui.mh-cosmic-pilot .mh-entry-calculator {
+  color:#f4e4c8;
+}
+.mh-ui.mh-cosmic-pilot .mh-entry-fx-direct {
+  border-color:rgba(212,172,110,.42);
+  background:#132638;
+}
+.mh-ui.mh-cosmic-pilot .mh-entry-note-quick button {
+  border-color:#866847;
+}
+.mh-ui.mh-cosmic-pilot .mh-entry-tools {
+  border-top-color:#70563c;
+}
+
+/* CATEGORY, DATE and ANALYSIS FILTER — readable tactical controls. */
+.mh-ui.mh-cosmic-pilot .mh-analysis-filter {
+  border-color:#8f714b;
+  color:#e9e3d8;
+}
+.mh-ui.mh-cosmic-pilot .mh-analysis-filter :is(h2,h3) {
+  color:#eed09c;
+}
+.mh-ui.mh-cosmic-pilot .mh-analysis-filter__controls,
+.mh-ui.mh-cosmic-pilot .mh-analysis-filter__keyword {
+  min-width:0;
+}
+.mh-ui.mh-cosmic-pilot .mh-analysis-filter__category,
+.mh-ui.mh-cosmic-pilot .mh-analysis-filter__search {
+  background:#0f2234;
+  color:#f1e5ce;
+  border:1px solid #856746;
+}
+.mh-ui.mh-cosmic-pilot .mh-analysis-filter__scope button {
+  color:#ebdcc3;
+  background:#1b3042;
+  border-color:#7c6040;
+}
+.mh-ui.mh-cosmic-pilot .mh-analysis-filter__scope button[aria-pressed="true"] {
+  color:#ffdfac;
+  background:#4a3729;
+}
+.mh-ui.mh-cosmic-pilot .mh-category-picker {
+  color:#f2e9dd;
+  background-color:#152638;
+}
+.mh-ui.mh-cosmic-pilot .mh-category-picker__section {
+  border-color:rgba(232,189,124,.25);
+}
+.mh-ui.mh-cosmic-pilot .mh-category-picker__heading {
+  color:#e9c38a;
+  font-weight:700;
+  letter-spacing:.05em;
+}
+.mh-ui.mh-cosmic-pilot .mh-category-picker__item {
+  color:#ece5da;
+  background-color:#1c3446;
+  border-color:#805f3c;
+}
+.mh-ui.mh-cosmic-pilot .mh-category-picker__item:focus-visible {
+  outline:2px solid #f1ca8e;
+}
+
+/* METRICS — treasury readouts. Do not alter revenue/expense computations. */
+.mh-ui.mh-cosmic-pilot .mh-dashboard-today__track {
+  border-color:#80694b;
+}
+.mh-ui.mh-cosmic-pilot .mh-dashboard-today__metric {
+  background:
+    linear-gradient(160deg,rgba(255,255,255,.065),transparent 52%),
+    #182c3f;
+  border:1px solid #6e634f;
+  box-shadow:inset 0 1px #fff1;
+}
+.mh-ui.mh-cosmic-pilot .mh-dashboard-today__metric--income strong {
+  color:#85e9c8;
+}
+.mh-ui.mh-cosmic-pilot .mh-dashboard-today__metric--expense strong {
+  color:#ffaca5;
+}
+.mh-ui.mh-cosmic-pilot .mh-dashboard-today__metric--neutral strong {
+  color:#f4e8d0;
+}
+.mh-ui.mh-cosmic-pilot .mh-dashboard-today__metric span {
+  color:#c3d0d6;
+  letter-spacing:.03em;
+}
+.mh-ui.mh-cosmic-pilot :is(.mh-cosmic-panel,.mh-transfer-console) h2 {
+  color:#ffdda2;
+}
+.mh-ui.mh-cosmic-pilot .mh-transfer-console__eyebrow {
+  color:#dcb77a;
+  letter-spacing:.13em;
+}
+.mh-ui.mh-cosmic-pilot .mh-transfer-console__fields {
+  border-color:rgba(215,164,92,.3);
+}
+.mh-ui.mh-cosmic-pilot .mh-transfer-console__submit {
+  border:1px solid #d5ad79;
+  box-shadow:inset 0 1px #fff2,0 3px 12px #0006;
+}
+.mh-ui.mh-cosmic-pilot .mh-cosmic-top5__select {
+  color:#ffe9c4;
+  border:1px solid #a47b4c;
+  background:#102335;
+}
+.mh-ui.mh-cosmic-pilot .mh-cosmic-top5__record {
+  box-shadow:inset 0 1px rgba(255,234,192,.1);
+}
+.mh-ui.mh-cosmic-pilot .mh-cosmic-top5__rank {
+  background:linear-gradient(140deg,#d8af74,#67482a);
+  color:#16191e;
+  border:1px solid #ffdfa3;
+}
+.mh-ui.mh-cosmic-pilot .mh-cosmic-top5__name { color:#f8e9d1; }
+.mh-ui.mh-cosmic-pilot .mh-cosmic-top5__meta { color:#b8cbd4; }
+.mh-ui.mh-cosmic-pilot .mh-cosmic-top5__amount {
+  color:#ffa7a0;
+  font-variant-numeric:tabular-nums;
+}
+
+/* Budget and Forecast cards are SHORT by default; panels retain popup behavior. */
+.mh-ui.mh-cosmic-pilot .mh-cosmic-budget-summary,
+.mh-ui.mh-cosmic-pilot .mh-cosmic-forecast-summary {
+  border:1px solid #a27e50;
+  background:linear-gradient(145deg,#233b4e,#102131);
+}
+.mh-ui.mh-cosmic-pilot .mh-cosmic-budget-summary strong {
+  color:#efce98;
+}
+.mh-ui.mh-cosmic-pilot .mh-cosmic-forecast-summary strong {
+  color:#9fd6eb;
+}
+
+/* Records — compact ledger, date separator, history detail. */
+.mh-ui.mh-cosmic-pilot .mh-record-card {
+  border-radius:16px;
+}
+.mh-ui.mh-cosmic-pilot .mh-record-card .border-t {
+  border-color:rgba(209,174,124,.3);
+}
+.mh-ui.mh-cosmic-pilot .mh-record-card .bg-amber-100 {
+  color:#f9d39b;
+  background:#423724;
+}
+.mh-ui.mh-cosmic-pilot .mh-record-card button.bg-slate-900,
+.mh-ui.mh-cosmic-pilot .mh-record-card button.bg-red-700 {
+  min-height:42px;
+}
+.mh-ui.mh-cosmic-pilot .mh-day-totals {
+  font-variant-numeric:tabular-nums;
+}
+.mh-ui.mh-cosmic-pilot .mh-day-totals .bg-green-50 {
+  color:#a5edce;
+  background:#153931;
+}
+.mh-ui.mh-cosmic-pilot .mh-day-totals .bg-red-50 {
+  color:#ffb3ac;
+  background:#4a2a33;
+}
+.mh-ui.mh-cosmic-pilot .mh-record-input {
+  color:#f4e9d8;
+  background:#0e2031;
+}
+
+/* Panel launchers, notification/assistant — dark glass without blur. */
+.mh-insights-dock {
+  color:#f6e9d8;
+  border:1px solid #9e7b4b;
+  border-left:0;
+  background:linear-gradient(155deg,#263f50,#132435 72%);
+  box-shadow:inset 0 1px #fff1,5px 9px 24px #0007;
+}
+.mh-insights-dock__button {
+  color:#f4e5cc;
+  border-color:#926c42;
+}
+.mh-insights-dock__button:focus-visible {
+  outline:2px solid #f2cc92;
+  outline-offset:3px;
+}
+.mh-insights-dock__icon { color:#e4bd83; }
+.mh-insights-dock__data-split {
+  border-color:#947148;
+}
+.mh-insights-dock__data-action {
+  border-color:#9e7648;
+  color:#ecd4af;
+}
+.mh-stage2-notifications__menu,
+.mh-rule-assistant__sheet {
+  border:1px solid #a8804f;
+  color:#f5ebdc;
+  background:linear-gradient(145deg,#273d4c,#0f2132);
+  box-shadow:0 12px 28px #0009;
+}
+.mh-rule-assistant__question {
+  color:#f5e4ce;
+  border:1px solid #8b6a45;
+  background:linear-gradient(120deg,#2b4152,#132637);
+}
+.mh-rule-assistant__question-index { color:#f3d59f; }
+.mh-rule-assistant__sheet :is(.text-slate-900,.text-slate-700),
+.mh-stage2-notifications__menu :is(.text-slate-900,.text-slate-700) {
+  color:#f4e9dd;
+}
+.mh-rule-assistant__sheet .bg-blue-50 {
+  background:#1a3c52;
+}
+.mh-rule-assistant__sheet .bg-slate-100 {
+  background:#20394b;
+}
+
+/* Spending charts stay readable and tactile. Hover is free of vibration. */
+.mh-ui.mh-cosmic-pilot .mh-cosmic-heatmap .mh-cosmic-heat__day {
+  border-color:rgba(218,177,117,.25);
+}
+.mh-ui.mh-cosmic-pilot .mh-cosmic-heat__day:focus-visible,
+.mh-ui.mh-cosmic-pilot .mh-cosmic-top5__record:focus-within {
+  outline:2px solid #f0c48e;
+  outline-offset:2px;
+}
+@media(max-width:767px){
+  .mh-ui.mh-cosmic-pilot .mh-add-header {
+    background:linear-gradient(115deg,#352c2a,#263b4e);
+  }
+  .mh-ui.mh-cosmic-pilot .mh-add-card{border-radius:19px}
+  .mh-ui.mh-cosmic-pilot .mh-entry-type button{min-height:44px}
+  .mh-ui.mh-cosmic-pilot .mh-record-card{overflow-wrap:anywhere}
+  .mh-insights-dock{max-height:calc(100dvh - 20px)}
+}
+@media(prefers-reduced-motion:reduce){
+  .mh-insights-dock,
+  .mh-insights-dock__button,
+  .mh-rule-assistant__question{
+    transition-duration:.01ms!important;
+  }
+}
