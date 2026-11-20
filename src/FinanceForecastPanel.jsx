@@ -114,11 +114,13 @@ export default function FinanceForecastPanel({records,selectedMonth,asOfDate,pla
         </div>
         {!outcome.error && (
           <div className="min-w-0">
-            <div className="h-64 min-w-0">
+            <div className="mh-forecast-chart h-[285px] min-w-0 sm:h-64">
             <FinanceNativeChart
               rows={data.timeline}
               kind="forecast"
               label="Cash Flow Forecast / 现金流预测"
+              showPoints={false}
+              maxTicksMobile={4} maxTicksDesktop={7}
             />
           </div>
             <p className="mt-2 text-xs text-slate-500">{data.note} · Forecasts are estimates, not guarantees.</p>

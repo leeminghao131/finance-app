@@ -60,3 +60,41 @@
   scrollbar-color: #a88452 #13293b;
   scrollbar-width: thin;
 }
+
+
+/* PR #65: mobile plots must occupy a real box, not a 0px chart wrapper.
+ * The parent owns height, the SVG fills it; do NOT set a 240px minimum on
+ * a 188px compact plot (that would crop the X axis when nested in a card). */
+.mh-ui.mh-cosmic-pilot .mh-native-chart,
+.mh-cosmic-modal-sheet .mh-native-chart {
+  height:100%;width:100%;min-width:0;min-height:0;
+  overflow:hidden;position:relative;touch-action:pan-y;
+  isolation:isolate;
+}
+.mh-ui.mh-cosmic-pilot .mh-native-chart svg,
+.mh-cosmic-modal-sheet .mh-native-chart svg {
+  display:block;width:100%;height:100%;
+  overflow:visible;touch-action:pan-y;
+}
+.mh-ui.mh-cosmic-pilot .mh-forecast-chart .mh-native-chart,
+.mh-ui.mh-cosmic-pilot .mh-native-chart--compact {
+  min-width:0;
+}
+.mh-ui.mh-cosmic-pilot .mh-native-chart__tooltip,
+.mh-cosmic-modal-sheet .mh-native-chart__tooltip {
+  max-width:min(88%,340px);
+  padding:6px 8px;border-radius:9px;
+  background:#132b3cf5;color:#ffedd2;
+  border:1px solid #c9a471;
+  box-shadow:0 3px 10px #0007;
+}
+@media(max-width:640px){
+  .mh-ui.mh-cosmic-pilot .mh-native-chart__legend,
+  .mh-cosmic-modal-sheet .mh-native-chart__legend {
+    font-size:9px;gap:5px;max-width:85%;
+  }
+  .mh-ui.mh-cosmic-pilot .mh-native-chart__tooltip,
+  .mh-cosmic-modal-sheet .mh-native-chart__tooltip {
+    font-size:10px;max-width:min(86%,300px);
+  }
+}

@@ -174,7 +174,7 @@ export default function FinanceScenarioSimulator({records=[],totalBalance=0,user
         <section className="mt-4 min-w-0 rounded-xl border border-slate-200 p-3">
           <h3 className="text-sm font-bold text-slate-900">{t("余额变化对比","Estimated balance over time")}</h3>
           
-          <div className="mt-3 h-64 min-w-0" aria-label={t("余额模拟折线图","Simulated balance line chart")}>
+          <div className="mt-3 h-[270px] min-w-0 sm:h-64" aria-label={t("余额模拟折线图","Simulated balance line chart")}>
             <FinanceNativeMultiSeriesChart
               rows={comparisonData} mode="line" xKey="month"
               label={t("余额模拟折线图","Simulated balance line chart")}

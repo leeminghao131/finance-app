@@ -57,7 +57,7 @@ export default function FinanceMonthComparison({records=[]}) {
           </p>
         </div>)}
       </div>
-      <div className="mt-4 h-56 min-w-0" aria-label="Comparison bar chart">
+      <div className="mt-4 h-[255px] min-w-0 sm:h-56" aria-label="Comparison bar chart">
         <FinanceNativeMultiSeriesChart
           rows={chart} mode="bars" xKey="metric" label="Monthly Financial Comparison"
           series={[

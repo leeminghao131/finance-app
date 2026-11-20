@@ -90,13 +90,14 @@ export default function FinanceExpandedTrendOverlay({
             </div>
             {rows.length ? (
               <>
-                <div className="h-64 min-w-0 sm:h-80 lg:h-[420px]"
+                <div className="h-[300px] min-w-0 sm:h-80 lg:h-[420px]"
                   aria-label="Expanded daily financial trend chart">
                   <FinanceNativeChart
                     rows={rows} kind={kind} alertLimit={limit}
                     selectedDate={selected?.dateKey || ""}
                     label={kind === "expense" ? "Daily expense" : "Filtered balance"}
                     onSelectDate={row => selectFromChart({activePayload:[{payload:row}]})}
+                    hidePointsOnMobile maxTicksMobile={4}
                   />
                 </div>
                 <p className="mt-2 text-xs text-slate-500">
