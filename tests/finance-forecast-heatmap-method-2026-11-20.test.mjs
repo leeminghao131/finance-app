@@ -57,7 +57,7 @@ test("heatmap still colors by filtered expense but shows selected date all actua
   assert.match(app,/selectedDay\?\.amount \?\? 0/);
   assert.match(heat,/const incomes=rows\.filter\(row=>row\.type==="income"\)/);
   assert.match(heat,/const expenses=rows\.filter\(row=>row\.type==="expense"\)/);
-  assert.match(heat,/row\.date===date/);
+  assert.match(heat,/row\?\.date===date/);
   assert.match(heat,/row\.type==="income"\|\|row\.type==="expense"/);
   assert.match(heat,/!row\.deleted_at/);
   assert.match(heat,/dailyIncome-dailyExpense/);
