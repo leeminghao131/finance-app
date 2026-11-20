@@ -196,3 +196,30 @@
 @media(prefers-reduced-motion:reduce){
   .mh-ui.mh-cosmic-pilot :is(button,a){transition-duration:.01ms!important}
 }
+
+/* Strict financial semantics: low balance must remain visibly red even when
+   the standard card shares Tailwind's bg-white utility. Do not neutralize it. */
+.mh-ui.mh-cosmic-pilot div.rounded-2xl.bg-white.bg-red-50.ring-1.ring-slate-200:not(.mh-cosmic-panel) {
+  color:#ffe8e3;
+  border-color:#d6847c;
+  background:linear-gradient(150deg,#5a3037,#38232c 70%,#2a1b26);
+  --tw-ring-color:#bc665e;
+}
+.mh-ui.mh-cosmic-pilot .bg-green-100.text-green-700,
+.mh-cosmic-modal-sheet .bg-green-100.text-green-700 {
+  color:#b0f5d5;
+  background-color:#164039;
+  border:1px solid #478974;
+}
+.mh-ui.mh-cosmic-pilot .bg-red-100.text-red-700,
+.mh-cosmic-modal-sheet .bg-red-100.text-red-700 {
+  color:#ffc2b8;
+  background-color:#532e39;
+  border:1px solid #a86569;
+}
+.mh-ui.mh-cosmic-pilot .bg-amber-100.text-amber-900,
+.mh-cosmic-modal-sheet .bg-amber-100.text-amber-900 {
+  color:#f7dba7;
+  background-color:#473725;
+  border:1px solid #a28353;
+}
