@@ -1,0 +1,199 @@
+/*
+ * MH FINANCE | COMPLETE COSMIC ATELIER | Layer 4: charts & information
+ * Chart presentation only. Income remains green, expense remains red,
+ * balance stays legible, and geometry / datasets are NEVER modified.
+ */
+
+/* Recharts text on opaque metal panels, with no SVG filter effects. */
+.mh-ui.mh-cosmic-pilot .recharts-wrapper,
+.mh-cosmic-modal-sheet .recharts-wrapper {
+  max-width:100%;
+  font-variant-numeric:tabular-nums;
+}
+.mh-ui.mh-cosmic-pilot .recharts-cartesian-axis-tick text,
+.mh-ui.mh-cosmic-pilot .recharts-cartesian-axis-tick-value,
+.mh-ui.mh-cosmic-pilot .recharts-text,
+.mh-cosmic-modal-sheet .recharts-cartesian-axis-tick text,
+.mh-cosmic-modal-sheet .recharts-cartesian-axis-tick-value,
+.mh-cosmic-modal-sheet .recharts-text {
+  fill:#c4d1d9;
+  font-size:11px;
+  font-weight:500;
+}
+.mh-ui.mh-cosmic-pilot .recharts-cartesian-grid line,
+.mh-cosmic-modal-sheet .recharts-cartesian-grid line {
+  stroke:#627181;
+  stroke-opacity:.28;
+}
+.mh-ui.mh-cosmic-pilot .recharts-cartesian-axis line,
+.mh-ui.mh-cosmic-pilot .recharts-cartesian-axis-tick line,
+.mh-cosmic-modal-sheet .recharts-cartesian-axis line,
+.mh-cosmic-modal-sheet .recharts-cartesian-axis-tick line {
+  stroke:#8292a1;
+  stroke-opacity:.54;
+}
+.mh-ui.mh-cosmic-pilot .recharts-legend-item-text,
+.mh-cosmic-modal-sheet .recharts-legend-item-text {
+  color:#e4e5df!important;
+  font-size:12px;
+}
+.mh-ui.mh-cosmic-pilot .recharts-tooltip-wrapper,
+.mh-cosmic-modal-sheet .recharts-tooltip-wrapper {
+  z-index:12;
+  pointer-events:none;
+}
+.mh-ui.mh-cosmic-pilot .recharts-default-tooltip,
+.mh-cosmic-modal-sheet .recharts-default-tooltip {
+  color:#f8ecd7!important;
+  background:#152b3e!important;
+  border:1px solid #bb9156!important;
+  border-radius:11px!important;
+  box-shadow:0 8px 20px #0008!important;
+}
+.mh-ui.mh-cosmic-pilot .recharts-tooltip-label,
+.mh-cosmic-modal-sheet .recharts-tooltip-label {
+  color:#f2d4a3!important;
+  font-weight:700;
+}
+.mh-ui.mh-cosmic-pilot .recharts-tooltip-item,
+.mh-cosmic-modal-sheet .recharts-tooltip-item {
+  font-weight:600;
+}
+.mh-ui.mh-cosmic-pilot .recharts-active-dot circle,
+.mh-cosmic-modal-sheet .recharts-active-dot circle {
+  stroke:#ffe2a7;
+  stroke-width:2;
+}
+.mh-ui.mh-cosmic-pilot .recharts-label-list text,
+.mh-cosmic-modal-sheet .recharts-label-list text {
+  fill:#e7ecf0;
+  font-variant-numeric:tabular-nums;
+}
+.mh-ui.mh-cosmic-pilot .recharts-sector:focus,
+.mh-cosmic-modal-sheet .recharts-sector:focus {
+  outline:2px solid #e6bf85;
+  outline-offset:2px;
+}
+
+/* Custom SVG / CSS ratio and comparison charts. Never recolor encoded values. */
+.mh-ui.mh-cosmic-pilot :is(
+  .mh-category-bubble-chart,
+  .mh-method-donut-chart,
+  .mh-budget-burn-rate
+) {
+  color:#eee6d9;
+}
+.mh-ui.mh-cosmic-pilot :is(
+  .mh-category-bubble-chart,
+  .mh-method-donut-chart
+) button:focus-visible {
+  outline:2px solid #e9c28c;
+}
+.mh-ui.mh-cosmic-pilot .mh-cosmic-heatmap {
+  color:#f4e9d9;
+}
+.mh-ui.mh-cosmic-pilot .mh-cosmic-heat__day {
+  outline-offset:2px;
+  touch-action:manipulation;
+}
+.mh-ui.mh-cosmic-pilot .mh-cosmic-heat__day:focus-visible {
+  outline:2px solid #ffe1a1;
+}
+.mh-ui.mh-cosmic-pilot .mh-cosmic-top5 {
+  color:#efebdf;
+}
+.mh-ui.mh-cosmic-pilot .mh-cosmic-top5__amount {
+  color:#ffaaa4;
+  font-variant-numeric:tabular-nums;
+}
+.mh-ui.mh-cosmic-pilot .mh-cosmic-top5__rank {
+  border:1px solid #ebc486;
+  background:linear-gradient(140deg,#dcb882,#775331);
+  color:#101926;
+}
+
+/* Micro-badges for real income, expenses, warning and account balances. */
+.mh-ui.mh-cosmic-pilot :is(.text-green-700,.text-green-600,.text-emerald-700) {
+  font-variant-numeric:tabular-nums;
+}
+.mh-ui.mh-cosmic-pilot :is(.text-red-700,.text-red-600,.text-rose-700) {
+  font-variant-numeric:tabular-nums;
+}
+.mh-ui.mh-cosmic-pilot .bg-green-50.text-green-700,
+.mh-ui.mh-cosmic-pilot .bg-emerald-50.text-emerald-800 {
+  color:#adf5d6;
+  background:#174339;
+  border:1px solid #42836b;
+}
+.mh-ui.mh-cosmic-pilot .bg-red-50.text-red-700,
+.mh-ui.mh-cosmic-pilot .bg-rose-50.text-rose-800 {
+  color:#ffbbb3;
+  background:#522e35;
+  border:1px solid #a65c62;
+}
+.mh-ui.mh-cosmic-pilot .bg-amber-50.text-amber-900 {
+  color:#f5d59f;
+  background:#483722;
+  border:1px solid #ad844c;
+}
+.mh-ui.mh-cosmic-pilot .bg-blue-50.text-blue-900 {
+  color:#b1dff5;
+  background:#1b4358;
+  border:1px solid #5d8aa4;
+}
+
+/* Export previews, cashflow tables and heatmap labels stay readable. */
+.mh-ui.mh-cosmic-pilot .mh-dashboard-shell :is(.text-xs,.text-sm) {
+  overflow-wrap:break-word;
+}
+.mh-ui.mh-cosmic-pilot .mh-dashboard-shell .break-all,
+.mh-cosmic-modal-sheet .break-all {
+  overflow-wrap:anywhere;
+}
+.mh-ui.mh-cosmic-pilot :is(
+  .mh-transfer-console__history-count,
+  .mh-cosmic-top5__amount,
+  .mh-record-amount
+) {
+  font-feature-settings:"tnum";
+  white-space:normal;
+}
+.mh-ui.mh-cosmic-pilot :is(.mh-record-card,.mh-cosmic-top5__record) {
+  min-width:0;
+}
+.mh-cosmic-modal-sheet :is(.rounded-2xl,.rounded-xl).bg-slate-900 {
+  color:#f7ebdc;
+  background:linear-gradient(145deg,#203c50,#102336);
+}
+.mh-cosmic-modal-sheet :is(.text-green-700,.text-green-600,.text-emerald-700,.text-red-700,.text-red-600) {
+  font-variant-numeric:tabular-nums;
+}
+
+/* Smartphone: responsive graph labels and clean horizontal ledger scroll. */
+@media(max-width:767px) {
+  .mh-ui.mh-cosmic-pilot .recharts-cartesian-axis-tick text,
+  .mh-cosmic-modal-sheet .recharts-cartesian-axis-tick text {
+    font-size:10px;
+  }
+  .mh-ui.mh-cosmic-pilot .recharts-legend-item-text,
+  .mh-cosmic-modal-sheet .recharts-legend-item-text {
+    font-size:11px;
+  }
+  .mh-ui.mh-cosmic-pilot :is(.mh-cosmic-panel,.mh-transfer-console) {
+    min-width:0;
+  }
+  .mh-ui.mh-cosmic-pilot table :is(td,th),
+  .mh-cosmic-modal-sheet table :is(td,th) {
+    white-space:normal;
+  }
+}
+@media(prefers-contrast:more) {
+  .mh-ui.mh-cosmic-pilot .recharts-cartesian-axis-tick text,
+  .mh-cosmic-modal-sheet .recharts-cartesian-axis-tick text {
+    fill:#fff6e8;
+  }
+  .mh-ui.mh-cosmic-pilot :is(.text-slate-600,.text-slate-500),
+  .mh-cosmic-modal-sheet :is(.text-slate-600,.text-slate-500) {
+    color:#f2ece2;
+  }
+}

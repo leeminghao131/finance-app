@@ -1,0 +1,225 @@
+/*
+ * MH FINANCE | COMPLETE COSMIC ATELIER | Layer 1: shared surfaces and controls
+ * Display-layer only. Opaque metal, fine brass rails, excellent financial contrast.
+ * No animated textures, backdrop blur, page-wide pseudo-elements or scroll handlers.
+ * PR #59's static cosmic sky and original flagship 9-slice machinery are retained.
+ */
+.mh-ui.mh-cosmic-pilot {
+  --mh-full-void:#07111e;
+  --mh-full-recess:#0d1c2c;
+  --mh-full-surface:#15283a;
+  --mh-full-surface-hi:#24394b;
+  --mh-full-brass:#d7ad73;
+  --mh-full-brass-hi:#f2d49c;
+  --mh-full-ink:#f3ebdf;
+  --mh-full-muted:#bac8d0;
+  --mh-full-green:#84e3c4;
+  --mh-full-red:#ffaba3;
+  --mh-full-blue:#9dd3f1;
+  color:var(--mh-full-ink);
+  color-scheme:dark;
+  font-family:"Segoe UI Variable","Segoe UI","Noto Sans SC",system-ui,sans-serif;
+  -webkit-font-smoothing:antialiased;
+}
+.mh-ui.mh-cosmic-pilot .mh-dashboard-shell{min-width:0}
+.mh-ui.mh-cosmic-pilot :is(h1,h2,h3){letter-spacing:.012em;text-wrap:balance}
+.mh-ui.mh-cosmic-pilot :is(h2,h3){color:#f1d59e}
+.mh-ui.mh-cosmic-pilot :is(.text-slate-900,.text-slate-800,.text-slate-700){color:#eeeae2}
+.mh-ui.mh-cosmic-pilot :is(.text-slate-600,.text-slate-500){color:#bec9d1}
+.mh-ui.mh-cosmic-pilot .text-slate-400{color:#9babb8}
+.mh-ui.mh-cosmic-pilot :is(.text-green-700,.text-green-600,.text-emerald-700,.text-emerald-800,.text-green-800){color:#8ce6c7}
+.mh-ui.mh-cosmic-pilot :is(.text-red-600,.text-red-700,.text-red-800,.text-rose-800){color:#ffaca4}
+.mh-ui.mh-cosmic-pilot :is(.text-amber-700,.text-amber-800,.text-amber-900,.text-amber-950){color:#f3d39a}
+.mh-ui.mh-cosmic-pilot :is(.text-blue-700,.text-blue-800,.text-blue-900){color:#a8dcf7}
+.mh-ui.mh-cosmic-pilot :is(.ring-slate-100,.ring-slate-200,.ring-slate-300){--tw-ring-color:rgba(209,165,101,.31)}
+.mh-ui.mh-cosmic-pilot :is(.border-slate-100,.border-slate-200,.border-slate-300){border-color:rgba(183,168,141,.3)}
+
+/* Workhorse panels use a reserved double edge, not the costly flagship 9-slice. */
+.mh-ui.mh-cosmic-pilot :is(div,section,article,aside).rounded-2xl.bg-white.ring-1.ring-slate-200:not(.mh-cosmic-panel){
+  color:var(--mh-full-ink);
+  border:1px solid rgba(211,167,99,.49);
+  background:
+    linear-gradient(150deg,rgba(134,164,174,.13),transparent 36%),
+    linear-gradient(170deg,#203548 0%,#14273a 52%,#101e2f 100%);
+  box-shadow:inset 0 1px rgba(255,230,190,.15),0 1px #0007,0 8px 20px rgba(0,0,0,.17);
+}
+.mh-ui.mh-cosmic-pilot :is(div,section,article).rounded-xl.bg-slate-50,
+.mh-ui.mh-cosmic-pilot :is(div,section,article).rounded-2xl.bg-slate-50,
+.mh-ui.mh-cosmic-pilot :is(div,section,article).rounded-xl.bg-slate-100 {
+  background:linear-gradient(145deg,#192c3f,#0e1c2d);
+  color:#e8e9e6;
+  border-color:rgba(211,168,102,.26);
+}
+.mh-ui.mh-cosmic-pilot :is(div,section,article).rounded-xl.bg-white,
+.mh-ui.mh-cosmic-pilot :is(div,section,article).rounded-2xl.bg-white:not(.ring-1) {
+  background-color:#1b3042;
+  color:#f1eee7;
+}
+.mh-ui.mh-cosmic-pilot :is(div,section,article).bg-green-50,
+.mh-ui.mh-cosmic-pilot :is(div,section,article).bg-emerald-50{background-color:#153632;border-color:#417b6e}
+.mh-ui.mh-cosmic-pilot :is(div,section,article).bg-red-50,
+.mh-ui.mh-cosmic-pilot :is(div,section,article).bg-rose-50{background-color:#3e272e;border-color:#95545b}
+.mh-ui.mh-cosmic-pilot :is(div,section,article).bg-amber-50{background-color:#382c1e;border-color:#967046}
+.mh-ui.mh-cosmic-pilot :is(div,section,article).bg-blue-50{background-color:#18374a;border-color:#497c9d}
+
+/* Dark recesses and warm active controls; never transform input amounts. */
+.mh-ui.mh-cosmic-pilot input:not([type="checkbox"]):not([type="radio"]):not([type="range"]),
+.mh-ui.mh-cosmic-pilot select,
+.mh-ui.mh-cosmic-pilot textarea {
+  color:#f6eee2;
+  color-scheme:dark;
+  background-color:#0c1b2b;
+  border-color:#8a7050;
+  caret-color:#ffe0a1;
+  box-shadow:inset 0 1px 3px #0004;
+}
+.mh-ui.mh-cosmic-pilot input::placeholder,
+.mh-ui.mh-cosmic-pilot textarea::placeholder{color:#a8b8c2;opacity:1}
+.mh-ui.mh-cosmic-pilot :is(input,select,textarea):focus-visible{
+  outline:2px solid #f0c68e;
+  border-color:#f0c68e;
+  outline-offset:2px;
+}
+.mh-ui.mh-cosmic-pilot :is(input,select,textarea):disabled{opacity:.64;cursor:not-allowed}
+.mh-ui.mh-cosmic-pilot :is(input[type="checkbox"],input[type="radio"],input[type="range"]){accent-color:#d0a569}
+.mh-ui.mh-cosmic-pilot select option{color:#f4eadb;background-color:#122739}
+.mh-ui.mh-cosmic-pilot :is(label,legend){color:#d7e0e2}
+.mh-ui.mh-cosmic-pilot fieldset{border-color:#655943}
+.mh-ui.mh-cosmic-pilot button:focus-visible,
+.mh-ui.mh-cosmic-pilot [role="button"]:focus-visible{outline:2px solid #f1c487;outline-offset:3px}
+.mh-ui.mh-cosmic-pilot button:not(:disabled){cursor:pointer}
+.mh-ui.mh-cosmic-pilot button:disabled{cursor:not-allowed}
+.mh-ui.mh-cosmic-pilot button.bg-slate-900,
+.mh-ui.mh-cosmic-pilot button.bg-slate-800{
+  color:#fff1db;
+  background:linear-gradient(145deg,#384a5b,#162739 72%,#111d2b);
+  border:1px solid #a18152;
+  box-shadow:inset 0 1px #fff3,0 3px 9px #0005;
+}
+.mh-ui.mh-cosmic-pilot button.bg-white,
+.mh-ui.mh-cosmic-pilot button.bg-slate-100,
+.mh-ui.mh-cosmic-pilot button.bg-slate-200{
+  color:#f0e7d8;
+  background:linear-gradient(150deg,#2d4355,#1a2d40);
+  border-color:#826b4b;
+}
+.mh-ui.mh-cosmic-pilot button.bg-emerald-600,
+.mh-ui.mh-cosmic-pilot button.bg-emerald-700,
+.mh-ui.mh-cosmic-pilot button.bg-green-600{
+  color:#f5fff8;
+  background:linear-gradient(130deg,#268473,#13564f);
+  border:1px solid #85c7a9;
+}
+.mh-ui.mh-cosmic-pilot button.bg-red-600,
+.mh-ui.mh-cosmic-pilot button.bg-red-700{
+  color:#fff8f1;
+  background:linear-gradient(130deg,#a75556,#74303a);
+  border:1px solid #d99583;
+}
+.mh-ui.mh-cosmic-pilot button.bg-blue-600,
+.mh-ui.mh-cosmic-pilot button.bg-blue-700{
+  color:#f3faff;
+  background:linear-gradient(135deg,#3d7495,#234258);
+  border:1px solid #87b6ce;
+}
+.mh-ui.mh-cosmic-pilot a{color:#a9d8f4;text-underline-offset:3px}
+.mh-ui.mh-cosmic-pilot a:focus-visible{outline:2px solid #f3d29a;outline-offset:3px}
+
+/* High-legibility, many-row transaction ledger; no animated per-row ornaments. */
+.mh-ui.mh-cosmic-pilot .mh-record-card{
+  color:#f0e7d8;
+  background:linear-gradient(148deg,#223648,#142537);
+  border:1px solid rgba(206,166,105,.48);
+  box-shadow:inset 0 1px rgba(255,243,210,.1),0 4px 11px #0004;
+}
+.mh-ui.mh-cosmic-pilot .mh-record-amount{font-variant-numeric:tabular-nums;letter-spacing:.008em}
+.mh-ui.mh-cosmic-pilot table{
+  color:#f0eae0;
+  border-collapse:separate;
+  border-spacing:0;
+  font-variant-numeric:tabular-nums;
+}
+.mh-ui.mh-cosmic-pilot table thead{background:linear-gradient(100deg,#303f51,#192a3d)}
+.mh-ui.mh-cosmic-pilot table th{
+  color:#e8cc9c;
+  font-size:.76rem;
+  font-weight:700;
+  letter-spacing:.047em;
+  padding-block:.72rem;
+  border-color:#775b40;
+  white-space:nowrap;
+}
+.mh-ui.mh-cosmic-pilot table td{border-color:rgba(186,162,124,.23)}
+.mh-ui.mh-cosmic-pilot table tbody tr{background:#142536}
+.mh-ui.mh-cosmic-pilot table tbody tr:nth-child(even){background:#1b2d3f}
+@media (hover:hover){
+  .mh-ui.mh-cosmic-pilot table tbody tr:hover{background:#2b4052}
+}
+.mh-ui.mh-cosmic-pilot table :is(input,select){min-width:0;max-width:100%}
+.mh-ui.mh-cosmic-pilot .mh-day-totals .bg-green-50{color:#b2f6d7;background:#173c37}
+.mh-ui.mh-cosmic-pilot .mh-day-totals .bg-red-50{color:#ffc0b5;background:#4a2b33}
+
+/* Keep original ornate cockpit and featured panels; remove unnecessary sticky blur. */
+.mh-ui.mh-cosmic-pilot .mh-dashboard-header{
+  -webkit-backdrop-filter:none;
+  backdrop-filter:none;
+}
+.mh-ui.mh-cosmic-pilot .mh-dashboard-header h1{
+  color:#ffefd4;
+  text-shadow:0 1px #0007;
+}
+.mh-ui.mh-cosmic-pilot .mh-dashboard-eyebrow{letter-spacing:.11em;text-transform:uppercase}
+.mh-ui.mh-cosmic-pilot .mh-dashboard-quick-actions{border-color:#aa8654}
+.mh-ui.mh-cosmic-pilot .mh-dashboard-quick-actions button{min-height:39px;border-radius:10px}
+.mh-ui.mh-cosmic-pilot .mh-cosmic-panel,
+.mh-ui.mh-cosmic-pilot .mh-transfer-console{color:#f4eade}
+.mh-ui.mh-cosmic-pilot .mh-cosmic-top5__select{
+  color:#f1e4c8;
+  background:#102436;
+  border-color:#a18150;
+}
+.mh-ui.mh-cosmic-pilot .mh-cosmic-top5__select option{background:#102436}
+.mh-ui.mh-cosmic-pilot .mh-cosmic-heat__day:focus-visible{outline:2px solid #e7bc83;outline-offset:2px}
+.mh-ui.mh-cosmic-pilot .mh-dashboard-shell :where(.overflow-auto,.overflow-y-auto,.overflow-x-auto){
+  scrollbar-width:thin;
+  scrollbar-color:#977146 #112335;
+}
+.mh-ui.mh-cosmic-pilot ::selection{color:#0b1725;background:#e5bb81}
+
+@media(max-width:767px){
+  .mh-ui.mh-cosmic-pilot .mh-record-card{overflow-wrap:anywhere;padding:14px}
+  .mh-ui.mh-cosmic-pilot .mh-analysis-filter__controls{gap:.5rem}
+  .mh-ui.mh-cosmic-pilot :is(button,select){touch-action:manipulation}
+  .mh-ui.mh-cosmic-pilot table{font-size:.8rem}
+  .mh-ui.mh-cosmic-pilot h2{line-height:1.32}
+}
+@media(prefers-reduced-motion:reduce){
+  .mh-ui.mh-cosmic-pilot :is(button,a){transition-duration:.01ms!important}
+}
+
+/* Strict financial semantics: low balance must remain visibly red even when
+   the standard card shares Tailwind's bg-white utility. Do not neutralize it. */
+.mh-ui.mh-cosmic-pilot div.rounded-2xl.bg-white.bg-red-50.ring-1.ring-slate-200:not(.mh-cosmic-panel) {
+  color:#ffe8e3;
+  border-color:#d6847c;
+  background:linear-gradient(150deg,#5a3037,#38232c 70%,#2a1b26);
+  --tw-ring-color:#bc665e;
+}
+.mh-ui.mh-cosmic-pilot .bg-green-100.text-green-700,
+.mh-cosmic-modal-sheet .bg-green-100.text-green-700 {
+  color:#b0f5d5;
+  background-color:#164039;
+  border:1px solid #478974;
+}
+.mh-ui.mh-cosmic-pilot .bg-red-100.text-red-700,
+.mh-cosmic-modal-sheet .bg-red-100.text-red-700 {
+  color:#ffc2b8;
+  background-color:#532e39;
+  border:1px solid #a86569;
+}
+.mh-ui.mh-cosmic-pilot .bg-amber-100.text-amber-900,
+.mh-cosmic-modal-sheet .bg-amber-100.text-amber-900 {
+  color:#f7dba7;
+  background-color:#473725;
+  border:1px solid #a28353;
+}
