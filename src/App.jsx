@@ -39,6 +39,10 @@ import { makeDashboardCategoryChoices, selectedDashboardCategory, categoryOnlyRo
 import "./financeUi.css";
 import "./financeCosmicPilot.css";
 import "./financeCosmicPremium.css";
+import "./financeCosmicWholeApp.css";
+import "./financeCosmicModules.css";
+import "./financeCosmicDialogs.css";
+import "./financeCosmicCharts.css";
 // Load import/export tools only when opened; keep spreadsheet parsing out of the dashboard bundle.
 const FinanceCsvImportPanel = React.lazy(() => import("./FinanceCsvImportPanel.jsx"));
 const FinanceExcelExportPanel = React.lazy(() => import("./FinanceExcelExportPanel.jsx"));
@@ -554,7 +558,7 @@ function AuthScreen() {
 
   if (!hasSupabaseEnv) {
     return (
-      <div className="min-h-screen bg-slate-50 p-6 text-slate-900">
+      <div className="mh-cosmic-auth min-h-screen bg-slate-50 p-6 text-slate-900">
         <div className="mx-auto mt-16 max-w-xl rounded-3xl bg-white p-8 shadow-sm ring-1 ring-red-200">
           <div className="mb-3 flex justify-end"><FinanceLanguageButton /></div>
           <h1 className="text-2xl font-bold text-red-700">Supabase is not configured</h1>
@@ -565,7 +569,7 @@ function AuthScreen() {
   }
 
   return (
-    <div className="min-h-screen bg-slate-50 p-6 text-slate-900">
+    <div className="mh-cosmic-auth min-h-screen bg-slate-50 p-6 text-slate-900">
       <div className="mx-auto mt-16 max-w-md rounded-3xl bg-white p-8 shadow-sm ring-1 ring-slate-200">
         <div className="mb-3 flex justify-end"><FinanceLanguageButton /></div>
         <p className="text-sm font-medium text-slate-500">Personal Finance Dashboard</p>

@@ -159,12 +159,12 @@ export default function FinanceOverlay({
   if (!mounted || typeof document === "undefined") return null;
   return createPortal(
     <div ref={backdropRef}
-      className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-950/55 p-3 sm:p-5"
+      className="mh-cosmic-modal-backdrop fixed inset-0 z-[100] flex items-center justify-center bg-slate-950/55 p-3 sm:p-5"
       onMouseDown={event => {
         if (open && event.target === event.currentTarget) onCloseRef.current?.();
       }}>
       <section ref={dialogRef} role="dialog" aria-modal="true" aria-label={shownTitle} tabIndex={-1}
-        className={`w-full ${widthClass} min-w-0 overflow-y-auto rounded-2xl bg-white shadow-2xl outline-none`}
+        className={`mh-cosmic-modal-sheet w-full ${widthClass} min-w-0 overflow-y-auto rounded-2xl bg-white shadow-2xl outline-none`}
         style={{ maxHeight: "calc(100dvh - 1.5rem)", transformOrigin: "top left", pointerEvents: open ? "auto" : "none" }}>
         <div className={`sticky top-0 z-10 flex items-center gap-3 border-b border-slate-200 bg-white/95 px-4 py-3 backdrop-blur sm:px-5 ${showTitle ? "justify-between" : "justify-end"}`}>
           <h2 className={showTitle ? "min-w-0 text-lg font-bold text-slate-900" : "sr-only"}>{shownTitle}</h2>
