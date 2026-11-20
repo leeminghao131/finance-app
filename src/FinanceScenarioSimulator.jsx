@@ -1,5 +1,5 @@
 import React,{useEffect,useMemo,useRef,useState} from "react";
-import {CartesianGrid,Legend,Line,LineChart,ResponsiveContainer,Tooltip,XAxis,YAxis} from "recharts";
+import FinanceNativeMultiSeriesChart from "./FinanceNativeMultiSeriesChart.jsx";
 import FinanceOverlay from "./FinanceOverlay.jsx";
 import {simulateFinanceScenarios,normalizeFinanceScenarioPreset,money,cents} from "./financeStage1Analytics.js";
 import {localDateMY} from "./financeCalendar.js";
@@ -175,20 +175,19 @@ export default function FinanceScenarioSimulator({records=[],totalBalance=0,user
           <h3 className="text-sm font-bold text-slate-900">{t("余额变化对比","Estimated balance over time")}</h3>
           
           <div className="mt-3 h-64 min-w-0" aria-label={t("余额模拟折线图","Simulated balance line chart")}>
-            <ResponsiveContainer width="100%" height="100%">
-              <LineChart data={comparisonData}>
-                <CartesianGrid strokeDasharray="3 3"/>
-                <XAxis dataKey="month" fontSize={11}/>
-                <YAxis width={52} fontSize={11}/>
-                <Tooltip formatter={n=>money(n)}/>
-                <Legend/>
-                <Line name={t("照目前习惯","Current pattern")} dataKey="baseline" stroke="#64748b" dot={false} isAnimationActive={false}/>
-                <Line name={t("按新计划","Your plan")} dataKey="scenario" stroke="#0d9488" strokeWidth={3} dot={false} isAnimationActive={false}/>
-                {comparisons.filter(p=>p.months===duration).map((p,i)=><Line key={p.index} name={p.name}
-                  dataKey={"saved"+p.index} stroke={["#c08457","#8b5cf6","#38bdf8"][i%3]}
-                  strokeDasharray="4 3" dot={false} isAnimationActive={false}/>)}
-              </LineChart>
-            </ResponsiveContainer>
+            <FinanceNativeMultiSeriesChart
+              rows={comparisonData} mode="line" xKey="month"
+              label={t("余额模拟折线图","Simulated balance line chart")}
+              series={[
+                {key:"baseline",name:t("照目前习惯","Current pattern"),color:"#d5dde6"},
+                {key:"scenario",name:t("按新计划","Your plan"),color:"#2dd4bf",strong:true},
+                ...comparisons.filter(p=>p.months===duration).map((p,i)=>({
+                  key:"saved"+p.index,name:p.name,
+                  color:["#e9b67c","#ae9cf5","#77ccef"][i%3],
+                  dashed:true
+                }))
+              ]}
+            />
           </div>
           <details className="mt-2 rounded-lg bg-slate-50 p-3 text-xs text-slate-600">
             <summary className="cursor-pointer font-semibold">{t("这些数字是怎么算出来的？","How are these numbers calculated?")}</summary>
