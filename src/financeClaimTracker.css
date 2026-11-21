@@ -127,6 +127,7 @@
 }
 .mh-claim-status--submitted{border-color:#a48056;background:#463626}
 .mh-claim-status--completed{border-color:#68b3a2;background:#1b4b45;color:#9ff1d1}
+.mh-claim-status--cancelled{border-color:#7c8490;background:#2b3440;color:#c3c8ce}
 .mh-claim-item-money{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin:14px 0 11px}
 .mh-claim-item-money > div{display:grid;gap:4px;min-width:0}
 .mh-claim-item-money small{font-size:9px;letter-spacing:.12em;color:#afbfc7;font-weight:750}
