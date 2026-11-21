@@ -155,7 +155,7 @@ export default function FinanceSavingsGoals({goals=[],onSave,disabled=false,savi
           </div>
         </fieldset>
         {draft.savedMode==="manual"?
-          <label className="text-sm">Saved towards this goal (RM)
+          <label className="text-sm" title={zh ? "仅记录目标进度，不会新增真实收入或转账。" : "Manual progress only; does not create an Income or Transfer."}>Saved towards this goal (RM)
             <input required type="text" inputMode="decimal" value={draft.saved}
               onChange={e=>setDraft(p=>({...p,saved:e.target.value}))}
               className="mt-1 w-full rounded-xl border border-slate-300 px-3 py-2"/>
