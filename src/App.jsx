@@ -2205,6 +2205,45 @@ async function addRecord(e) {
     }
   }
 
+  // Claim writes are isolated from addRecord/updateRecord/deleteRecord, Transfers,
+  // existing CSV imports, settings and all personal Income/Expense totals.
+  function claimWriteOwner(){
+    const owner=user?.id;
+    if(!owner||!supabase||!initialDataReady||dataLoading||liveUserIdRef.current!==owner)
+      throw new Error("Claim data is not fully synchronized. Refresh before changing cash.");
+    return owner;
+  }
+  async function handleCreateClaim(draft,requestId){
+    const owner=claimWriteOwner();
+    const saved=await createFinanceClaim(supabase,owner,draft,requestId);
+    if(liveUserIdRef.current===owner)await loadCloudData({background:true});
+    return saved;
+  }
+  async function handleSubmitClaim(claim){
+    const owner=claimWriteOwner();
+    const saved=await submitFinanceClaim(supabase,owner,claim);
+    if(liveUserIdRef.current===owner)await loadCloudData({background:true});
+    return saved;
+  }
+  async function handleCancelClaim(claim){
+    const owner=claimWriteOwner();
+    const saved=await cancelFinanceClaim(supabase,owner,claim,claimRepayments);
+    if(liveUserIdRef.current===owner)await loadCloudData({background:true});
+    return saved;
+  }
+  async function handleRepayClaim(claim,draft,requestId){
+    const owner=claimWriteOwner();
+    const saved=await createFinanceClaimRepayment(supabase,owner,claim,draft,claimRepayments,requestId);
+    if(liveUserIdRef.current===owner)await loadCloudData({background:true});
+    return saved;
+  }
+  async function handleVoidClaimRepayment(entry){
+    const owner=claimWriteOwner();
+    const saved=await voidFinanceClaimRepayment(supabase,owner,entry);
+    if(liveUserIdRef.current===owner)await loadCloudData({background:true});
+    return saved;
+  }
+
   async function signOut() {
     await supabase.auth.signOut();
   }
