@@ -18,6 +18,7 @@ export default function FinanceClaimTracker({
   const [open,setOpen]=useState(false),[filter,setFilter]=useState("outstanding");
   const [showNew,setShowNew]=useState(false),[draft,setDraft]=useState(initialDraft);
   const [repayFor,setRepayFor]=useState(null),[repayDraft,setRepayDraft]=useState(initialRepay);
+  const [focusedClaimId,setFocusedClaimId]=useState(null);
   const [busy,setBusy]=useState(false),[error,setError]=useState(""),[info,setInfo]=useState("");
   const triggerRef=useRef(null),createReq=useRef(null),repayReq=useRef(null);
   const lastRequestRef=useRef(null),topRef=useRef(null);
@@ -26,7 +27,7 @@ export default function FinanceClaimTracker({
     ?summary.rows.filter(c=>c.status==="completed"):summary.rows;
   useEffect(()=>{
     setOpen(false);setError("");setInfo("");setShowNew(false);
-    setRepayFor(null);createReq.current=null;repayReq.current=null;
+    setRepayFor(null);setFocusedClaimId(null);createReq.current=null;repayReq.current=null;
     setDraft(initialDraft());setRepayDraft(initialRepay());
   },[userId]);
   useEffect(()=>{
@@ -35,7 +36,7 @@ export default function FinanceClaimTracker({
     if(disabled)return;
     if(openRequest.source)triggerRef.current=openRequest.source;
     setOpen(true);setFilter("outstanding");setShowNew(false);
-    setRepayFor(openRequest.claimId||null);
+    setRepayFor(null);setFocusedClaimId(openRequest.claimId||null);
     setError("");onOpenRequestHandled();
   },[openRequest,disabled,onOpenRequestHandled]);
   const updateDraft=(key,value)=>{
@@ -160,7 +161,7 @@ export default function FinanceClaimTracker({
             const paidRows=repayments.filter(r=>r.claim_id===claim.id).sort((a,b)=>b.received_on.localeCompare(a.received_on));
             const liveRows=paidRows.filter(r=>!r.voided_at);
             const paying=repayFor===claim.id&&claim.outstanding>0;
-            return <article className="mh-claim-item" key={claim.id}>
+            return <article className={"mh-claim-item"+(focusedClaimId===claim.id?" is-focused":"")} key={claim.id}>
               <div className="mh-claim-item-header">
                 <div className="min-w-0">
                   <p className="mh-claim-item-title" data-i18n-ignore>{claim.title}</p>
