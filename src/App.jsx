@@ -2391,6 +2391,7 @@ return (
               savingsGoals={savingsGoals} recurringBills={recurringBills}
               reviewState={reviewState} accountChecks={accountChecks} savedFilters={savedFilters}
               customOptions={customOptions} activities={activities} activityLinks={activityLinks}
+              claims={claims} claimRepayments={claimRepayments}
               dataReady={initialDataReady} dataLoading={dataLoading}
               onClose={() => setExportOpen(false)}/>}
           </React.Suspense>
