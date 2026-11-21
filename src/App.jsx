@@ -2296,6 +2296,8 @@ return (
   <div onClickCapture={(e) => e.target.closest("button,select") && playSound()} className="mh-ui mh-cosmic-pilot min-h-screen bg-slate-50 p-3 text-slate-900 sm:p-4 md:p-6">
 <CoinRainEffect trigger={coinRainTrigger} />
 <FinanceStage2Hub toolRequest={stage2ToolRequest}
+   claims={claimOverview.open}
+   onOpenClaim={(claimId,source)=>setClaimOpenRequest({claimId,source,nonce:makeId()})}
   bills={recurringBills} reviewState={reviewState} checks={accountChecks}
   records={records} transfers={transfers} balances={methodBalances}
   categories={expenseCategoryOptions} methods={expenseMethodOptions}
@@ -3099,6 +3101,13 @@ categoryOptionsFor={categoryOptionsFor}
        </FinanceOverlay>
 
         <FinanceInsightsDock
+           claims={claims} claimRepayments={claimRepayments}
+           methodsForClaims={accountMethodOptions}
+           onCreateClaim={handleCreateClaim} onSubmitClaim={handleSubmitClaim}
+           onCancelClaim={handleCancelClaim} onRepayClaim={handleRepayClaim}
+           onVoidClaimRepayment={handleVoidClaimRepayment}
+           claimOpenRequest={claimOpenRequest}
+           onClaimOpenRequestHandled={()=>setClaimOpenRequest(null)}
           records={records} monthRows={monthRows} budgetTemplate={budgets}
           totalBalance={totalBalance} userId={user?.id}
           goals={savingsGoals} onSaveSavingsGoals={saveSavingsGoals}
