@@ -1680,8 +1680,13 @@ const methodBalances = useMemo(() => withClaimMethodBalances(calculateMethodBala
       if (!out[r.date]) out[r.date] = { dateKey: r.date, day: chartLabel(r.date), income: 0, expense: 0 };
       out[r.date][r.type] += Number(r.amount || 0);
     });
+    for(const event of claimMovements){
+      if(event.date>localToday)continue;
+      if(!out[event.date])out[event.date]={dateKey:event.date,day:chartLabel(event.date),income:0,expense:0};
+      out[event.date].claimDelta=(out[event.date].claimDelta||0)+event.sen/100;
+    }
     return Object.values(out).sort((a, b) => new Date(a.dateKey) - new Date(b.dateKey));
-  }, [periodRecords, filterMode]);
+  }, [periodRecords, filterMode,claimMovements,localToday]);
 
   const trendData = useMemo(() => {
     const out = {};
