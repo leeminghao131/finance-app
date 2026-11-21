@@ -62,7 +62,6 @@ export default function FinanceTransferPanel({
     <div id="mh-money-transfer-card" className="mh-transfer-console">
       <div className="mh-transfer-console__header">
         <div>
-          <p className="mh-transfer-console__eyebrow">{t("环形资金转移台","CIRCULAR TRANSFER CONSOLE")}</p>
           <h2 className="mh-transfer-console__title">{t("资金转账","Money Transfer")}</h2>
         </div>
         <button ref={historyTriggerRef} type="button" disabled={disabled}
