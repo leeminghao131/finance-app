@@ -91,7 +91,7 @@ test("Stage 2.6: Balance Check dock still opens its original floating dialog wit
  assert.match(app,/setStage2ToolRequest\(\{type:"accounts",method,source\}\)/);
  assert.match(app,/setStage2ToolRequest\(\{type:"accounts",method,source\}\)/);
  assert.match(hub,/mode==="accounts"&&<FinanceAccountReconciliation/);
- assert.match(hub,/const firstOfType=\["bill","review"\]/);
+ assert.match(hub,/const firstOfType=\["claim","bill","review"\]/);
  assert.doesNotMatch(hub,/onOpenAccountCheck\?\.\(ref,source\)/);
  assert.match(transfer,/<FinanceOverlay open=\{historyOpen\}/);
  assert.ok(!transfer.includes("FinanceAccountReconciliation"));
