@@ -167,7 +167,9 @@ test("Stage2.2 deleted or edited previous transfer never re-created",async()=>{
 });
 test("Stage2.2 bill select options use explicit values independent of translated option text",()=>{
  const ui=src("FinanceRecurringBills.jsx"),app=src("App.jsx");
- assert.ok(ui.includes('<option key={m} value={m}>{m}</option>'));
+ assert.ok(ui.includes('<option key={m} value={m}>{methodLabel(m)}</option>'));
+ assert.ok(ui.includes('<option key={c} value={c}>{categoryLabel(c)}</option>'));
+ assert.match(ui,/value=\{canonicalFinanceMethod\(draft.method\)\}/);
  assert.ok(ui.includes("canonicalFinanceMethod(draft.method)"));
  assert.match(app,/expenseMethodOptions.includes\(canonicalFinanceMethod\(bill.method\)\)/);
  assert.match(src("financeBillPayment.js"),/method:canonicalFinanceMethod\(verified.method\)/);
