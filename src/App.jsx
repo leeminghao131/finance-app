@@ -17,6 +17,8 @@ import FinanceQuickNotes from "./FinanceQuickNotes.jsx";
 import FinanceAdvancedFilters from "./FinanceAdvancedFilters.jsx";
 import FinanceAdvancedResults from "./FinanceAdvancedResults.jsx";
 import FinanceInsightsDock from "./FinanceInsightsDock.jsx";
+import {claimCashMovements,claimCashSenUntil,claimSummary,withClaimMethodBalances} from "./financeClaims.js";
+import {createFinanceClaim,createFinanceClaimRepayment,submitFinanceClaim,cancelFinanceClaim,voidFinanceClaimRepayment} from "./financeClaimService.js";
 import {activeActivity,activityOfRecord} from "./financeActivity.js";
 import {createFinanceActivity,updateFinanceActivity,linkFinanceExpense,unlinkFinanceExpense,currentActiveActivity} from "./financeActivityService.js";
 import FinanceStage2Hub from "./FinanceStage2Hub.jsx";
@@ -45,6 +47,7 @@ import "./financeCosmicModules.css";
 import "./financeCosmicDialogs.css";
 import "./financeCosmicCharts.css";
 import "./financeNativeCharts.css";
+import "./financeClaimTracker.css";
 import "./financeHeatmapDetails.css";
 import FinanceNativeChart from "./FinanceNativeChart.jsx";
 // Load import/export tools only when opened; keep spreadsheet parsing out of the dashboard bundle.
@@ -312,7 +315,7 @@ function BalanceCard({ title, value, desc, limit, methodBalances = [], openingBa
                     </p>
 
                     <p className="mt-1 text-xs text-slate-500">
-                      In {money(item.transferIn)} · Out {money(item.transferOut)}
+                      In {money(item.transferIn)} · Out {money(item.transferOut)} {(item.claimOut>0||item.claimIn>0)?` · Claim −${money(item.claimOut)} / +${money(item.claimIn)}`:""}
                     </p>
                   </div>
 
@@ -656,6 +659,9 @@ function FinanceVisualizerAppContent() {
   const [savedFilters, setSavedFilters] = useState([]);
   const [activities,setActivities]=useState([]);
   const [activityLinks,setActivityLinks]=useState([]);
+  const [claims,setClaims]=useState([]);
+  const [claimRepayments,setClaimRepayments]=useState([]);
+  const [claimOpenRequest,setClaimOpenRequest]=useState(null);
   // Stage 2 separate, per-account planning/review/check data; no transaction table writes.
   const [recurringBills, setRecurringBills] = useState([]);
   const [reviewState, setReviewState] = useState({threshold:500,decisions:[]});
@@ -826,6 +832,7 @@ function FinanceVisualizerAppContent() {
       setSavingsGoals([]);
       setSavedFilters([]);
       setActivities([]);setActivityLinks([]);
+      setClaims([]);setClaimRepayments([]);setClaimOpenRequest(null);
       setRecurringBills([]);
       setStage2ToolRequest(null);
       setReviewState({threshold:500,decisions:[]});
@@ -863,7 +870,7 @@ function FinanceVisualizerAppContent() {
       }, 350);
     };
     const channel = supabase.channel("finance-updates-" + accountId);
-    for (const table of ["records", "transfers", "user_settings", "monthly_budgets", "finance_activities", "finance_activity_links"]) {
+    for (const table of ["records", "transfers", "user_settings", "monthly_budgets", "finance_activities", "finance_activity_links", "finance_claims", "finance_claim_repayments"]) {
       channel.on("postgres_changes", {
         event: "*", schema: "public", table, filter: "user_id=eq." + accountId,
       }, scheduleRefresh);
@@ -974,6 +981,7 @@ useEffect(() => {
       setSavingsGoals(validateSavingsGoals(settingsRow?.savings_goals || []));
       setSavedFilters(validateSavedFilters(settingsRow?.saved_filters || []));
       setActivities(snapshot.activities);setActivityLinks(snapshot.activityLinks);
+      setClaims(snapshot.claims);setClaimRepayments(snapshot.repayments);
       setRecurringBills(validateBills(settingsRow?.recurring_bills || []));
       setReviewState(validateReviewState(settingsRow?.review_state || {threshold:500,decisions:[]}));
       setAccountChecks(validateAccountChecks(settingsRow?.account_checks || []));
@@ -1621,14 +1629,18 @@ const accountMethodOptions = useMemo(() => {
   return uniqueOptions(defaultMethods, normalizedCustomMethods);
 }, [customMethodOptions]);
 
+// Claims are separate actual cash flows, not personal Income/Expense.
+const claimMovements=useMemo(()=>claimCashMovements(claims,claimRepayments),[claims,claimRepayments]);
+const claimOverview=useMemo(()=>claimSummary(claims,claimRepayments,localToday),[claims,claimRepayments,localToday]);
 const currentLedgerRecords = useMemo(() => records.filter(row => row.date <= localToday), [records, localToday]);
 const currentTransfers = useMemo(() => transfers.filter(row => row.date <= localToday), [transfers, localToday]);
-const methodBalances = useMemo(() => calculateMethodBalances(
+const methodBalances = useMemo(() => withClaimMethodBalances(calculateMethodBalances(
   currentLedgerRecords.map(row => ({...row, method: recordMethod(row)})),
   currentTransfers, accountMethodOptions, openingBalances, normalizeMethodForBalance
-), [accountMethodOptions, openingBalances, currentLedgerRecords, currentTransfers]);
+),claimMovements,localToday,normalizeMethodForBalance),
+[accountMethodOptions, openingBalances, currentLedgerRecords, currentTransfers,claimMovements,localToday]);
   const openingBalanceTotal = useMemo(() => openingTotal(openingBalances), [openingBalances]);
-  const totalBalance = openingBalanceTotal + income - expense;
+  const totalBalance = openingBalanceTotal + income - expense + claimCashSenUntil(claimMovements,localToday)/100;
   // Savings Goals reserve the current natural month's budget, not the Dashboard filter.
   // Saved month snapshot wins; only months without one use the default template.
   const savingsBudgetMonth = localMonthMY();
@@ -2738,7 +2750,8 @@ return (
                 asOfDate={localToday}
                 plannedIncomes={forecastPlans}
                 openingBalanceTotal={openingBalanceTotal}
-                onSavePlans={saveExpectedIncomePlans}
+                claimMovements={claimMovements}
+                 onSavePlans={saveExpectedIncomePlans}
               />
               <HeatmapCard days={heatmapDays} label={filterLabel} records={periodRecords} />
               <div className="min-w-0">
