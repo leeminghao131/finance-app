@@ -59,5 +59,5 @@ test("local midnight and Supabase realtime updates cover all phase2 tables",()=>
  assert.match(app,/const today = localDateMY/);
  assert.match(app,/const monthNow = localMonthMY/);
  assert.match(app,/setInterval\(checkDate, 30000\)/);
- assert.match(app,/for \(const table of \["records", "transfers", "user_settings", "monthly_budgets", "finance_activities", "finance_activity_links"\]\)/);
+ assert.match(app,/for \(const table of \["records", "transfers", "user_settings", "monthly_budgets", "finance_activities", "finance_activity_links", "finance_claims", "finance_claim_repayments"\]\)/);
 });
