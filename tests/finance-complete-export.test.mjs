@@ -26,11 +26,12 @@ function rows(book,sheet){return XLSX.utils.sheet_to_json(book.Sheets[sheet],{de
 test("Complete finance export includes separate initial balances and records/transfers/budgets/template/plans",()=>{
  const {workbook,stats}=buildFinanceWorkbook(fixture);
  assert.deepEqual(workbook.SheetNames,[
-  "Finance Records","Transfers","Opening Balances","Monthly Budgets","Budget Template","Expected Income","Export Summary",
+  "Finance Records","Transfers","Claim Advances","Claim Reimbursements","Opening Balances","Monthly Budgets","Budget Template","Expected Income","Export Summary",
   "Cloud Settings JSON","Savings Goals","Recurring Bills","Activities","Activity Links",
   "Review Decisions","Account Checks","Saved Filters","Custom Options"
  ]);
  assert.equal(stats.records,3);assert.equal(stats.transfers,1);
+ assert.equal(stats.claims,0);assert.equal(stats.claimRepayments,0);
  assert.equal(stats.monthlyBudgets,2);assert.equal(stats.plans,1);
  assert.equal(stats.income,2800.05);
  assert.equal(stats.expense,25.5);
