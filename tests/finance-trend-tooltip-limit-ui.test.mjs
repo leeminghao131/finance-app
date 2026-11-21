@@ -36,8 +36,8 @@ test("Balance legend uses the current Balance Alert Limit, chart colors remain l
   assert.match(native, /name:"Balance ≤ "\+alertLabel/);
   assert.doesNotMatch(app, /name="Balance > RM1500"/);
   assert.doesNotMatch(app, /name="Balance ≤ RM1500"/);
-  assert.match(app, /const limit = Number\(balanceLimit \|\| 1500\)/);
-  assert.match(app, /balanceGreen: balance > limit \? balance : null, balanceRed: balance <= limit \? balance : null/);
+  assert.match(app, /const limit = Number\(balanceLimit\|\|1500\)/);
+  assert.match(app, /balanceGreen:balance>limit\?balance:null,balanceRed:balance<=limit\?balance:null/);
   assert.match(native, /GREEN="#34d399"/);
   assert.match(native, /RED="#fb8285"/);
 });
