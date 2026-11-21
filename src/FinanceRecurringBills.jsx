@@ -4,6 +4,7 @@ import {localDateMY,shiftCalendarDay,calendarMonthDays} from "./financeCalendar.
 import {billOccurrences,validateBills,withBillOccurrence} from "./financeStage2.js";
 import {useFinanceLanguage} from "./FinanceLanguageLayer.jsx";
 import {canonicalFinanceMethod} from "./financeMethodKeys.js";
+import {builtInFinanceCategory} from "./financeLanguage.js";
 
 const field="mt-1 w-full rounded-xl border border-slate-300 bg-white px-3 py-2.5 text-sm";
 const fmt=n=>new Intl.NumberFormat("en-MY",{style:"currency",currency:"MYR"}).format(n);
@@ -15,6 +16,11 @@ export default function FinanceRecurringBills({
 }){
   const {language}=useFinanceLanguage(),zh=language==="zh";
   const t=(cn,en)=>zh?cn:en;
+  const categoryLabel=value=>["饮食","教育","住房","日用","交通","娱乐","运动","医疗","美容"].includes(value)
+    ? builtInFinanceCategory(value,language) : value;
+  const methodLabel=value=>value==="CASH"?t("现金","Cash"):
+    value==="BANK"?t("银行账户","Bank"):
+    value==="GRAB PAY"?"GrabPay":value;
   const billError=message=>{
     const source=String(message||"");
     if(source.includes("Category or Method is no longer available"))
@@ -159,7 +165,7 @@ export default function FinanceRecurringBills({
       <div className="mt-3 rounded-xl bg-slate-50 p-3 text-xs">
         <b>{calendarDate} · {chosenDayBills.length} {t("笔计划账单","scheduled bills")}</b>
         {chosenDayBills.map(e=><p key={e.id} className="mt-1 break-words" data-i18n-ignore>
-          {e.title} · {fmt(e.amount)} · {e.method}
+          {e.title} · {fmt(e.amount)} · {methodLabel(e.method)}
         </p>)}
       </div>
     </details>
@@ -173,7 +179,7 @@ export default function FinanceRecurringBills({
                 <b className="break-words text-sm" data-i18n-ignore>{e.title}</b>
                 <b className="text-sm tabular-nums text-slate-900">{fmt(e.amount)}</b>
               </div>
-              <p className="mt-0.5 break-words text-xs text-slate-500">{e.due} · {e.category} · {e.method}</p>
+              <p className="mt-0.5 break-words text-xs text-slate-500">{e.due} · {categoryLabel(e.category)} · {methodLabel(e.method)}</p>
             </div>
             <span className="rounded-full bg-slate-100 px-2 py-1 text-xs font-semibold">
               {e.status==="snoozed"?t("已稍后提醒","Snoozed"):
@@ -215,7 +221,7 @@ export default function FinanceRecurringBills({
             className="flex flex-wrap items-center justify-between gap-2 rounded-lg bg-slate-50 px-3 py-2 text-xs">
             <div className="min-w-0">
               <b data-i18n-ignore className="break-words">{e.title}</b>
-              <p className="text-slate-500">{e.due} · {e.method} · {fmt(e.amount)}</p>
+              <p className="text-slate-500">{e.due} · {methodLabel(e.method)} · {fmt(e.amount)}</p>
               {e.status==="paid"&&<p className="break-all text-emerald-700">
                 {t("真实支出记录 ID：","Expense record ID: ")}{e.linkedRecordId}
               </p>}
@@ -273,9 +279,9 @@ export default function FinanceRecurringBills({
         <label className="text-sm">{t("提前提醒天数（0–30）","Days before due (0–30)")}
           <input className={field} type="number" min={0} max={30} value={draft.leadDays} onChange={e=>setDraft(v=>({...v,leadDays:Number(e.target.value)}))}/></label>
         <label className="text-sm">{t("分类","Category")}
-          <select className={field} value={draft.category} onChange={e=>setDraft(v=>({...v,category:e.target.value}))}>{categories.map(c=><option key={c} value={c}>{c}</option>)}</select></label>
+          <select className={field} value={draft.category} onChange={e=>setDraft(v=>({...v,category:e.target.value}))}>{categories.map(c=><option key={c} value={c}>{categoryLabel(c)}</option>)}</select></label>
         <label className="text-sm">{t("付款方式","Method")}
-          <select className={field} value={canonicalFinanceMethod(draft.method)} onChange={e=>setDraft(v=>({...v,method:canonicalFinanceMethod(e.target.value)}))}>{methods.map(m=><option key={m} value={m}>{m}</option>)}</select></label>
+          <select className={field} value={canonicalFinanceMethod(draft.method)} onChange={e=>setDraft(v=>({...v,method:canonicalFinanceMethod(e.target.value)}))}>{methods.map(m=><option key={m} value={m}>{methodLabel(m)}</option>)}</select></label>
         <label className="flex items-center gap-2 text-sm sm:col-span-2">
           <input type="checkbox" checked={draft.active} onChange={e=>setDraft(v=>({...v,active:e.target.checked}))}/>
           {t("启用提醒","Enable reminders")}</label>
