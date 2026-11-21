@@ -1693,19 +1693,33 @@ const methodBalances = useMemo(() => withClaimMethodBalances(calculateMethodBala
       if (!out[r.date]) out[r.date] = { dateKey: r.date, day: chartLabel(r.date), expense: 0, dailyBalance: 0 };
       out[r.date].expense += Number(r.amount || 0);
     });
+    const withinPeriod = date => filterMode === "all" ? true
+      : filterMode === "month" ? date.startsWith(selectedMonth)
+      : filterMode === "year" ? date.startsWith(String(selectedYear))
+      : ["recent30","recent7","recent3"].includes(filterMode)
+        ? date >= recentStart(Number(filterMode.slice(6))) && date <= localToday : true;
+    for (const event of claimMovements) {
+      if(!withinPeriod(event.date) || event.date>localToday)continue;
+      if(!out[event.date])out[event.date]={dateKey:event.date,day:chartLabel(event.date),expense:0,dailyBalance:0};
+      // Claim cash movement changes the actual balance line only.
+      // Spending Trend, expense ratio and personal Income/Expense do not change.
+      out[event.date].dailyBalance += event.sen/100;
+    }
     const dates = Object.keys(out).sort();
     const firstDate = dates[0];
     const earlier = firstDate ? records.filter(row => row.date < firstDate) : [];
-    let balance = openingBalanceTotal + sumType(earlier, "income") - sumType(earlier, "expense");
+    const priorClaimCents = firstDate ? claimMovements.filter(event=>event.date<firstDate)
+      .reduce((sum,event)=>sum+event.sen,0) : 0;
+    let balance = openingBalanceTotal + sumType(earlier,"income") - sumType(earlier,"expense") + priorClaimCents/100;
     return dates.map(date => {
       const row = out[date];
-      // Future-dated entries are visible in the ledger but not yet current cash.
-      if (date > localToday) return {...row, balanceGreen:null, balanceRed:null};
-      balance += row.dailyBalance;
-      const limit = Number(balanceLimit || 1500);
-      return { ...row, balanceGreen: balance > limit ? balance : null, balanceRed: balance <= limit ? balance : null };
+      if(date>localToday)return {...row,balanceGreen:null,balanceRed:null};
+      balance = Math.round((balance + row.dailyBalance)*100)/100;
+      const limit = Number(balanceLimit||1500);
+      return {...row,balanceGreen:balance>limit?balance:null,balanceRed:balance<=limit?balance:null};
     });
-}, [periodRecords, expenseRecords, records, openingBalanceTotal, localToday, trendCategory, selectedCategoryFilter, filterMode, balanceLimit]);
+  },[periodRecords,expenseRecords,records,openingBalanceTotal,localToday,trendCategory,
+     selectedCategoryFilter,filterMode,selectedMonth,selectedYear,balanceLimit,claimMovements]);
 
   const forecastMonth = filterMode === "month" ? selectedMonth : monthNow();
   const heatmapDays = useMemo(() => {
