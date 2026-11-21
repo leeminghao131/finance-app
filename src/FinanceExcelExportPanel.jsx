@@ -8,7 +8,7 @@ export default function FinanceExcelExportPanel({
   records,deletedRecords,transfers,deletedTransfers,
   monthRows,budgetTemplate,forecastPlans,openingBalances={},
   savingsGoals=[],recurringBills=[],reviewState={},accountChecks=[],savedFilters=[],customOptions={},
-  activities=[],activityLinks=[],
+  activities=[],activityLinks=[],claims=[],claimRepayments=[],
   dataReady,dataLoading,onClose,
 }) {
   const [scope,setScope]=useState("all");
@@ -25,7 +25,7 @@ export default function FinanceExcelExportPanel({
         records,deletedRecords,transfers,deletedTransfers,
         monthRows,budgetTemplate,forecastPlans,openingBalances,
         savingsGoals,recurringBills,reviewState,accountChecks,savedFilters,customOptions,
-        activities,activityLinks,
+        activities,activityLinks,claims,claimRepayments,
         scope,month,includeRecycleBin,
       });
       // Roundtrip-check the file and financial totals before starting a download.
@@ -33,7 +33,7 @@ export default function FinanceExcelExportPanel({
       const suffix=scope==="all"?"all":month;
       XLSX.writeFile(workbook,"MH_Finance_Export_"+suffix+"_"+localDateMY()+".xlsx");
       setMessage("Export checked: "+stats.records+" finance records, "+stats.transfers+
-        " transfers, "+stats.monthlyBudgets+" budget snapshots; amounts verified.");
+        " transfers, "+stats.claims+" claims, "+stats.claimRepayments+" repayments, "+stats.monthlyBudgets+" budget snapshots; amounts verified.");
     }catch(e){setMessage("Export failed: "+e.message);}
     finally{setBusy(false);}
   }
@@ -69,7 +69,7 @@ export default function FinanceExcelExportPanel({
       </div>
       <p className="mt-3 text-sm text-slate-600">
         Sheets: Finance Records, Transfers, Opening Balances, Monthly Budgets, Budget Template,
-        Expected Income, Savings Goals, Recurring Bills, Activities, Activity Links,
+        Expected Income, Claim Advances, Claim Reimbursements, Savings Goals, Recurring Bills, Activities, Activity Links,
         Review Decisions, Account Checks, Saved Filters, Custom Options,
         Cloud Settings JSON, Export Summary
         {includeRecycleBin?", Recycle Bin and Transfer Trash":""}.

@@ -17,6 +17,8 @@ import FinanceQuickNotes from "./FinanceQuickNotes.jsx";
 import FinanceAdvancedFilters from "./FinanceAdvancedFilters.jsx";
 import FinanceAdvancedResults from "./FinanceAdvancedResults.jsx";
 import FinanceInsightsDock from "./FinanceInsightsDock.jsx";
+import {claimCashMovements,claimCashSenUntil,claimSummary,withClaimMethodBalances} from "./financeClaims.js";
+import {createFinanceClaim,createFinanceClaimRepayment,submitFinanceClaim,cancelFinanceClaim,voidFinanceClaimRepayment} from "./financeClaimService.js";
 import {activeActivity,activityOfRecord} from "./financeActivity.js";
 import {createFinanceActivity,updateFinanceActivity,linkFinanceExpense,unlinkFinanceExpense,currentActiveActivity} from "./financeActivityService.js";
 import FinanceStage2Hub from "./FinanceStage2Hub.jsx";
@@ -45,6 +47,7 @@ import "./financeCosmicModules.css";
 import "./financeCosmicDialogs.css";
 import "./financeCosmicCharts.css";
 import "./financeNativeCharts.css";
+import "./financeClaimTracker.css";
 import "./financeHeatmapDetails.css";
 import FinanceNativeChart from "./FinanceNativeChart.jsx";
 // Load import/export tools only when opened; keep spreadsheet parsing out of the dashboard bundle.
@@ -312,7 +315,7 @@ function BalanceCard({ title, value, desc, limit, methodBalances = [], openingBa
                     </p>
 
                     <p className="mt-1 text-xs text-slate-500">
-                      In {money(item.transferIn)} · Out {money(item.transferOut)}
+                      In {money(item.transferIn)} · Out {money(item.transferOut)} {(item.claimOut>0||item.claimIn>0)?` · Claim −${money(item.claimOut)} / +${money(item.claimIn)}`:""}
                     </p>
                   </div>
 
@@ -656,6 +659,9 @@ function FinanceVisualizerAppContent() {
   const [savedFilters, setSavedFilters] = useState([]);
   const [activities,setActivities]=useState([]);
   const [activityLinks,setActivityLinks]=useState([]);
+  const [claims,setClaims]=useState([]);
+  const [claimRepayments,setClaimRepayments]=useState([]);
+  const [claimOpenRequest,setClaimOpenRequest]=useState(null);
   // Stage 2 separate, per-account planning/review/check data; no transaction table writes.
   const [recurringBills, setRecurringBills] = useState([]);
   const [reviewState, setReviewState] = useState({threshold:500,decisions:[]});
@@ -826,6 +832,7 @@ function FinanceVisualizerAppContent() {
       setSavingsGoals([]);
       setSavedFilters([]);
       setActivities([]);setActivityLinks([]);
+      setClaims([]);setClaimRepayments([]);setClaimOpenRequest(null);
       setRecurringBills([]);
       setStage2ToolRequest(null);
       setReviewState({threshold:500,decisions:[]});
@@ -863,7 +870,7 @@ function FinanceVisualizerAppContent() {
       }, 350);
     };
     const channel = supabase.channel("finance-updates-" + accountId);
-    for (const table of ["records", "transfers", "user_settings", "monthly_budgets", "finance_activities", "finance_activity_links"]) {
+    for (const table of ["records", "transfers", "user_settings", "monthly_budgets", "finance_activities", "finance_activity_links", "finance_claims", "finance_claim_repayments"]) {
       channel.on("postgres_changes", {
         event: "*", schema: "public", table, filter: "user_id=eq." + accountId,
       }, scheduleRefresh);
@@ -974,6 +981,7 @@ useEffect(() => {
       setSavingsGoals(validateSavingsGoals(settingsRow?.savings_goals || []));
       setSavedFilters(validateSavedFilters(settingsRow?.saved_filters || []));
       setActivities(snapshot.activities);setActivityLinks(snapshot.activityLinks);
+      setClaims(snapshot.claims);setClaimRepayments(snapshot.repayments);
       setRecurringBills(validateBills(settingsRow?.recurring_bills || []));
       setReviewState(validateReviewState(settingsRow?.review_state || {threshold:500,decisions:[]}));
       setAccountChecks(validateAccountChecks(settingsRow?.account_checks || []));
@@ -1195,10 +1203,10 @@ useEffect(() => {
         // Full count-verified read, including soft-deleted rows, before each INSERT.
         // Compare all accounts with the ledger expected after our preceding steps.
         const latest=await fetchFinanceSnapshot(supabase,accountId);
-        const remote=calculateMethodBalances(
+        const remote=withClaimMethodBalances(calculateMethodBalances(
           latest.records.map(r=>({...r,method:recordMethod(r)})),latest.transfers,
           accountMethodOptions,latest.settingsRow?.opening_balances||{},normalizeMethodForBalance
-        );
+        ),claimCashMovements(latest.claims,latest.repayments),localToday,normalizeMethodForBalance);
         const expected=new Map(validated.rows.map(r=>[r.method,Math.round(r.ledger*100)]));
         for(const prior of validated.transfers.slice(0,i)){
           const sen=Math.round(prior.amount*100);
@@ -1621,14 +1629,18 @@ const accountMethodOptions = useMemo(() => {
   return uniqueOptions(defaultMethods, normalizedCustomMethods);
 }, [customMethodOptions]);
 
+// Claims are separate actual cash flows, not personal Income/Expense.
+const claimMovements=useMemo(()=>claimCashMovements(claims,claimRepayments),[claims,claimRepayments]);
+const claimOverview=useMemo(()=>claimSummary(claims,claimRepayments,localToday),[claims,claimRepayments,localToday]);
 const currentLedgerRecords = useMemo(() => records.filter(row => row.date <= localToday), [records, localToday]);
 const currentTransfers = useMemo(() => transfers.filter(row => row.date <= localToday), [transfers, localToday]);
-const methodBalances = useMemo(() => calculateMethodBalances(
+const methodBalances = useMemo(() => withClaimMethodBalances(calculateMethodBalances(
   currentLedgerRecords.map(row => ({...row, method: recordMethod(row)})),
   currentTransfers, accountMethodOptions, openingBalances, normalizeMethodForBalance
-), [accountMethodOptions, openingBalances, currentLedgerRecords, currentTransfers]);
+),claimMovements,localToday,normalizeMethodForBalance),
+[accountMethodOptions, openingBalances, currentLedgerRecords, currentTransfers,claimMovements,localToday]);
   const openingBalanceTotal = useMemo(() => openingTotal(openingBalances), [openingBalances]);
-  const totalBalance = openingBalanceTotal + income - expense;
+  const totalBalance = openingBalanceTotal + income - expense + claimCashSenUntil(claimMovements,localToday)/100;
   // Savings Goals reserve the current natural month's budget, not the Dashboard filter.
   // Saved month snapshot wins; only months without one use the default template.
   const savingsBudgetMonth = localMonthMY();
@@ -1668,8 +1680,13 @@ const methodBalances = useMemo(() => calculateMethodBalances(
       if (!out[r.date]) out[r.date] = { dateKey: r.date, day: chartLabel(r.date), income: 0, expense: 0 };
       out[r.date][r.type] += Number(r.amount || 0);
     });
+    for(const event of claimMovements){
+      if(event.date>localToday)continue;
+      if(!out[event.date])out[event.date]={dateKey:event.date,day:chartLabel(event.date),income:0,expense:0};
+      out[event.date].claimDelta=(out[event.date].claimDelta||0)+event.sen/100;
+    }
     return Object.values(out).sort((a, b) => new Date(a.dateKey) - new Date(b.dateKey));
-  }, [periodRecords, filterMode]);
+  }, [periodRecords, filterMode,claimMovements,localToday]);
 
   const trendData = useMemo(() => {
     const out = {};
@@ -1681,19 +1698,33 @@ const methodBalances = useMemo(() => calculateMethodBalances(
       if (!out[r.date]) out[r.date] = { dateKey: r.date, day: chartLabel(r.date), expense: 0, dailyBalance: 0 };
       out[r.date].expense += Number(r.amount || 0);
     });
+    const withinPeriod = date => filterMode === "all" ? true
+      : filterMode === "month" ? date.startsWith(selectedMonth)
+      : filterMode === "year" ? date.startsWith(String(selectedYear))
+      : ["recent30","recent7","recent3"].includes(filterMode)
+        ? date >= recentStart(Number(filterMode.slice(6))) && date <= localToday : true;
+    for (const event of claimMovements) {
+      if(!withinPeriod(event.date) || event.date>localToday)continue;
+      if(!out[event.date])out[event.date]={dateKey:event.date,day:chartLabel(event.date),expense:0,dailyBalance:0};
+      // Claim cash movement changes the actual balance line only.
+      // Spending Trend, expense ratio and personal Income/Expense do not change.
+      out[event.date].dailyBalance += event.sen/100;
+    }
     const dates = Object.keys(out).sort();
     const firstDate = dates[0];
     const earlier = firstDate ? records.filter(row => row.date < firstDate) : [];
-    let balance = openingBalanceTotal + sumType(earlier, "income") - sumType(earlier, "expense");
+    const priorClaimCents = firstDate ? claimMovements.filter(event=>event.date<firstDate)
+      .reduce((sum,event)=>sum+event.sen,0) : 0;
+    let balance = openingBalanceTotal + sumType(earlier,"income") - sumType(earlier,"expense") + priorClaimCents/100;
     return dates.map(date => {
       const row = out[date];
-      // Future-dated entries are visible in the ledger but not yet current cash.
-      if (date > localToday) return {...row, balanceGreen:null, balanceRed:null};
-      balance += row.dailyBalance;
-      const limit = Number(balanceLimit || 1500);
-      return { ...row, balanceGreen: balance > limit ? balance : null, balanceRed: balance <= limit ? balance : null };
+      if(date>localToday)return {...row,balanceGreen:null,balanceRed:null};
+      balance = Math.round((balance + row.dailyBalance)*100)/100;
+      const limit = Number(balanceLimit||1500);
+      return {...row,balanceGreen:balance>limit?balance:null,balanceRed:balance<=limit?balance:null};
     });
-}, [periodRecords, expenseRecords, records, openingBalanceTotal, localToday, trendCategory, selectedCategoryFilter, filterMode, balanceLimit]);
+  },[periodRecords,expenseRecords,records,openingBalanceTotal,localToday,trendCategory,
+     selectedCategoryFilter,filterMode,selectedMonth,selectedYear,balanceLimit,claimMovements]);
 
   const forecastMonth = filterMode === "month" ? selectedMonth : monthNow();
   const heatmapDays = useMemo(() => {
@@ -2179,6 +2210,45 @@ async function addRecord(e) {
     }
   }
 
+  // Claim writes are isolated from addRecord/updateRecord/deleteRecord, Transfers,
+  // existing CSV imports, settings and all personal Income/Expense totals.
+  function claimWriteOwner(){
+    const owner=user?.id;
+    if(!owner||!supabase||!initialDataReady||dataLoading||liveUserIdRef.current!==owner)
+      throw new Error("Claim data is not fully synchronized. Refresh before changing cash.");
+    return owner;
+  }
+  async function handleCreateClaim(draft,requestId){
+    const owner=claimWriteOwner();
+    const saved=await createFinanceClaim(supabase,owner,draft,requestId);
+    if(liveUserIdRef.current===owner)await loadCloudData({background:true});
+    return saved;
+  }
+  async function handleSubmitClaim(claim){
+    const owner=claimWriteOwner();
+    const saved=await submitFinanceClaim(supabase,owner,claim);
+    if(liveUserIdRef.current===owner)await loadCloudData({background:true});
+    return saved;
+  }
+  async function handleCancelClaim(claim){
+    const owner=claimWriteOwner();
+    const saved=await cancelFinanceClaim(supabase,owner,claim,claimRepayments);
+    if(liveUserIdRef.current===owner)await loadCloudData({background:true});
+    return saved;
+  }
+  async function handleRepayClaim(claim,draft,requestId){
+    const owner=claimWriteOwner();
+    const saved=await createFinanceClaimRepayment(supabase,owner,claim,draft,claimRepayments,requestId);
+    if(liveUserIdRef.current===owner)await loadCloudData({background:true});
+    return saved;
+  }
+  async function handleVoidClaimRepayment(entry){
+    const owner=claimWriteOwner();
+    const saved=await voidFinanceClaimRepayment(supabase,owner,entry);
+    if(liveUserIdRef.current===owner)await loadCloudData({background:true});
+    return saved;
+  }
+
   async function signOut() {
     await supabase.auth.signOut();
   }
@@ -2231,6 +2301,8 @@ return (
   <div onClickCapture={(e) => e.target.closest("button,select") && playSound()} className="mh-ui mh-cosmic-pilot min-h-screen bg-slate-50 p-3 text-slate-900 sm:p-4 md:p-6">
 <CoinRainEffect trigger={coinRainTrigger} />
 <FinanceStage2Hub toolRequest={stage2ToolRequest}
+   claims={claimOverview.open}
+   onOpenClaim={(claimId,source)=>setClaimOpenRequest({claimId,source,nonce:makeId()})}
   bills={recurringBills} reviewState={reviewState} checks={accountChecks}
   records={records} transfers={transfers} balances={methodBalances}
   categories={expenseCategoryOptions} methods={expenseMethodOptions}
@@ -2324,6 +2396,7 @@ return (
               savingsGoals={savingsGoals} recurringBills={recurringBills}
               reviewState={reviewState} accountChecks={accountChecks} savedFilters={savedFilters}
               customOptions={customOptions} activities={activities} activityLinks={activityLinks}
+              claims={claims} claimRepayments={claimRepayments}
               dataReady={initialDataReady} dataLoading={dataLoading}
               onClose={() => setExportOpen(false)}/>}
           </React.Suspense>
@@ -2738,7 +2811,8 @@ return (
                 asOfDate={localToday}
                 plannedIncomes={forecastPlans}
                 openingBalanceTotal={openingBalanceTotal}
-                onSavePlans={saveExpectedIncomePlans}
+                claimMovements={claimMovements}
+                 onSavePlans={saveExpectedIncomePlans}
               />
               <HeatmapCard days={heatmapDays} label={filterLabel} records={periodRecords} />
               <div className="min-w-0">
@@ -3033,6 +3107,13 @@ categoryOptionsFor={categoryOptionsFor}
        </FinanceOverlay>
 
         <FinanceInsightsDock
+           claims={claims} claimRepayments={claimRepayments}
+           methodsForClaims={accountMethodOptions}
+           onCreateClaim={handleCreateClaim} onSubmitClaim={handleSubmitClaim}
+           onCancelClaim={handleCancelClaim} onRepayClaim={handleRepayClaim}
+           onVoidClaimRepayment={handleVoidClaimRepayment}
+           claimOpenRequest={claimOpenRequest}
+           onClaimOpenRequestHandled={()=>setClaimOpenRequest(null)}
           records={records} monthRows={monthRows} budgetTemplate={budgets}
           totalBalance={totalBalance} userId={user?.id}
           goals={savingsGoals} onSaveSavingsGoals={saveSavingsGoals}

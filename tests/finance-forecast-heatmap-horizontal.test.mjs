@@ -28,7 +28,7 @@ test("UI: forecast details remain left of a separate responsive graph on wide sc
   const right = forecast.indexOf('{!outcome.error && (');
   const chart = forecast.indexOf('<FinanceNativeChart');
   assert.ok(left >= 0 && left < summary && summary < right && right < chart);
-  assert.match(forecast, /calculateCashForecast\(records,\{asOfDate,selectedMonth,horizon,trailingDays,plannedIncomes,openingBalanceTotal\}\)/);
+  assert.match(forecast, /calculateCashForecast\(records,\{asOfDate,selectedMonth,horizon,trailingDays,plannedIncomes,openingBalanceTotal,claimMovements\}\)/);
   assert.match(forecast, /aria-label="Manage Expected Income"/);
   assert.match(forecast, /<FinanceOverlay open=\{incomePlannerOpen\}/);
   assert.match(forecast, /rows=\{data.timeline\}/);

@@ -4,20 +4,21 @@ import {readFileSync} from "node:fs";
 
 const source=path=>readFileSync(new URL("../src/"+path,import.meta.url),"utf8");
 
-test("Stage 2.6: notifications derive ONLY from due bills and pending anomalous records",()=>{
+test("Stage 2.6: notifications retain due bills and pending reviews, and add outstanding claims",()=>{
   const hub=source("FinanceStage2Hub.jsx");
   const alerts=hub.slice(hub.indexOf("  const alerts=["),hub.indexOf("  // Only overdue bills"));
   assert.match(alerts,/\.\.\.billsDue\.map\(x=>\(\{type:"bill"/);
   assert.match(alerts,/\.\.\.candidates\.map\(x=>\(\{type:"review"/);
+  assert.match(alerts,/\.\.\.claims\.filter\(x=>x\.outstanding>0\)/);
   assert.doesNotMatch(alerts,/accounts|reconcil|checks/);
   assert.doesNotMatch(hub,/const reconciliationAlerts=/);
   assert.doesNotMatch(hub,/type:"accounts",id:/);
   assert.doesNotMatch(hub,/账户有差额|Balance difference/);
 });
 
-test("Stage 2.6: bell count and jumping toasts still cover all two retained notification types",()=>{
+test("Stage 2.6: bell count and jumping toasts cover bills, reviews and outstanding claims",()=>{
   const hub=source("FinanceStage2Hub.jsx"),css=source("financeUi.css");
-  assert.match(hub,/const firstOfType=\["bill","review"\]/);
+  assert.match(hub,/const firstOfType=\["claim","bill","review"\]/);
   assert.match(hub,/const prioritized=\[\.\.\.firstOfType/);
   assert.match(hub,/const alertCount=alerts\.length/);
   assert.match(hub,/mh-stage2-notifications__bell/);

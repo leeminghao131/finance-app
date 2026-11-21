@@ -88,7 +88,7 @@ test("PR52: current balances exclude future-dated records but report historical 
   assert.match(app,/const expense = sumType\(records\.filter\(row => row\.date <= localToday\), "expense"\)/);
   assert.match(app,/const currentTransfers = useMemo\(\(\) => transfers\.filter\(row => row\.date <= localToday\)/);
   assert.match(app,/const earlier = firstDate \? records\.filter\(row => row\.date < firstDate\)/);
-  assert.match(app,/if \(date > localToday\) return/);
+  assert.match(app,/if\(date>localToday\)return/);
   assert.match(app,/calculateSavingsAvailable\(totalBalance, savingsBudgetCategories, currentMonthExpenses\)/);
   assert.doesNotMatch(app,/delete nextBudgets\[value\]/);
 });
@@ -121,8 +121,8 @@ test("PR52: financial UI explanations translate while saved keys and values rema
 
 test("PR52: full synced snapshot still demands two count-verified passes per owned table",()=>{
   const cloud=read("financeCloudService.js"),pagination=read("financeData.js");
-  assert.match(cloud,/\[recordRows,transferRows,activityRows,linkRows\] = await Promise\.all\(/);
-  for(const name of ["records","transfers","finance_activities","finance_activity_links"])
+  assert.match(cloud,/\[recordRows,transferRows,activityRows,linkRows,claimRows,repaymentRows\] = await Promise\.all\(/);
+  for(const name of ["records","transfers","finance_activities","finance_activity_links","finance_claims","finance_claim_repayments"])
     assert.match(cloud,new RegExp('loadEveryOwnedRow\\(client,"'+name+'"'));
   assert.match(cloud,/validateFinanceSnapshotRows\(recordRows,transferRows,settingsRow\)/);
   assert.match(pagination,/const first = await readPass\(\)/);

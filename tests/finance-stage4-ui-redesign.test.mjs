@@ -90,10 +90,10 @@ test("Assistant accepts only preset button questions, with all rule calculations
 
 test("One sortable CSV / Excel drawer entry replaces two header entry buttons",()=>{
   const dock=src("FinanceInsightsDock.jsx"),app=src("App.jsx"),launcher=src("FinanceDataToolsLauncher.jsx");
-  assert.equal(FINANCE_DOCK_IDS.length,9);
+  assert.equal(FINANCE_DOCK_IDS.length,10);
   assert.equal(FINANCE_DOCK_IDS.filter(id=>id==="data-tools").length,1);
   assert.equal(normalizeDockOrder(["review","activity"]).at(-1),"data-tools");
-  assert.equal(new Set(moveDockItem(FINANCE_DOCK_IDS,"data-tools","activity")).size,9);
+  assert.equal(new Set(moveDockItem(FINANCE_DOCK_IDS,"data-tools","activity")).size,10);
   assert.match(dock,/<FinanceDataToolsLauncher disabled=\{disabled\} onOpen=\{onOpenDataTool\}/);
   assert.match(launcher,/onMouseEnter=\{\(\)=>setOpen\(true\)\}/);
   assert.match(launcher,/onClick=\{\(\)=>setOpen\(true\)\}/);

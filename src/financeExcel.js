@@ -1,6 +1,7 @@
 import * as XLSX from "xlsx";
 import { requireCalendarDate, localDateMY } from "./financeCalendar.js";
 import { openingTotal, parseOpeningAmount } from "./financeOpeningBalance.js";
+import {claimCashMovements,claimSummary} from "./financeClaims.js";
 
 const HEADERS = {
   records: ["Record ID","Date","Type","Category","Method","Amount (RM)","Note","Version","Updated At","Original Currency","Original Amount","Reference Rate (to RM)","Rate Date","Rate Source"],
@@ -52,7 +53,7 @@ export function buildFinanceWorkbook({
   records=[],deletedRecords=[],transfers=[],deletedTransfers=[],
   monthRows=[],budgetTemplate={},forecastPlans=[],openingBalances={},
   savingsGoals=[],recurringBills=[],reviewState={},accountChecks=[],savedFilters=[],customOptions={},
-  activities=[],activityLinks=[],
+  activities=[],activityLinks=[],claims=[],claimRepayments=[],
   scope="all",month=localDateMY().slice(0,7),includeRecycleBin=false,
   exportedOn=localDateMY(),
 } = {}) {
@@ -62,6 +63,16 @@ export function buildFinanceWorkbook({
   const validTransfers=transfers.filter(r=>!r.deleted_at&&inMonth(r,scope,month));
   const validBudgets=monthRows.filter(r=>scope==="all"||r.month===month);
   const validPlans=forecastPlans.filter(p=>inMonth(p,scope,month));
+  const visibleClaims=claims.filter(c=>scope==="all"||c.paid_on.startsWith(month));
+  const visibleRepayments=claimRepayments.filter(r=>scope==="all"||r.received_on.startsWith(month));
+  const claimStatuses=new Map(claimSummary(claims,claimRepayments,exportedOn).rows.map(c=>[c.id,c]));
+  const cashEvents=claimCashMovements(claims,claimRepayments)
+    .filter(event=>event.date<=exportedOn&&(scope==="all"||event.date.startsWith(month)));
+  const claimCashCents=cashEvents.reduce((sum,event)=>sum+event.sen,0);
+  const claimAdvancedCents=cashEvents.filter(event=>event.kind==="advance")
+    .reduce((sum,event)=>sum-event.sen,0);
+  const claimReceivedCents=cashEvents.filter(event=>event.kind==="reimbursement")
+    .reduce((sum,event)=>sum+event.sen,0);
 
   const recordRows=validRecords.map(r=>[
     safeExcelText(r.id),excelDateNumber(r.date),safeExcelText(r.type),
@@ -81,6 +92,20 @@ export function buildFinanceWorkbook({
     .map(([category,budget])=>[
       safeExcelText(row.month),safeExcelText(category),asBudgetAmount(budget),Number(row.version||1),
     ]));
+  const claimRows=visibleClaims.map(c=>[
+    safeExcelText(c.id),excelDateNumber(c.paid_on),safeExcelText(c.title),
+    safeExcelText(c.claimant),safeExcelText(c.method),rm(cents(c.amount)),
+    rm(cents(claimStatuses.get(c.id)?.repaid||0)),
+    rm(cents(claimStatuses.get(c.id)?.outstanding||0)),
+    safeExcelText(c.cancelled_at?"CANCELLED":claimStatuses.get(c.id)?.status||""),
+    safeExcelText(c.submitted_on||""),safeExcelText(c.note),
+    Number(c.version||1),safeExcelText(c.cancelled_at||""),
+  ]);
+  const claimRepaymentRows=visibleRepayments.map(r=>[
+    safeExcelText(r.id),safeExcelText(r.claim_id),excelDateNumber(r.received_on),
+    safeExcelText(r.method),rm(cents(r.amount)),safeExcelText(r.note),
+    Number(r.version||1),safeExcelText(r.voided_at||""),
+  ]);
   const templateRows=Object.entries(budgetTemplate).map(([category,budget])=>[
     safeExcelText(category),asBudgetAmount(budget),
   ]);
@@ -101,7 +126,13 @@ export function buildFinanceWorkbook({
     ["Total income (RM)",rm(incomeCents)],
     ["Total expense (RM)",rm(expenseCents)],
     ["Opening balance total (RM)", rm(initialCents)],
-    ["Estimated ledger balance (RM)",rm(incomeCents-expenseCents+(scope==="all"?initialCents:0))],
+    ["Estimated ledger balance (RM)",rm(incomeCents-expenseCents+claimCashCents+(scope==="all"?initialCents:0))],
+    ["Claim cash advanced in scope (RM)",rm(claimAdvancedCents)],
+    ["Claim reimbursements received in scope (RM)",rm(claimReceivedCents)],
+    ["Net claim cash movement in scope (RM)",rm(claimCashCents)],
+    ["Outstanding claims through export date (RM)",claimSummary(claims,claimRepayments,exportedOn).outstanding],
+    ["Claim advance rows (incl cancelled)",visibleClaims.length],
+    ["Claim repayment rows (incl voided)",visibleRepayments.length],
     ["Opening balances in selected-month subtotal","Excluded: opening amounts are not period income"],
     ["Active transfers",validTransfers.length],
     ["Saved monthly budget snapshots",validBudgets.length],
@@ -115,6 +146,13 @@ export function buildFinanceWorkbook({
   const wb=XLSX.utils.book_new();
   makeSheet(wb,"Finance Records",HEADERS.records,recordRows,[1],[5]);
   makeSheet(wb,"Transfers",HEADERS.transfers,transferRows,[1],[4]);
+  makeSheet(wb,"Claim Advances",
+    ["Claim ID","Paid Date","Description","Claim From","Paid Method","Advanced (RM)",
+     "Received (RM)","Still Owed (RM)","Status","Submitted On","Note","Version","Cancelled At"],
+    claimRows,[1],[5,6,7]);
+  makeSheet(wb,"Claim Reimbursements",
+    ["Repayment ID","Claim ID","Received Date","Received Method","Amount (RM)","Note","Version","Voided At"],
+    claimRepaymentRows,[2],[4]);
   makeSheet(wb,"Opening Balances",HEADERS.opening,openingRows,[],[1]);
   makeSheet(wb,"Monthly Budgets",HEADERS.budgets,monthlyRows,[],[2]);
   makeSheet(wb,"Budget Template",HEADERS.template,templateRows,[],[1]);
@@ -211,6 +249,8 @@ export function buildFinanceWorkbook({
   ]));
   return {workbook:wb,stats:{
     records:validRecords.length,transfers:validTransfers.length,
+    claims:visibleClaims.length,claimRepayments:visibleRepayments.length,
+    claimAdvancedCents,claimReceivedCents,claimCashCents,
     monthlyBudgets:validBudgets.length,plans:validPlans.length,
     savingsGoals:savingsGoals.length,recurringBills:recurringBills.length,
     activities:activities.length,activityLinks:activityLinks.length,
