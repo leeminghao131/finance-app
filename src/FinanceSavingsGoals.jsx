@@ -94,12 +94,15 @@ export default function FinanceSavingsGoals({goals=[],onSave,disabled=false,savi
     {message&&<p role="status" className="mt-3 text-sm text-emerald-700">{message}</p>}
     {error&&<p role="alert" className="mt-3 text-sm text-red-700">{error}</p>}
     <div className="mt-3 rounded-xl bg-slate-50 p-3 text-sm ring-1 ring-slate-200">
-      <p className="font-semibold text-slate-700">{zh?"共享可用储蓄余额（只读）":"Available savings (shared, read-only)"}: <span className="text-slate-900">{money(available)}</span></p>
-      <p className="mt-1 text-xs text-slate-600">{zh?"当前总余额":"Current Balance"} {money(overallBalance)} − {budgetMonth} {zh?"当月剩余预算":"Unspent monthly budget"} {money(reservedBudget)} = {money(savingsAvailability?.netAfterBudget ?? 0)}</p>
+      <p className="font-semibold text-slate-700"
+        title={zh?`当前余额 ${money(overallBalance)} − ${budgetMonth} 未使用预算 ${money(reservedBudget)} = ${money(savingsAvailability?.netAfterBudget ?? 0)}`
+          :`Balance ${money(overallBalance)} − ${budgetMonth} unspent budget ${money(reservedBudget)} = ${money(savingsAvailability?.netAfterBudget ?? 0)}`}>
+        {zh?"可用储蓄（共享）":"Shared available savings"}: <span className="text-slate-900">{money(available)}</span>
+      </p>
       {shortfall>0&&<p className="mt-1 text-xs font-semibold text-amber-800">{zh ? "预算超过余额：" : "Budget exceeds Balance by "}{money(shortfall)}. {zh ? "可用储蓄金额显示为 RM0.00。" : "Available savings shown as RM0.00."}</p>}
       
     </div>
-    {!all.length&&!editor&&<p className="mt-4 rounded-xl bg-slate-50 p-4 text-sm text-slate-500">No Savings Goals yet. Add one to start tracking your progress.</p>}
+    {!all.length&&!editor&&<p className="mt-4 rounded-xl bg-slate-50 p-3 text-sm text-slate-500">{zh?"暂无储蓄目标":"No goals yet"}</p>}
     <div className="mt-3 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
       {all.map(g=>{
         const p=savingsGoalProgress(g,autoContext);
@@ -113,9 +116,10 @@ export default function FinanceSavingsGoals({goals=[],onSave,disabled=false,savi
             <div className="h-full rounded-full bg-emerald-600" style={{width:Math.min(100,Math.max(0,p.percent))+"%"}}/>
           </div>
           <p className="mt-2 text-xs text-slate-600">{p.percent.toFixed(1)}% · {money(p.remaining)} {zh ? "剩余" : "remaining"}</p>
-          <p className="mt-1 text-xs text-slate-500">{p.mode==="auto"
-            ? (zh?"自动 · 总余额 − 月度预算 × ":"Auto · Balance − monthly budget × ")+(g.budgetMultiplier??1)
-            : (zh?"手动已存金额":"Manual saved amount")}</p>
+          <p className="mt-1 text-xs text-slate-500"
+            title={zh?"自动进度根据账户余额与完整月度预算估算，不会写入真实收入或支出。":"Auto progress estimates from balance and full monthly budget; it does not write Income or Expense."}>
+            {p.mode==="auto"?(zh?"自动 × ":"Auto × ")+(g.budgetMultiplier??1):(zh?"手动":"Manual")}
+          </p>
           {g.deadline&&<p className="mt-1 text-xs text-slate-500">{zh ? "目标日期：" : "Target date: "}{g.deadline}</p>}
           <div className="mt-3 flex gap-2">
             <button type="button" disabled={disabled||busy} onClick={event=>start(g,event.currentTarget)}
@@ -167,13 +171,19 @@ export default function FinanceSavingsGoals({goals=[],onSave,disabled=false,savi
                 onChange={e=>setDraft(p=>({...p,budgetMultiplier:e.target.value}))}
                 className="mt-1 w-full rounded-xl border border-slate-300 bg-white px-3 py-2"/>
             </label>
-            <p className="mt-2 text-xs text-slate-600">{zh?"当前总余额":"Current Balance"} {money(overallBalance)} − {zh?"当月完整预算":"Full monthly budget"} {money(fullMonthBudget)} × {draft.budgetMultiplier||"?"}</p>
+            <p className="mt-2 text-xs text-slate-600"
+              title={zh?"当前余额 − 当月完整预算 × 倍数":"Current Balance − full monthly budget × multiplier"}>
+              {money(overallBalance)} − {money(fullMonthBudget)} × {draft.budgetMultiplier||"?"}
+            </p>
             {autoPreviewError?<p role="alert" className="mt-1 text-xs font-semibold text-red-700">{autoPreviewError}</p>
               :<p className="mt-1 font-bold text-slate-900">{zh?"自动计算的已存金额：":"Auto saved estimate:"} {money(autoPreview)}</p>}
           </div>}
 
         <div className="rounded-xl bg-slate-50 p-3 text-sm">
-          <p className="text-slate-600">{zh?"共享可用储蓄余额（不等于目标进度）":"Shared available savings (not goal progress)"}</p>
+          <p className="text-slate-600"
+            title={zh?"多个目标共用同一可用余额，这不是单个目标的已存金额。":"Goals share this available balance; it is not an individual goal's saved progress."}>
+            {zh?"可用储蓄（共享）":"Shared available savings"}
+          </p>
           <p className="mt-1 font-bold text-slate-900">{money(available)}</p>
         </div>
         <label className="text-sm">Target date (optional)

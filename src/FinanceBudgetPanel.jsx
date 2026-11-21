@@ -129,7 +129,10 @@ export default function FinanceBudgetPanel({
           </div>
         ))}
       </div>
-      {dirty && <p className="mt-3 text-xs font-semibold text-amber-700">Unsaved monthly edits — summary above shows last saved values until you save.</p>}
+      {dirty && <p className="mt-3 text-xs font-semibold text-amber-700"
+        title={language==="zh"?"预算摘要仍是上次保存的数值，保存前修改不会写入云端。":"The summary shows last-saved values until you save the monthly edits."}>
+        {language==="zh"?"预算修改未保存":"Unsaved budget edits"}
+      </p>}
       <div className="mt-4 flex flex-wrap gap-2">
         <button type="button" disabled={busy} onClick={saveMonth}
           className="rounded-xl bg-slate-900 px-4 py-3 text-sm font-bold text-white disabled:opacity-50">
