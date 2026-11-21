@@ -1203,10 +1203,10 @@ useEffect(() => {
         // Full count-verified read, including soft-deleted rows, before each INSERT.
         // Compare all accounts with the ledger expected after our preceding steps.
         const latest=await fetchFinanceSnapshot(supabase,accountId);
-        const remote=calculateMethodBalances(
+        const remote=withClaimMethodBalances(calculateMethodBalances(
           latest.records.map(r=>({...r,method:recordMethod(r)})),latest.transfers,
           accountMethodOptions,latest.settingsRow?.opening_balances||{},normalizeMethodForBalance
-        );
+        ),claimCashMovements(latest.claims,latest.repayments),localToday,normalizeMethodForBalance);
         const expected=new Map(validated.rows.map(r=>[r.method,Math.round(r.ledger*100)]));
         for(const prior of validated.transfers.slice(0,i)){
           const sen=Math.round(prior.amount*100);
