@@ -37,8 +37,7 @@ export default function FinanceOpeningBalancePanel({methods, balances, onSave, d
       🏦 Opening Balance / 初始余额
     </button>
     <FinanceOverlay open={open} title="Opening Balance / 初始余额" onClose={close} widthClass="max-w-xl" triggerRef={openingTriggerRef}>
-      <form onSubmit={save} className="space-y-3">
-        <p className="text-sm text-slate-600">Account starting amounts, not Income. Saved per user; historical records remain untouched. Negative values are allowed.</p>
+      <form onSubmit={save} className="space-y-3" title="Account starting amounts, not Income. Saved per user; historical records remain untouched. Negative values are allowed.">
         {methods.map(method=><label key={method} className="flex items-center justify-between gap-3 text-sm">
           <span className="font-semibold" data-i18n-ignore>{method}</span>
           <input type="text" inputMode="decimal" aria-label={method+" opening balance"}
