@@ -176,14 +176,18 @@ export default function FinanceExpandedTrendOverlay({
                         <span className="text-slate-600">Daily expense</span>
                         <strong className="tabular-nums text-red-700">{rm(day?.expense)}</strong>
                       </div>
-                      <div className="flex items-center justify-between gap-3 border-t border-slate-200 pt-2">
-                        <span className="text-slate-600">Daily net change</span>
+                      <div className="flex items-center justify-between gap-3">
+                         <span className="text-slate-600">Claim cash movement</span>
+                         <strong className="tabular-nums text-amber-700">{rm(day?.claimDelta)}</strong>
+                       </div>
+                       <div className="flex items-center justify-between gap-3 border-t border-slate-200 pt-2">
+                        <span className="text-slate-600">Actual cash change (incl. claims)</span>
                         <strong className="tabular-nums text-slate-800">{rm(selected.dailyBalance)}</strong>
                       </div>
                     </div>
                     <p className="text-xs leading-relaxed text-slate-500">
                       This is the cumulative balance within the current record filter,
-                      not a verified bank balance. Planned income and transfers are not counted as transactions.
+                      not a verified bank balance. Claims affect cash only, not personal Income or Expense. Planned income is excluded.
                     </p>
                   </>
                 )}
