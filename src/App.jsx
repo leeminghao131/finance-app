@@ -386,7 +386,7 @@ function TopExpensesCard({ records, label, category, setCategory, expenseCategor
         <div>
           <h2 className="text-xl font-bold">Top 5 Highest Expenses</h2>
           <p className="mh-cosmic-top5__detail mt-1 text-sm text-slate-500">
-            最大消费排行 · {label}{category !== "all" ? ` · ${category}` : ""}
+            {label}{category !== "all" ? ` · ${category}` : ""}
           </p>
         </div>
 
@@ -2841,7 +2841,7 @@ return (
   ref={spendingTrendTriggerRef} role="button" tabIndex={0} aria-label="Expand Spending Trend" title="Click to expand Spending Trend"
   onClick={() => setExpandedTrend("expense")}
   onKeyDown={(event) => { if (event.key === "Enter" || event.key === " ") { event.preventDefault(); setExpandedTrend("expense"); } }}>
-  {trendData.length ? <FinanceNativeChart rows={trendData} kind="expense" compact label="Spending Trend" hidePointsOnMobile maxTicksMobile={4} /> : <div className="flex h-full items-center justify-center text-slate-500">No expense trend data.</div>}</div><div className="mt-4 border-t border-slate-200 pt-3"><p className="mb-2 text-sm font-bold text-slate-700">Filtered Balance Trend</p><p className="mb-2 text-xs text-slate-500">Actual cumulative balance including opening amounts and prior records; category and keyword filters do not change it.</p><div className="mh-modal-trigger h-[188px] min-w-0 cursor-zoom-in rounded-xl sm:h-40 focus-visible:outline focus-visible:outline-2 focus-visible:outline-blue-500"
+  {trendData.length ? <FinanceNativeChart rows={trendData} kind="expense" compact label="Spending Trend" hidePointsOnMobile maxTicksMobile={4} /> : <div className="flex h-full items-center justify-center text-slate-500">No expense trend data.</div>}</div><div className="mt-4 border-t border-slate-200 pt-3"><p className="mb-2 text-sm font-bold text-slate-700" title="Actual cumulative balance includes opening amounts and prior records; category and keyword filters do not change it.">Filtered Balance Trend</p><div className="mh-modal-trigger h-[188px] min-w-0 cursor-zoom-in rounded-xl sm:h-40 focus-visible:outline focus-visible:outline-2 focus-visible:outline-blue-500"
   ref={balanceTrendTriggerRef} role="button" tabIndex={0} aria-label="Expand Filtered Balance Trend" title="Click to expand Balance Trend"
   onClick={() => setExpandedTrend("balance")}
   onKeyDown={(event) => { if (event.key === "Enter" || event.key === " ") { event.preventDefault(); setExpandedTrend("balance"); } }}>
