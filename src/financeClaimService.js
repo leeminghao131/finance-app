@@ -57,6 +57,23 @@ export async function createFinanceClaimRepayment(client,userId,claim,draft,exis
   requireOwner(userId);
   if(!claim||claim.user_id!==userId)throw new Error("Claim owner mismatch.");
   if(!requestId)throw new Error("Missing stable reimbursement request ID.");
+  // Check this exact request BEFORE recalculating outstanding. A previous write
+  // may have committed while the network response was lost; then the claim is
+  // already fully repaid and validating a fresh payment would falsely reject
+  // a safe retry. The recovered row is never inserted or counted twice.
+  const recovered=await findRequest(client,"finance_claim_repayments",userId,requestId,repaymentColumns);
+  if(recovered){
+    const expected={
+      claim_id:claim.id,
+      amount:claimSen(draft.amount)/100,
+      method:String(draft.method||"").trim(),
+      received_on:requireCalendarDate(draft.received_on),
+      note:String(draft.note||"").trim().slice(0,1000),
+    };
+    if(!matches(recovered,expected,["claim_id","amount","method","received_on","note"]))
+      throw new Error("This reimbursement request ID belongs to a different payment; refusing duplicate or overwrite.");
+    return recovered;
+  }
   const payload=validateClaimRepayment(draft,claim,existing);
   return idempotentInsert(client,{
     table:"finance_claim_repayments",userId,requestId,payload,columns:repaymentColumns,
