@@ -6,6 +6,7 @@ import FinanceMonthComparison from "./FinanceMonthComparison.jsx";
 import FinanceSavingsGoals from "./FinanceSavingsGoals.jsx";
 import FinanceOverlay from "./FinanceOverlay.jsx";
 import FinanceDataToolsLauncher from "./FinanceDataToolsLauncher.jsx";
+import FinanceClaimTracker from "./FinanceClaimTracker.jsx";
 import {useFinanceLanguage} from "./FinanceLanguageLayer.jsx";
 import {readDockOrder,saveDockOrder,moveDockItem} from "./financeDockOrder.js";
 
@@ -32,6 +33,8 @@ export default function FinanceInsightsDock({
   goals=[],onSaveSavingsGoals,savingsAvailability,budgetMonth,calculationError,
   disabled=false,onOpenStage2Tool=()=>{},onOpenDataTool=()=>{},
   activities=[],activityLinks=[],onCreateActivity,onUpdateActivity,onLinkActivity,onUnlinkActivity,
+  claims=[],claimRepayments=[],methodsForClaims=[],onCreateClaim,onSubmitClaim,onCancelClaim,
+  onRepayClaim,onVoidClaimRepayment,claimOpenRequest=null,onClaimOpenRequestHandled=()=>{},
   activityOpenRequest=0,activityStatusTriggerRef=null,onActivityOpenRequestHandled=()=>{},
 }){
   const {language}=useFinanceLanguage(),zh=language==="zh";
@@ -173,6 +176,14 @@ export default function FinanceInsightsDock({
         <span className="mh-insights-dock__label">{zh?"余额对账":"Balance Check"}</span>
         <span className="mh-insights-dock__icon" aria-hidden="true">🏦</span>
       </button>},
+    {id:"claims",label:zh?"垫付报销":"Claim Tracker",icon:"🧾",node:
+      <FinanceClaimTracker claims={claims} repayments={claimRepayments}
+        methods={[...new Set([...((methodsForClaims)||[]),...claims.map(c=>c.method),...claimRepayments.map(r=>r.method)])]}
+        userId={userId} disabled={disabled}
+        onCreate={onCreateClaim} onSubmitClaim={onSubmitClaim}
+        onCancelClaim={onCancelClaim} onRepay={onRepayClaim}
+        onVoidRepayment={onVoidClaimRepayment}
+        openRequest={claimOpenRequest} onOpenRequestHandled={onClaimOpenRequestHandled}/>},
     {id:"data-tools",label:zh?"导入／导出":"Import / Export",icon:"⇅",node:
       <FinanceDataToolsLauncher disabled={disabled} onOpen={onOpenDataTool}/>}
 
