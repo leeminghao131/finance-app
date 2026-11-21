@@ -85,7 +85,8 @@ export default function FinanceClaimTracker({
     if(!localizedFinanceConfirm(t("撤销这笔报销到账记录？待报销金额会恢复。","Void this reimbursement? Outstanding amount will increase again.")))return;
     await run(()=>onVoidRepayment(row),t("报销记录已安全撤销。","Repayment voided; original history retained."));
   };
-  const statusLabel=claim=>claim.status==="completed"?t("已全部收回","Fully Reimbursed"):
+  const statusLabel=claim=>claim.status==="cancelled"?t("已取消 · 保留历史","Cancelled · History kept"):
+    claim.status==="completed"?t("已全部收回","Fully Reimbursed"):
     claim.status==="submitted"?t("等待公司报销","Awaiting Reimbursement"):t("尚未提交 Claim","Not Submitted");
   const fieldClass="mh-claim-input";
   return <>
@@ -185,7 +186,7 @@ export default function FinanceClaimTracker({
                   className="is-primary" onClick={()=>paying?setRepayFor(null):selectRepay(claim)}>
                   {paying?t("关闭收款","Close Repayment"):t("＋ 记录收到报销","＋ Record Reimbursement")}
                 </button>}
-                {!liveRows.length&&<button type="button" disabled={busy||disabled}
+                {!claim.cancelled_at&&!liveRows.length&&<button type="button" disabled={busy||disabled}
                   className="is-danger" onClick={()=>removeClaim(claim)}>
                   {t("取消错误垫付","Cancel Claim")}
                 </button>}
