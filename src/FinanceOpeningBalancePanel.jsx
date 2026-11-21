@@ -1,5 +1,6 @@
 import React, {useEffect, useRef, useState} from "react";
 import FinanceOverlay from "./FinanceOverlay.jsx";
+import {localizedFinanceConfirm} from "./FinanceLanguageLayer.jsx";
 import {parseOpeningAmount} from "./financeOpeningBalance.js";
 
 export default function FinanceOpeningBalancePanel({methods, balances, onSave, disabled}) {
@@ -15,7 +16,7 @@ export default function FinanceOpeningBalancePanel({methods, balances, onSave, d
     if (busy) return;
     if (JSON.stringify(Object.fromEntries(Object.entries(draft).map(([k,v])=>[k,String(v)]))) !==
         JSON.stringify(Object.fromEntries(methods.map(k=>[k,String(balances[k] ?? "0.00")])))) {
-      if (!window.confirm("Discard unsaved opening balance changes?")) return;
+      if (!localizedFinanceConfirm("Discard unsaved opening balance changes?")) return;
     }
     setOpen(false);setError("");
   }
