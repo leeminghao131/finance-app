@@ -49,6 +49,7 @@ import "./financeCosmicCharts.css";
 import "./financeNativeCharts.css";
 import "./financeClaimTracker.css";
 import "./financeHeatmapDetails.css";
+import "./financeLegibilitySweep.css";
 import FinanceNativeChart from "./FinanceNativeChart.jsx";
 // Load import/export tools only when opened; keep spreadsheet parsing out of the dashboard bundle.
 const FinanceCsvImportPanel = React.lazy(() => import("./FinanceCsvImportPanel.jsx"));
@@ -349,7 +350,6 @@ function HeatmapCard({ days, label, records = [] }) {
   return (
     <Card className="mh-cosmic-panel mh-cosmic-heatmap">
       <h2 className="text-xl font-bold">Spending Heatmap / 消费热力图</h2>
-      <p className="mt-1 text-xs text-slate-500">点击日期查看当天真实收入与支出 · Tap a date for daily records</p>
       <div className="mt-4 grid gap-2" style={{ gridTemplateColumns: "repeat(auto-fit, minmax(80px, 1fr))" }}>
         {days.map((d) => {
           const intensity = d.amount > 0 ? 0.18 + (d.amount / max) * 0.72 : 0.06;

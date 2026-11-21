@@ -123,7 +123,7 @@ export default function FinanceForecastPanel({records,selectedMonth,asOfDate,pla
               maxTicksMobile={4} maxTicksDesktop={7}
             />
           </div>
-            <p className="mt-2 text-xs text-slate-500">{data.note} · Forecasts are estimates, not guarantees.</p>
+            <p className="mt-2 text-xs text-slate-500">{data.note}</p>
           </div>
         )}
       </div>

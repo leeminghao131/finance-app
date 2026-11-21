@@ -64,10 +64,6 @@ export default function FinanceTransferPanel({
         <div>
           <p className="mh-transfer-console__eyebrow">{t("环形资金转移台","CIRCULAR TRANSFER CONSOLE")}</p>
           <h2 className="mh-transfer-console__title">{t("资金转账","Money Transfer")}</h2>
-          <p className="mh-transfer-console__subtitle">{t(
-            "每个付款方式都在同一个资金圆环上；从一个账户拖动到另一个账户。",
-            "All payment methods share one orbit. Drag from a source to a destination."
-          )}</p>
         </div>
         <button ref={historyTriggerRef} type="button" disabled={disabled}
           aria-haspopup="dialog" aria-expanded={historyOpen}

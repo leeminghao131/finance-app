@@ -32,7 +32,7 @@ export default function FinanceSavingsGoals({goals=[],onSave,disabled=false,savi
   };
   const close=()=>{
     if(busy)return;
-    if(editor&&(!window.confirm("Discard unsaved Savings Goal changes?")))return;
+    if(editor&&(!window.confirm(zh ? "放弃未保存的储蓄目标修改？" : "Discard unsaved Savings Goal changes?")))return;
     setEditor(null);setError("");
   };
   const commit=async(next,baseline)=>{
@@ -61,7 +61,7 @@ export default function FinanceSavingsGoals({goals=[],onSave,disabled=false,savi
   }
   async function remove(goal){
     if(disabled||busy)return;
-    if(!window.confirm("Delete Savings Goal '"+goal.title+"'? Only this goal plan is removed. No financial transactions or transfers will be deleted."))return;
+    if(!window.confirm(zh ? "删除储蓄目标“"+goal.title+"”？只删除目标计划，不会删除真实交易或转账。" : "Delete Savings Goal '"+goal.title+"'? Only this goal plan is removed. No financial transactions or transfers will be deleted."))return;
     const baseline=JSON.stringify(goals);
     if(await commit(goals.filter(g=>g.id!==goal.id),baseline))setEditor(null);
   }
@@ -96,7 +96,7 @@ export default function FinanceSavingsGoals({goals=[],onSave,disabled=false,savi
     <div className="mt-3 rounded-xl bg-slate-50 p-3 text-sm ring-1 ring-slate-200">
       <p className="font-semibold text-slate-700">{zh?"共享可用储蓄余额（只读）":"Available savings (shared, read-only)"}: <span className="text-slate-900">{money(available)}</span></p>
       <p className="mt-1 text-xs text-slate-600">{zh?"当前总余额":"Current Balance"} {money(overallBalance)} − {budgetMonth} {zh?"当月剩余预算":"Unspent monthly budget"} {money(reservedBudget)} = {money(savingsAvailability?.netAfterBudget ?? 0)}</p>
-      {shortfall>0&&<p className="mt-1 text-xs font-semibold text-amber-800">Budget exceeds Balance by {money(shortfall)}. Available savings shown as RM0.00.</p>}
+      {shortfall>0&&<p className="mt-1 text-xs font-semibold text-amber-800">{zh ? "预算超过余额：" : "Budget exceeds Balance by "}{money(shortfall)}. {zh ? "可用储蓄金额显示为 RM0.00。" : "Available savings shown as RM0.00."}</p>}
       
     </div>
     {!all.length&&!editor&&<p className="mt-4 rounded-xl bg-slate-50 p-4 text-sm text-slate-500">No Savings Goals yet. Add one to start tracking your progress.</p>}
@@ -112,11 +112,11 @@ export default function FinanceSavingsGoals({goals=[],onSave,disabled=false,savi
           <div className="mt-2 h-2 w-full overflow-hidden rounded-full bg-slate-200">
             <div className="h-full rounded-full bg-emerald-600" style={{width:Math.min(100,Math.max(0,p.percent))+"%"}}/>
           </div>
-          <p className="mt-2 text-xs text-slate-600">{p.percent.toFixed(1)}% · {money(p.remaining)} remaining</p>
+          <p className="mt-2 text-xs text-slate-600">{p.percent.toFixed(1)}% · {money(p.remaining)} {zh ? "剩余" : "remaining"}</p>
           <p className="mt-1 text-xs text-slate-500">{p.mode==="auto"
             ? (zh?"自动 · 总余额 − 月度预算 × ":"Auto · Balance − monthly budget × ")+(g.budgetMultiplier??1)
             : (zh?"手动已存金额":"Manual saved amount")}</p>
-          {g.deadline&&<p className="mt-1 text-xs text-slate-500">Target date: {g.deadline}</p>}
+          {g.deadline&&<p className="mt-1 text-xs text-slate-500">{zh ? "目标日期：" : "Target date: "}{g.deadline}</p>}
           <div className="mt-3 flex gap-2">
             <button type="button" disabled={disabled||busy} onClick={event=>start(g,event.currentTarget)}
               className="mh-modal-trigger min-h-11 rounded-lg border border-slate-300 bg-white px-3 py-2 text-xs font-bold disabled:opacity-50">Edit / Update</button>
@@ -155,11 +155,10 @@ export default function FinanceSavingsGoals({goals=[],onSave,disabled=false,savi
           </div>
         </fieldset>
         {draft.savedMode==="manual"?
-          <label className="text-sm">Saved towards this goal (RM)
+          <label className="text-sm" title={zh ? "仅记录目标进度，不会新增真实收入或转账。" : "Manual progress only; does not create an Income or Transfer."}>Saved towards this goal (RM)
             <input required type="text" inputMode="decimal" value={draft.saved}
               onChange={e=>setDraft(p=>({...p,saved:e.target.value}))}
               className="mt-1 w-full rounded-xl border border-slate-300 px-3 py-2"/>
-            <span className="mt-1 block text-xs text-slate-500">Manual progress only; does not create an Income or Transfer.</span>
           </label>
           :
           <div className="min-w-0 rounded-xl bg-slate-50 p-3 text-sm">
@@ -171,13 +170,11 @@ export default function FinanceSavingsGoals({goals=[],onSave,disabled=false,savi
             <p className="mt-2 text-xs text-slate-600">{zh?"当前总余额":"Current Balance"} {money(overallBalance)} − {zh?"当月完整预算":"Full monthly budget"} {money(fullMonthBudget)} × {draft.budgetMultiplier||"?"}</p>
             {autoPreviewError?<p role="alert" className="mt-1 text-xs font-semibold text-red-700">{autoPreviewError}</p>
               :<p className="mt-1 font-bold text-slate-900">{zh?"自动计算的已存金额：":"Auto saved estimate:"} {money(autoPreview)}</p>}
-            <p className="mt-1 text-xs text-slate-500">{zh?"实时计算此目标的进度，不会覆盖原来的手动已存金额，也不会实际转移资金。":"Calculated live for this goal. Does not change your stored manual saved amount or move money."}</p>
           </div>}
 
         <div className="rounded-xl bg-slate-50 p-3 text-sm">
           <p className="text-slate-600">{zh?"共享可用储蓄余额（不等于目标进度）":"Shared available savings (not goal progress)"}</p>
           <p className="mt-1 font-bold text-slate-900">{money(available)}</p>
-          <p className="text-xs text-slate-500">{zh?"当前总余额 − "+budgetMonth+" 当月未使用预算；自动模式另外使用当月完整预算 × X。":"Current Balance − "+budgetMonth+" unspent budget. Auto mode separately uses the full monthly budget × X."}</p>
         </div>
         <label className="text-sm">Target date (optional)
           <input type="date" value={draft.deadline} onChange={e=>setDraft(p=>({...p,deadline:e.target.value}))}

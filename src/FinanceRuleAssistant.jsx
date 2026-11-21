@@ -95,10 +95,6 @@ export default function FinanceRuleAssistant({ctx,userId,onOpenTool=()=>{}}){
           })}
         </div>
       </div>
-      <p className="px-3 pb-2 text-[11px] text-slate-500">
-        {zh?"只读，不修改或删除交易。同步未完成时不提供未经验证的金额。":
-          "Read-only; never edits or deletes data. Incomplete sync blocks unverified figures."}
-      </p>
     </section>}
   </div>;
 }

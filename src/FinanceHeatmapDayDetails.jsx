@@ -51,17 +51,12 @@ export default function FinanceHeatmapDayDetails({
   return <FinanceOverlay open={open}
     title={(zh?"每日收支明细":"Daily Income & Expense")+" · "+(date||"")}
     onClose={onClose} triggerRef={triggerRef} widthClass="max-w-3xl">
-    <div className="mh-heat-detail" aria-label="Heatmap daily income and expense details">
+    <div className="mh-heat-detail" aria-label="Heatmap daily income and expense details" title={zh ? "日期明细是当天完整的真实收支；热力图格子仍采用当前筛选。转账与预计收入不计入真实收支。" : "Daily details include all actual income and expenses; the heatmap cell follows filters. Transfers and planned income are excluded."}>
       <div className="mh-heat-detail__summary">
         <div><small>{zh?"真实收入":"Actual income"}</small><strong className="is-income">{rm(dailyIncome)}</strong></div>
         <div><small>{zh?"真实支出":"Actual expense"}</small><strong className="is-expense">{rm(dailyExpense)}</strong></div>
         <div><small>{zh?"当天净收支":"Daily net"}</small><strong>{rm(dailyIncome-dailyExpense)}</strong></div>
       </div>
-      <p className="mh-heat-detail__hint">
-        {zh?
-          "明细显示所选日期的全部真实收入与支出。热力图方格的金额仍按页面分类及关键词筛选计算。转账及预计收入不属于真实收支。":
-          "Details show all actual income and expenses for the selected date. The heatmap cell still follows the current category and keyword filters. Transfers and expected income are not real income or expenses."}
-      </p>
       <div className="mh-heat-detail__columns">
         {details(expenses,"expense")}
         {details(incomes,"income")}
