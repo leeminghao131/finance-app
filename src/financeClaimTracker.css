@@ -1,0 +1,177 @@
+/*
+ * Claim Tracker — Steam × Cosmic / copper, brass, deep-navy, teal accents.
+ * Scoped CSS; isolated from ordinary expense/transfer cards.
+ * GPU-friendly transform/opacity only; reduced-motion friendly.
+ */
+.mh-claim-dock-launcher{position:relative}
+.mh-claim-dock-count{
+  position:absolute;right:4px;top:2px;min-width:19px;height:19px;
+  display:grid;place-items:center;border:1px solid #f9dbb0;
+  background:#9d4e3d;color:#fff4e4;border-radius:50%;
+  font-size:10px;font-weight:900;line-height:1;
+  box-shadow:0 1px 6px #0008
+}
+.mh-claim-console{
+  position:relative;isolation:isolate;overflow:hidden;
+  border:1px solid rgba(205,159,89,.58);border-radius:18px;
+  padding:clamp(12px,2.5vw,22px);color:#f8ebd7;
+  background:
+    radial-gradient(circle at 78% 2%,rgba(82,167,177,.14),transparent 35%),
+    radial-gradient(circle at 10% 45%,rgba(204,146,75,.13),transparent 34%),
+    linear-gradient(152deg,#1a3547,#0d2133 63%,#192735);
+  box-shadow:0 10px 24px #0006,inset 0 1px #ffe2b125;
+}
+.mh-claim-console::before{
+  position:absolute;content:"";inset:8px;border:1px solid rgba(210,169,109,.22);
+  border-radius:13px;pointer-events:none;z-index:-1
+}
+.mh-claim-orbit{
+  position:absolute;right:-27px;top:-74px;
+  width:205px;height:205px;border-radius:50%;
+  border:1px dashed #d8aa6547;
+  pointer-events:none;opacity:.6
+}
+.mh-claim-orbit::before,.mh-claim-orbit::after{
+  content:"";position:absolute;border-radius:50%;inset:15px;
+  border:1px dashed #76bbb656
+}
+.mh-claim-orbit::after{inset:39px;border-style:solid;border-color:#cfab704a}
+.mh-claim-orbit > span{
+  position:absolute;top:12px;left:42%;color:#edd09a;
+  text-shadow:0 0 13px #f0cf8880;
+  animation:mh-claim-star 5s ease-in-out infinite
+}
+.mh-claim-summary{
+  position:relative;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));
+  gap:clamp(7px,2vw,14px);margin-bottom:14px
+}
+.mh-claim-summary > div{
+  display:flex;flex-direction:column;gap:5px;min-width:0;
+  padding:clamp(12px,2.5vw,18px);border-radius:14px;
+  background:linear-gradient(148deg,#2e4051,#172d3f);
+  border:1px solid #a47e4d;box-shadow:inset 0 1px #fff2,0 4px 12px #0004
+}
+.mh-claim-summary > div:nth-child(2){border-color:#558f87}
+.mh-claim-summary small{font-size:10px;letter-spacing:.12em;font-weight:850;color:#e8bc83}
+.mh-claim-summary > div:nth-child(2) small{color:#98dfcf}
+.mh-claim-summary strong{
+  font-size:clamp(19px,3.8vw,30px);
+  font-weight:900;letter-spacing:-.01em;line-height:1.2;
+  font-variant-numeric:tabular-nums;overflow-wrap:anywhere
+}
+.mh-claim-summary > div:nth-child(2) strong{color:#b5f0d9}
+.mh-claim-summary span{font-size:11px;color:#c2d1d7}
+.mh-claim-explainer{
+  margin:3px 0 15px;font-size:12px;line-height:1.6;color:#b9cbd3;
+  border-left:2px solid #c1a078;padding:3px 0 3px 10px
+}
+.mh-claim-toolbar{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:10px;margin:14px 0}
+.mh-claim-tabs{
+  display:flex;flex-wrap:wrap;gap:5px;padding:4px;
+  background:#0b1e2e;border:1px solid #755e45;border-radius:12px
+}
+.mh-claim-tabs button{
+  min-height:42px;padding:8px 12px;border-radius:8px;
+  font-size:11px;font-weight:800;color:#c8d4da;
+  transition:background .17s ease,color .17s ease
+}
+.mh-claim-tabs button.is-selected{
+  color:#1c2935;background:linear-gradient(135deg,#f5d4a0,#c99c61);
+  box-shadow:0 2px 8px #0008
+}
+.mh-claim-create,.mh-claim-save{
+  min-height:44px;padding:10px 16px;border:1px solid #d9ae78;border-radius:11px;
+  background:linear-gradient(112deg,#e9c48b,#c18d55 65%,#87b5b1);
+  color:#192637;font-size:12px;font-weight:900;letter-spacing:.015em;
+  box-shadow:inset 0 1px #fff8,0 4px 12px #0006;
+  transition:transform .18s ease,filter .18s ease,box-shadow .18s ease
+}
+.mh-claim-create:not(:disabled):hover,.mh-claim-save:not(:disabled):hover{
+  transform:translateY(-2px);filter:brightness(1.07);
+  box-shadow:0 6px 15px #0008,0 0 14px #edc79044
+}
+.mh-claim-console button:disabled{opacity:.48;cursor:not-allowed}
+.mh-claim-form{
+  position:relative;display:grid;gap:12px;margin:12px 0;padding:15px;
+  background:linear-gradient(145deg,#294052,#122738);
+  border:1px solid #b69060;border-radius:15px;box-shadow:inset 0 1px #ffe4a822
+}
+.mh-claim-form h3,.mh-claim-form h4{margin:0;color:#f2d19c;font-size:13px;font-weight:850}
+.mh-claim-fields{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:11px}
+.mh-claim-fields label{display:flex;flex-direction:column;gap:5px;min-width:0;color:#ded7c7;font-size:11px;font-weight:750}
+.mh-claim-input{
+  display:block;width:100%;min-height:43px;padding:9px 11px;
+  border-radius:10px;border:1px solid #8b714f;
+  color:#f6ecdd;background:#0a1c2c;color-scheme:dark;
+  font-size:13px;outline:none;box-shadow:inset 0 1px 5px #0008
+}
+.mh-claim-input:focus{border-color:#e7c48a;box-shadow:0 0 0 2px #e7c48a4a}
+.mh-claim-input::placeholder{color:#98acb8}
+.mh-claim-list{display:flex;flex-direction:column;gap:12px}
+.mh-claim-item{
+  min-width:0;border:1px solid #6f685d;border-radius:15px;
+  padding:clamp(11px,2.6vw,17px);
+  background:linear-gradient(155deg,#2a3e50,#142838);
+  box-shadow:inset 0 1px #fff2,0 3px 10px #0005;
+}
+.mh-claim-item-header{display:flex;align-items:flex-start;justify-content:space-between;gap:9px;flex-wrap:wrap}
+.mh-claim-item-title{color:#fff1d8;font-size:15px;font-weight:850;overflow-wrap:anywhere}
+.mh-claim-item-meta{margin-top:4px;color:#bbcad2;font-size:11px;overflow-wrap:anywhere}
+.mh-claim-status{
+  border:1px solid #af8c57;padding:5px 8px;border-radius:30px;
+  background:#5d452a;color:#fbe0ad;font-size:10px;font-weight:750
+}
+.mh-claim-status--submitted{border-color:#a48056;background:#463626}
+.mh-claim-status--completed{border-color:#68b3a2;background:#1b4b45;color:#9ff1d1}
+.mh-claim-item-money{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin:14px 0 11px}
+.mh-claim-item-money > div{display:grid;gap:4px;min-width:0}
+.mh-claim-item-money small{font-size:9px;letter-spacing:.12em;color:#afbfc7;font-weight:750}
+.mh-claim-item-money strong{font-size:clamp(13px,2.7vw,18px);font-weight:900;color:#f2ebdb;overflow-wrap:anywhere}
+.mh-claim-item-money strong.mh-claim-owed{color:#f1bc7c}
+.mh-claim-progress{
+  height:5px;border-radius:20px;overflow:hidden;background:#081b28;
+  border:1px solid #56707a5c
+}
+.mh-claim-progress > div{
+  height:100%;border-radius:20px;background:linear-gradient(90deg,#97754f,#e2bf7a,#78c6b2);
+  transition:width .3s ease;box-shadow:0 0 9px #a2ebd078
+}
+.mh-claim-item-note{margin-top:9px;color:#c6d2d9;font-size:11px;overflow-wrap:anywhere}
+.mh-claim-actions{display:flex;gap:6px;flex-wrap:wrap;margin-top:13px}
+.mh-claim-actions button,.mh-claim-repayment-row button{
+  min-height:42px;border:1px solid #8d785a;border-radius:10px;padding:9px 11px;
+  background:#21384a;color:#f0d7b2;font-size:11px;font-weight:800;
+  transition:background .18s ease,transform .18s ease
+}
+.mh-claim-actions button:hover:not(:disabled),.mh-claim-repayment-row button:hover:not(:disabled){
+  background:#3e5360;transform:translateY(-1px)
+}
+.mh-claim-actions button.is-primary{border-color:#76c2b0;color:#b3f1e2;background:#1a4e49}
+.mh-claim-actions button.is-danger{border-color:#86595b;color:#eab3b3}
+.mh-claim-repay-form{margin-bottom:0}
+.mh-claim-repayment-history{margin-top:10px;border-top:1px solid #69818b67;padding-top:10px}
+.mh-claim-repayment-history summary{cursor:pointer;color:#cfba9d;font-size:11px;font-weight:750;min-height:34px}
+.mh-claim-repayment-row{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:8px;border-top:1px solid #ffffff15}
+.mh-claim-repayment-row p{font-size:12px;font-weight:800}
+.mh-claim-repayment-row small{font-size:10px;color:#afbec8}
+.mh-claim-repayment-row .is-void{text-decoration:line-through;opacity:.55}
+.mh-claim-repayment-row button{min-width:60px}
+.mh-claim-error,.mh-claim-success{padding:10px;border-radius:9px;font-size:12px;line-height:1.5;margin-bottom:12px}
+.mh-claim-error{border:1px solid #b76f6f;background:#4b2a32;color:#ffd4d4}
+.mh-claim-success{border:1px solid #63ad93;background:#173d37;color:#c4ffe2}
+.mh-claim-empty{color:#b4c8d1;padding:28px 12px;text-align:center;font-size:12px}
+@keyframes mh-claim-star{50%{opacity:.4;transform:scale(.75)}}
+@media(max-width:580px){
+  .mh-claim-console{padding:12px 9px}
+  .mh-claim-fields{grid-template-columns:1fr}
+  .mh-claim-summary > div{padding:10px}
+  .mh-claim-item-money{gap:4px}
+  .mh-claim-tabs{width:100%;justify-content:space-between}
+  .mh-claim-tabs button{flex:1;padding:8px 7px}
+  .mh-claim-create{width:100%}
+}
+@media(prefers-reduced-motion:reduce){
+  .mh-claim-orbit>span{animation:none}
+  .mh-claim-progress>div,.mh-claim-create,.mh-claim-save,.mh-claim-actions button,
+  .mh-claim-tabs button{transition:none}
+}
