@@ -48,6 +48,7 @@ export function calculateCashForecast(records, {
   trailingDays = 30,
   plannedIncomes = [],
   openingBalanceTotal = 0,
+  claimMovements = [],
 } = {}) {
   requireCalendarDate(asOfDate);
   if (![7, 30, 60].includes(trailingDays)) throw new Error("Unsupported trailing expense period");
@@ -60,8 +61,9 @@ export function calculateCashForecast(records, {
   const signedCents = (r) => (r.type === "income" ? 1 : -1) * cents(r.amount);
   const usedRecords = records.filter((r) => !r.deleted_at && r.date && ["income","expense"].includes(r.type));
   const openingCents = cents(openingBalanceTotal);
-  const currentCents = openingCents + usedRecords.filter(r => r.date <= asOfDate).reduce((sum,r) => sum + signedCents(r),0);
-  const pastEndCents = historical ? openingCents + usedRecords.filter(r => r.date <= target).reduce((sum,r) => sum + signedCents(r),0) : currentCents;
+  const claimCentsTo=date=>claimMovements.filter(e=>e.date<=date).reduce((sum,e)=>sum+e.sen,0);
+  const currentCents = openingCents + usedRecords.filter(r => r.date <= asOfDate).reduce((sum,r) => sum + signedCents(r),0)+claimCentsTo(asOfDate);
+  const pastEndCents = historical ? openingCents + usedRecords.filter(r => r.date <= target).reduce((sum,r) => sum + signedCents(r),0)+claimCentsTo(target) : currentCents;
   const expenseStart = previousCalendarDays(trailingDays,asOfDate);
   const expenseSum = usedRecords.filter(r => r.type==="expense" && r.date>=expenseStart && r.date<=asOfDate)
     .reduce((sum,r)=>sum+cents(r.amount),0);
@@ -80,7 +82,7 @@ export function calculateCashForecast(records, {
   if (actualDays > 0 && actualDays <= 400) {
     const actualDates = calendarDaysRange(actualStart,actualDays);
     for (const date of actualDates) {
-      const balance = openingCents + usedRecords.filter(r=>r.date<=date).reduce((sum,r)=>sum+signedCents(r),0);
+      const balance = openingCents + usedRecords.filter(r=>r.date<=date).reduce((sum,r)=>sum+signedCents(r),0)+claimCentsTo(date);
       timeline.push({date,day:date.slice(5),actual:money(balance),forecast:null});
     }
   }
@@ -102,6 +104,6 @@ export function calculateCashForecast(records, {
     expectedIncome:money(expectedCents), expectedExpense:money(projectedExpenseCents),
     predictedBalance:money(projectedBalanceCents), timeline,
     title: historical ? "Actual month-end balance" : horizon === "monthEnd" ? "Month-end forecast" : "Next "+(horizon==="30days"?"30":"90")+" days",
-    note:"Ledger estimate only; not verified bank balances. Expected income is not added to actual records.",
+    note:"Cash balance includes actual claim advances and received reimbursements, but neither is personal Income/Expense. Forecast is an estimate.",
   };
 }
