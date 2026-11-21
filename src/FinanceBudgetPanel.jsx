@@ -106,7 +106,6 @@ export default function FinanceBudgetPanel({
           <div className={summary.usage>=100?"h-full bg-red-600":summary.usage>=75?"h-full bg-amber-500":"h-full bg-green-600"}
             style={{width:String(Math.min(summary.usage,100))+"%"}}/>
         </div>
-        <p className="mt-1 text-xs text-slate-600">Used {summary.usage.toFixed(1)}% — 75% warning, 100% over budget</p>
       </div>}
 
       <div className="mt-5 grid gap-3 md:grid-cols-2">
