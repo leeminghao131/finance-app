@@ -48,6 +48,17 @@ for (const [en,zh] of financeLanguagePolish) {
   bySource.set(en,entry);
   bySource.set(zh,entry);
 }
+// Legacy bilingual captions must become a SINGLE language on screen.
+// These are UI-only aliases; persisted IDs and category/method keys are never touched.
+for (const [source,en,zh] of [
+  ["🏦 Opening Balance / 初始余额","🏦 Opening Balance","🏦 初始余额"],
+  ["Opening Balance / 初始余额","Opening Balance","初始余额"],
+  ["Expected Income / 预计收入","Expected Income","预计收入"],
+  ["Monthly Budget / 分类预算","Monthly Budget","月度预算"],
+  ["Cash Flow Forecast / 现金流预测","Cash Flow Forecast","现金流预测"],
+  ["Transfer History / 转账历史","Transfer History","转账历史"],
+  ["Savings Goals / 储蓄目标","Savings Goals","储蓄目标"],
+]) bySource.set(source,{en,zh});
 export const supportedFinanceLanguages = Object.freeze(["zh","en"]);
 
 export function readFinanceLanguage(storage){try{return storage?.getItem?.(FINANCE_LANGUAGE_KEY)==="en"?"en":"zh";}catch{return "zh";}}
