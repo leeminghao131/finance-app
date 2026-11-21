@@ -2,15 +2,16 @@ import { loadEveryOwnedRow,splitRecordStatus } from "./financeData.js";
 import { normalizeRecord,normalizeTransfer } from "./financeRecords.js";
 import { validateFinanceSnapshotRows } from "./financeIntegrity.js";
 import {validateActivities,validateActivityLinks} from "./financeActivity.js";
+import {validateClaimSnapshot} from "./financeClaims.js";
 
 // Fetch one coherent, count-checked cloud snapshot without mutating the source DB.
 // All visible totals are replaced only after the caller receives this full result.
 export async function fetchFinanceSnapshot(client,userId,onProgress) {
   if(!userId)throw new Error("Authentication is required to fetch finance data.");
-  // The four independent, read-only, owner-filtered table scans can overlap.
+  // Independent, read-only, owner-filtered table scans can overlap.
   // Each loader still paginates and count-verifies ALL rows; no cache, RLS or
   // partial result can ever be presented as a complete cloud snapshot.
-  const [recordRows,transferRows,activityRows,linkRows] = await Promise.all([
+  const [recordRows,transferRows,activityRows,linkRows,claimRows,repaymentRows] = await Promise.all([
     loadEveryOwnedRow(client,"records",
       "id,type,amount,category,method,note,date,created_at,updated_at,version,deleted_at,fx_currency,fx_amount,fx_rate,fx_rate_date,fx_provider",
       userId,onProgress),
@@ -22,6 +23,12 @@ export async function fetchFinanceSnapshot(client,userId,onProgress) {
       userId,onProgress),
     loadEveryOwnedRow(client,"finance_activity_links",
       "id,user_id,activity_id,record_id,removed_at,version,created_at,updated_at",
+      userId,onProgress),
+    loadEveryOwnedRow(client,"finance_claims",
+      "id,user_id,client_request_id,title,claimant,amount,method,paid_on,note,submitted_on,cancelled_at,version,created_at,updated_at",
+      userId,onProgress),
+    loadEveryOwnedRow(client,"finance_claim_repayments",
+      "id,user_id,claim_id,client_request_id,amount,method,received_on,note,voided_at,version,created_at,updated_at",
       userId,onProgress),
   ]);
   const {data:settingsRow,error:settingsError}=await client.from("user_settings")
@@ -41,8 +48,9 @@ export async function fetchFinanceSnapshot(client,userId,onProgress) {
     recordRows.slice().sort(byNewest).map(normalizeRecord));
   const {active:transfers,deleted:deletedTransfers}=splitRecordStatus(
     transferRows.slice().sort(byNewest).map(normalizeTransfer));
+  const {claims,repayments}=validateClaimSnapshot(claimRows,repaymentRows,userId);
   const activities=validateActivities(activityRows);
   const activityLinks=validateActivityLinks(linkRows,activities,[...records,...deletedRecords]);
   return {records,deletedRecords,transfers,deletedTransfers,
-    settingsRow:settingsRow||null,monthRows:savedMonths||[],activities,activityLinks};
+    settingsRow:settingsRow||null,monthRows:savedMonths||[],activities,activityLinks,claims,repayments};
 }
