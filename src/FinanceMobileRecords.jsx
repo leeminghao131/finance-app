@@ -111,7 +111,6 @@ export default function FinanceMobileRecords({ records, onUpdate, onDelete, onEd
       <FinanceOverlay open={!!record} onClose={() => { if (!saving) setEditingId(null); }} title="Edit Transaction" widthClass="max-w-lg" triggerRef={editTriggerRef}>
         {record && (
           <div className="space-y-4">
-            <p className="text-xs text-slate-500">Edit one field at a time. Each save uses the existing cloud conflict protection.</p>
             <div className="grid grid-cols-2 gap-2">
               {FIELDS.map(([key, label]) => (
                 <button key={key} type="button" onClick={() => chooseField(record, key)} aria-pressed={field === key}
@@ -146,7 +145,6 @@ export default function FinanceMobileRecords({ records, onUpdate, onDelete, onEd
               <button type="button" onClick={() => setEditingId(null)} disabled={saving}
                 className="mh-touch rounded-xl border border-slate-300 px-4 py-3 text-sm font-bold disabled:opacity-50">Close</button>
             </div>
-            <p className="text-xs text-slate-500">Check the displayed value after saving. A cloud conflict or error will be reported by the existing record handler.</p>
           </div>
         )}
       </FinanceOverlay>
