@@ -87,15 +87,18 @@ export function claimSummary(claims=[],repayments=[],day=localDateMY()){
   const byClaim=new Map();
   for(const r of repayments)
     if(!r.voided_at&&r.received_on<=day)byClaim.set(r.claim_id,(byClaim.get(r.claim_id)||0)+claimSen(r.amount));
-  const rows=claims.filter(c=>!c.cancelled_at&&c.paid_on<=day).map(c=>{
-    const paidSen=byClaim.get(c.id)||0,remainingSen=claimSen(c.amount)-paidSen;
+  const rows=claims.filter(c=>c.paid_on<=day).map(c=>{
+    const cancelled=!!c.cancelled_at;
+    const paidSen=cancelled?0:byClaim.get(c.id)||0;
+    const remainingSen=cancelled?0:claimSen(c.amount)-paidSen;
     return {...c,repaid:asRM(paidSen),outstanding:asRM(Math.max(0,remainingSen)),
       progress:paidSen?Math.min(100,paidSen/claimSen(c.amount)*100):0,
-      status:remainingSen<=0?"completed":c.submitted_on?"submitted":"pending"};
-  }).sort((a,b)=>b.paid_on.localeCompare(a.paid_on)||b.created_at.localeCompare(a.created_at));
-  return {rows,open:rows.filter(c=>c.outstanding>0),
-    outstanding:asRM(rows.reduce((sum,c)=>sum+Math.round(c.outstanding*100),0)),
-    reimbursed:asRM(rows.reduce((sum,c)=>sum+Math.round(c.repaid*100),0))};
+      status:cancelled?"cancelled":remainingSen<=0?"completed":c.submitted_on?"submitted":"pending"};
+  }).sort((a,b)=>b.paid_on.localeCompare(a.paid_on)||String(b.created_at||"").localeCompare(String(a.created_at||"")));
+  const active=rows.filter(c=>!c.cancelled_at);
+  return {rows,open:active.filter(c=>c.outstanding>0),
+    outstanding:asRM(active.reduce((sum,c)=>sum+Math.round(c.outstanding*100),0)),
+    reimbursed:asRM(active.reduce((sum,c)=>sum+Math.round(c.repaid*100),0))};
 }
 export function withClaimMethodBalances(base=[],movements=[],day=localDateMY(),normalize=x=>String(x||"").trim()){
   const map=new Map(base.map(row=>[normalize(row.method),{...row,claimOut:0,claimIn:0}]));
