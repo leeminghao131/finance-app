@@ -54,6 +54,5 @@ export default function FinanceAdvancedResults({rows=[],EditableCell,onUpdate,on
       categoryOptionsFor={categoryOptionsFor} methodOptionsFor={methodOptionsFor} getActivityLabel={getActivityLabel}/></div>
     {visible<rows.length&&<button type="button" onClick={()=>setVisible(n=>n+100)}
       className="mt-3 rounded-xl border border-slate-300 bg-white px-4 py-3 text-sm font-bold">Show more ({shown.length}/{rows.length})</button>}
-    <p className="mt-3 text-xs text-slate-500">Advanced search affects this records list only. Other Dashboard charts and totals retain their current Filter settings.</p>
   </section>;
 }
