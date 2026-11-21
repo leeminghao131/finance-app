@@ -77,7 +77,6 @@ export const financeLanguagePolish = Object.freeze([
   ["Move this record to Recycle Bin?", "将这笔记录移至回收站？"],
   ["Edit one field at a time.", "逐项编辑"],
   ["Heatmap daily income and expense details", "热力图每日收支明细"],
-  ["No expense data for this category.", "该分类暂无支出记录。"],
   ["Show more", "显示更多"], ["Show less", "收起"],
   ["Export Excel", "导出 Excel"], ["Import CSV", "导入 CSV"],
   ["Refresh", "刷新"], ["Refresh data", "刷新数据"],
@@ -85,11 +84,10 @@ export const financeLanguagePolish = Object.freeze([
   ["Audio", "声音"], ["Sound", "声音"],
   ["Account", "账户"], ["Opening Balance", "初始余额"],
   ["CASH", "现金"], ["BANK", "银行账户"], ["GRAB PAY", "GrabPay"],
-  ["饮食", "饮食"], ["教育", "教育"], ["住房", "住房"], ["日用", "日用"],
-  ["交通", "交通"], ["娱乐", "娱乐"], ["运动", "运动"], ["医疗", "医疗"], ["美容", "美容"],
-  ["Food", "饮食"], ["Education", "教育"], ["Housing", "住房"],
-  ["Daily Needs", "日用"], ["Transport", "交通"], ["Entertainment", "娱乐"],
-  ["Sports", "运动"], ["Medical", "医疗"], ["Beauty", "美容"],
+  // Canonical built-in display names keep the existing validated translations.
+  ["Food & Drinks", "饮食"], ["Education", "教育"], ["Housing", "住房"],
+  ["Daily Essentials", "日用"], ["Transportation", "交通"], ["Entertainment", "娱乐"],
+  ["Sports & Fitness", "运动"], ["Medical", "医疗"], ["Beauty", "美容"],
   ["Salary", "工资"], ["Allowance", "津贴"], ["Part-time", "兼职"],
   ["Gift", "礼物"], ["Others", "其他"],
 ]);
