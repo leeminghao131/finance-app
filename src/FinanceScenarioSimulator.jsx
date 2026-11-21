@@ -202,10 +202,6 @@ export default function FinanceScenarioSimulator({records=[],totalBalance=0,user
 
       <section className="mt-4 rounded-xl bg-slate-50 p-3 sm:p-4">
         <h3 className="text-sm font-bold">{t("如果你想额外多存一笔钱","If you want to save extra money")}</h3>
-        <p className="mt-1 text-sm text-slate-600">
-          {t("相对于维持现在的习惯，你希望在 "+duration+" 个月后多留下多少？",
-            "How much extra would you like to have after "+duration+" months, compared with your current pattern?")}
-        </p>
         <div className="mt-3 grid items-end gap-3 sm:grid-cols-2">
           <label className="block text-sm font-medium">{t("目标额外储蓄（RM）","Extra savings target (RM)")}
             <input className={field} inputMode="decimal" value={goal} onChange={e=>setGoal(e.target.value)}/>
