@@ -189,6 +189,7 @@ export default function FinanceRecurringBills({
           </div>
           <div className="mt-2 flex flex-wrap gap-1.5">
             {e.status!=="unlinked"&&<button type="button" disabled={busy||disabled} onClick={()=>markPaid(e)}
+              title={t("确认付款会新增一笔真实支出，请仅在已经支付后操作。","Confirming a payment adds one real Expense. Confirm only bills already paid.")}
               className="min-h-10 rounded-lg bg-emerald-700 px-3 py-2 text-xs font-bold text-white disabled:opacity-50">
               {busy?t("保存中…","Saving…"):t("✓ 确认已付并自动记账","✓ Confirm paid & add Expense")}
             </button>}
