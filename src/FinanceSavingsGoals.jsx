@@ -159,7 +159,6 @@ export default function FinanceSavingsGoals({goals=[],onSave,disabled=false,savi
             <input required type="text" inputMode="decimal" value={draft.saved}
               onChange={e=>setDraft(p=>({...p,saved:e.target.value}))}
               className="mt-1 w-full rounded-xl border border-slate-300 px-3 py-2"/>
-            <span className="mt-1 block text-xs text-slate-500">Manual progress only; does not create an Income or Transfer.</span>
           </label>
           :
           <div className="min-w-0 rounded-xl bg-slate-50 p-3 text-sm">
@@ -171,13 +170,11 @@ export default function FinanceSavingsGoals({goals=[],onSave,disabled=false,savi
             <p className="mt-2 text-xs text-slate-600">{zh?"当前总余额":"Current Balance"} {money(overallBalance)} − {zh?"当月完整预算":"Full monthly budget"} {money(fullMonthBudget)} × {draft.budgetMultiplier||"?"}</p>
             {autoPreviewError?<p role="alert" className="mt-1 text-xs font-semibold text-red-700">{autoPreviewError}</p>
               :<p className="mt-1 font-bold text-slate-900">{zh?"自动计算的已存金额：":"Auto saved estimate:"} {money(autoPreview)}</p>}
-            <p className="mt-1 text-xs text-slate-500">{zh?"实时计算此目标的进度，不会覆盖原来的手动已存金额，也不会实际转移资金。":"Calculated live for this goal. Does not change your stored manual saved amount or move money."}</p>
           </div>}
 
         <div className="rounded-xl bg-slate-50 p-3 text-sm">
           <p className="text-slate-600">{zh?"共享可用储蓄余额（不等于目标进度）":"Shared available savings (not goal progress)"}</p>
           <p className="mt-1 font-bold text-slate-900">{money(available)}</p>
-          <p className="text-xs text-slate-500">{zh?"当前总余额 − "+budgetMonth+" 当月未使用预算；自动模式另外使用当月完整预算 × X。":"Current Balance − "+budgetMonth+" unspent budget. Auto mode separately uses the full monthly budget × X."}</p>
         </div>
         <label className="text-sm">Target date (optional)
           <input type="date" value={draft.deadline} onChange={e=>setDraft(p=>({...p,deadline:e.target.value}))}
