@@ -32,7 +32,7 @@ export default function FinanceSavingsGoals({goals=[],onSave,disabled=false,savi
   };
   const close=()=>{
     if(busy)return;
-    if(editor&&(!window.confirm("Discard unsaved Savings Goal changes?")))return;
+    if(editor&&(!window.confirm(zh ? "放弃未保存的储蓄目标修改？" : "Discard unsaved Savings Goal changes?")))return;
     setEditor(null);setError("");
   };
   const commit=async(next,baseline)=>{
@@ -61,7 +61,7 @@ export default function FinanceSavingsGoals({goals=[],onSave,disabled=false,savi
   }
   async function remove(goal){
     if(disabled||busy)return;
-    if(!window.confirm("Delete Savings Goal '"+goal.title+"'? Only this goal plan is removed. No financial transactions or transfers will be deleted."))return;
+    if(!window.confirm(zh ? "删除储蓄目标“"+goal.title+"”？只删除目标计划，不会删除真实交易或转账。" : "Delete Savings Goal '"+goal.title+"'? Only this goal plan is removed. No financial transactions or transfers will be deleted."))return;
     const baseline=JSON.stringify(goals);
     if(await commit(goals.filter(g=>g.id!==goal.id),baseline))setEditor(null);
   }
