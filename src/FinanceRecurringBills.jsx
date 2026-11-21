@@ -106,10 +106,6 @@ export default function FinanceRecurringBills({
   }
   return <>
     <div className="flex flex-wrap items-center justify-between gap-2">
-      <p className="max-w-xl text-xs text-slate-600">
-        {t("按确认付款会自动新增一笔真实 Expense；请只确认实际已付账单。",
-          "Confirming a payment adds one real Expense. Confirm only bills already paid.")}
-      </p>
       <button type="button" onClick={()=>start()} disabled={disabled||busy||bills.length>=40}
         className="min-h-10 rounded-xl bg-slate-900 px-3 py-2 text-sm font-bold text-white disabled:opacity-50">
         {t("＋ 新增账单","+ New Bill")}
