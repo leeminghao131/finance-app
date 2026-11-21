@@ -73,6 +73,9 @@ test("full reimbursement clears reminder; void and cancellation preserve cloud h
   const cancelled={...baseClaim,cancelled_at:"2026-11-21T00:00:00Z"};
   assert.equal(claimCashMovements([cancelled],[]).length,0);
   assert.equal(claimSummary([cancelled],[]).open.length,0);
+  assert.equal(claimSummary([cancelled],[]).rows.length,1);
+  assert.equal(claimSummary([cancelled],[]).rows[0].status,"cancelled");
+  assert.equal(claimSummary([cancelled],[]).rows[0].outstanding,0);
   assert.throws(()=>validateClaimSnapshot([cancelled],[repayment],owner),/Cancelled/);
   assert.throws(()=>validateClaimSnapshot([baseClaim],all.concat(all[1]),owner),/duplicate/);
 });
