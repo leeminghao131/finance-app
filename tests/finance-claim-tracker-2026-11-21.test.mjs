@@ -7,6 +7,7 @@ import {claimSen,validateClaimDraft,validateClaimRepayment,validateClaimSnapshot
 import {calculateCashForecast,summarizeMonthlyBudget} from "../src/financeInsights.js";
 import {buildFinanceWorkbook,verifyFinanceWorkbook} from "../src/financeExcel.js";
 import {FINANCE_DOCK_IDS,normalizeDockOrder} from "../src/financeDockOrder.js";
+import {createFinanceClaimRepayment} from "../src/financeClaimService.js";
 const src=name=>readFileSync(new URL("../src/"+name,import.meta.url),"utf8");
 const sql=()=>readFileSync(new URL("../docs/database/test_only_claim_tracker_20261121.sql",import.meta.url),"utf8");
 const owner="11111111-1111-4111-8111-111111111111";
@@ -90,6 +91,25 @@ test("account isolation, orphan payments, invalid amounts and overpayments fail 
   assert.throws(()=>validateClaimRepayment({
     amount:"1",received_on:"2026-11-15",method:"BANK"
   },baseClaim,[],"2026-11-21"),/date/);
+});
+
+test("lost-network confirmation retries reuse exact reimbursement ID, even after balance reached zero",async()=>{
+  const existing={...repayment,amount:"100.00",received_on:"2026-11-19"};
+  let queries=0,writes=0;
+  const client={from(table){
+    assert.equal(table,"finance_claim_repayments");
+    return {
+      select(){return {eq(){return this;},maybeSingle:async()=>{queries++;return {data:existing,error:null};}};},
+      insert(){writes++;throw new Error("Retry must not insert twice.");},
+    };
+  }};
+  const draft={amount:"100",method:"TNG",received_on:"2026-11-19",note:""};
+  const restored=await createFinanceClaimRepayment(client,owner,baseClaim,draft,[existing],existing.client_request_id);
+  assert.equal(restored.id,existing.id);
+  assert.equal(writes,0);assert.equal(queries,1);
+  await assert.rejects(()=>createFinanceClaimRepayment(client,owner,baseClaim,
+    {...draft,amount:"99"},[existing],existing.client_request_id),/different payment/);
+  assert.equal(writes,0);
 });
 
 test("forecast actual balance includes claim cash flows but personal spending average excludes advances",()=>{
