@@ -96,7 +96,7 @@ export default function FinanceSavingsGoals({goals=[],onSave,disabled=false,savi
     <div className="mt-3 rounded-xl bg-slate-50 p-3 text-sm ring-1 ring-slate-200">
       <p className="font-semibold text-slate-700">{zh?"共享可用储蓄余额（只读）":"Available savings (shared, read-only)"}: <span className="text-slate-900">{money(available)}</span></p>
       <p className="mt-1 text-xs text-slate-600">{zh?"当前总余额":"Current Balance"} {money(overallBalance)} − {budgetMonth} {zh?"当月剩余预算":"Unspent monthly budget"} {money(reservedBudget)} = {money(savingsAvailability?.netAfterBudget ?? 0)}</p>
-      {shortfall>0&&<p className="mt-1 text-xs font-semibold text-amber-800">Budget exceeds Balance by {money(shortfall)}. Available savings shown as RM0.00.</p>}
+      {shortfall>0&&<p className="mt-1 text-xs font-semibold text-amber-800">{zh ? "预算超过余额：" : "Budget exceeds Balance by "}{money(shortfall)}. {zh ? "可用储蓄金额显示为 RM0.00。" : "Available savings shown as RM0.00."}</p>}
       
     </div>
     {!all.length&&!editor&&<p className="mt-4 rounded-xl bg-slate-50 p-4 text-sm text-slate-500">No Savings Goals yet. Add one to start tracking your progress.</p>}
@@ -112,11 +112,11 @@ export default function FinanceSavingsGoals({goals=[],onSave,disabled=false,savi
           <div className="mt-2 h-2 w-full overflow-hidden rounded-full bg-slate-200">
             <div className="h-full rounded-full bg-emerald-600" style={{width:Math.min(100,Math.max(0,p.percent))+"%"}}/>
           </div>
-          <p className="mt-2 text-xs text-slate-600">{p.percent.toFixed(1)}% · {money(p.remaining)} remaining</p>
+          <p className="mt-2 text-xs text-slate-600">{p.percent.toFixed(1)}% · {money(p.remaining)} {zh ? "剩余" : "remaining"}</p>
           <p className="mt-1 text-xs text-slate-500">{p.mode==="auto"
             ? (zh?"自动 · 总余额 − 月度预算 × ":"Auto · Balance − monthly budget × ")+(g.budgetMultiplier??1)
             : (zh?"手动已存金额":"Manual saved amount")}</p>
-          {g.deadline&&<p className="mt-1 text-xs text-slate-500">Target date: {g.deadline}</p>}
+          {g.deadline&&<p className="mt-1 text-xs text-slate-500">{zh ? "目标日期：" : "Target date: "}{g.deadline}</p>}
           <div className="mt-3 flex gap-2">
             <button type="button" disabled={disabled||busy} onClick={event=>start(g,event.currentTarget)}
               className="mh-modal-trigger min-h-11 rounded-lg border border-slate-300 bg-white px-3 py-2 text-xs font-bold disabled:opacity-50">Edit / Update</button>
