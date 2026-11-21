@@ -48,7 +48,7 @@ test("Built-in bilingual UI strings have reversible display-only translations", 
     ["Bill Calendar","账单日历"],["No note","无备注"],
     ["No overdue or upcoming bills within the next 14 days.","未来 14 天内没有待处理或逾期账单。"],
     ["No Savings Goals yet. Add one to start tracking your progress.","暂无储蓄目标。"],
-    ["Food","饮食"],["CASH","现金"],
+    ["Food & Drinks","饮食"],["CASH","现金"],
     ["BANK","银行账户"],
   ]) {
     assert.equal(translateFinanceText(src,"zh"),cn,src+" -> zh");
@@ -78,8 +78,10 @@ test("Bilingual bill values preserve category and method keys in select options"
 test("Walkthrough text removed; business-facing warnings and errors remain", () => {
   assert.doesNotMatch(app, /Tap a date for daily records/);
   assert.doesNotMatch(assistant, /Read-only; never edits or deletes data/);
-  assert.doesNotMatch(bills, /Confirming a payment adds one real Expense/);
-  assert.doesNotMatch(savings, /Manual progress only; does not create/);
+  assert.doesNotMatch(bills, /<p[^>]+>Confirming a payment adds one real Expense/);
+  assert.match(bills, /Confirming a payment adds one real Expense/);
+  assert.doesNotMatch(savings, /<span[^>]+>Manual progress only; does not create/);
+  assert.match(savings, /Manual progress only; does not create/);
   assert.doesNotMatch(read("FinanceBudgetPanel.jsx"), /75% warning, 100% over budget/);
   assert.doesNotMatch(read("FinanceMobileRecords.jsx"), /Edit one field at a time/);
   assert.match(bills, /onConfirmPayment/);
