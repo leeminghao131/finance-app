@@ -3,11 +3,11 @@ import FinanceOverlay from "./FinanceOverlay.jsx";
 import {useFinanceLanguage,localizedFinanceConfirm} from "./FinanceLanguageLayer.jsx";
 import {localDateMY} from "./financeCalendar.js";
 import {claimSummary} from "./financeClaims.js";
+import {getClaimRequest,confirmClaimRequest} from "./financeClaimRequestId.js";
 
 const money=value=>new Intl.NumberFormat("en-MY",{style:"currency",currency:"MYR"}).format(Number(value||0));
 const initialDraft=()=>({title:"",claimant:"Company",amount:"",method:"BANK",paid_on:localDateMY(),note:""});
 const initialRepay=()=>({amount:"",method:"BANK",received_on:localDateMY(),note:""});
-const makeRequest=()=>crypto.randomUUID();
 
 export default function FinanceClaimTracker({
   claims=[],repayments=[],methods=[],userId=null,disabled=false,
@@ -21,7 +21,7 @@ export default function FinanceClaimTracker({
   const [focusedClaimId,setFocusedClaimId]=useState(null);
   const [busy,setBusy]=useState(false),[error,setError]=useState(""),[info,setInfo]=useState("");
   const triggerRef=useRef(null),createReq=useRef(null),repayReq=useRef(null);
-  const lastRequestRef=useRef(null),topRef=useRef(null);
+  const lastRequestRef=useRef(null),topRef=useRef(null),busyRef=useRef(false);
   const summary=useMemo(()=>claimSummary(claims,repayments),[claims,repayments]);
   const sorted=filter==="outstanding"?summary.open:filter==="completed"
     ?summary.rows.filter(c=>c.status==="completed"):summary.rows;
@@ -46,17 +46,23 @@ export default function FinanceClaimTracker({
     repayReq.current=null;setRepayDraft(p=>({...p,[key]:value}));setError("");setInfo("");
   };
   const run=async(action,success)=>{
+    if(busyRef.current||disabled||!userId)return;
+    busyRef.current=true;
     setBusy(true);setError("");setInfo("");
     try{await action();setInfo(success);}
     catch(e){setError(e?.message||"Unable to save. Refresh before retrying.");}
-    finally{setBusy(false);}
+    finally{busyRef.current=false;setBusy(false);}
   };
   const saveNew=async e=>{
     e.preventDefault();
-    if(!createReq.current)createReq.current=makeRequest();
-    const requestId=createReq.current;
     await run(async()=>{
-      await onCreate(draft,requestId);
+      const storage=window.localStorage;
+      if(!createReq.current)createReq.current=await getClaimRequest(
+        userId,"advance",draft,storage,crypto,navigator.locks);
+      const request=createReq.current;
+      await onCreate(draft,request.requestId);
+      // Only an acknowledged server row clears the persisted request ID.
+      confirmClaimRequest(userId,"advance",request,storage);
       createReq.current=null;setDraft(initialDraft());setShowNew(false);
       setFilter("outstanding");
     },t("已确认保存垫付记录。","Advance confirmed in cloud."));
@@ -70,10 +76,13 @@ export default function FinanceClaimTracker({
   };
   const saveRepay=async(e,claim)=>{
     e.preventDefault();
-    if(!repayReq.current)repayReq.current=makeRequest();
-    const requestId=repayReq.current;
     await run(async()=>{
-      await onRepay(claim,repayDraft,requestId);
+      const storage=window.localStorage;
+      if(!repayReq.current)repayReq.current=await getClaimRequest(
+        userId,"repayment",{...repayDraft,claimId:claim.id},storage,crypto,navigator.locks);
+      const request=repayReq.current;
+      await onRepay(claim,repayDraft,request.requestId);
+      confirmClaimRequest(userId,"repayment",request,storage);
       repayReq.current=null;setRepayFor(null);setRepayDraft(initialRepay());
     },t("收到的报销已确认保存。","Reimbursement confirmed in cloud."));
   };
