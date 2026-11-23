@@ -55,7 +55,7 @@ test("Previous dialogs preserve all callbacks while opening and closing from the
   assert.match(mobile,/setEditVersion\(item\.version\)/);
   assert.match(overlay, /openDialogStack\.push\(currentDialog\)/);
   assert.match(overlay, /openDialogStack\[openDialogStack\.length - 1\] !== currentDialog/);
-  assert.match(overlay, /document\.body\.style\.overflow = previousOverflow/);
+  assert.match(overlay, /document\.body\.style\.overflow=bodyScrollLock\.overflow/);
 });
 
 test("Monthly category comparison keeps chosen-month calculations and moves the table into a portal", () => {
