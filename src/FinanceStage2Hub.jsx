@@ -48,7 +48,7 @@ export default function FinanceStage2Hub({
   };
   useEffect(()=>()=>{if(hoverCloseTimerRef.current!==null)window.clearTimeout(hoverCloseTimerRef.current);},[]);
   const today=localDateMY();
-  const billsDue=useMemo(()=>billOccurrences(bills,today,records,70,35).filter(x=>x.visible),[bills,records,today]);
+  const billsDue=useMemo(()=>billOccurrences(bills,today,records,70,35,true).filter(x=>x.visible),[bills,records,today]);
   const candidates=useMemo(()=>findReviewCandidates(records,reviewState,today).filter(x=>!x.confirmed),
     [records,reviewState,today]);
   const alerts=[

@@ -212,10 +212,10 @@ function calculate(text) {
   return Math.round(value * 100) / 100;
 }
 
-function filterRecords(records, mode, month, year, keyword) {
+function filterRecords(records, mode, month, year, keyword, asOfDate = today()) {
   const q = String(keyword || "").toLowerCase();
-  const now = today();
-  const starts = { recent30: recentStart(30), recent7: recentStart(7), recent3: recentStart(3) };
+  const now = asOfDate;
+  const starts = { recent30: recentStart(30,now), recent7: recentStart(7,now), recent3: recentStart(3,now) };
   return records
     .filter((r) => {
       if (!r?.date) return false;
@@ -1218,8 +1218,11 @@ useEffect(() => {
         // Full count-verified read, including soft-deleted rows, before each INSERT.
         // Compare all accounts with the ledger expected after our preceding steps.
         const latest=await fetchFinanceSnapshot(supabase,accountId);
+        // Compare the SAME as-of-date cash ledger used by Dashboard preview.
+        // Future-dated records/transfers exist in cloud history but are not yet cash.
         const remote=withClaimMethodBalances(calculateMethodBalances(
-          latest.records.map(r=>({...r,method:recordMethod(r)})),latest.transfers,
+          latest.records.filter(r=>r.date<=localToday).map(r=>({...r,method:recordMethod(r)})),
+          latest.transfers.filter(t=>t.date<=localToday),
           accountMethodOptions,latest.settingsRow?.opening_balances||{},normalizeMethodForBalance
         ),claimCashMovements(latest.claims,latest.repayments),localToday,normalizeMethodForBalance);
         const expected=new Map(validated.rows.map(r=>[r.method,Math.round(r.ledger*100)]));
@@ -1605,10 +1608,10 @@ const categoryOptionsFor = (type) => (type === "expense" ? expenseCategoryOption
 const methodOptionsFor = () => expenseMethodOptions;
   // The time period is the immutable baseline for real period net movement.
   // Category and text search are read-only analysis filters, not account balances.
-  const periodRecords = useMemo(() => filterRecords(records, filterMode, selectedMonth, selectedYear, ""),
-    [records, filterMode, selectedMonth, selectedYear]);
-  const searchPeriodRecords = useMemo(() => filterRecords(records, filterMode, selectedMonth, selectedYear, keyword),
-    [records, filterMode, selectedMonth, selectedYear, keyword]);
+  const periodRecords = useMemo(() => filterRecords(records, filterMode, selectedMonth, selectedYear, "", localToday),
+    [records, filterMode, selectedMonth, selectedYear, localToday]);
+  const searchPeriodRecords = useMemo(() => filterRecords(records, filterMode, selectedMonth, selectedYear, keyword, localToday),
+    [records, filterMode, selectedMonth, selectedYear, keyword, localToday]);
   const categoryChoices = useMemo(() => makeDashboardCategoryChoices(expenseCategoryOptions, incomeCategoryOptions),
     [expenseCategoryOptions, incomeCategoryOptions]);
   const selectedCategoryFilter = useMemo(() => selectedDashboardCategory(categoryChoices, categoryFilterKey),
@@ -1717,7 +1720,7 @@ const methodBalances = useMemo(() => withClaimMethodBalances(calculateMethodBala
       : filterMode === "month" ? date.startsWith(selectedMonth)
       : filterMode === "year" ? date.startsWith(String(selectedYear))
       : ["recent30","recent7","recent3"].includes(filterMode)
-        ? date >= recentStart(Number(filterMode.slice(6))) && date <= localToday : true;
+        ? date >= recentStart(Number(filterMode.slice(6)),localToday) && date <= localToday : true;
     for (const event of claimMovements) {
       if(!withinPeriod(event.date) || event.date>localToday)continue;
       if(!out[event.date])out[event.date]={dateKey:event.date,day:chartLabel(event.date),expense:0,dailyBalance:0};
@@ -1747,12 +1750,12 @@ const methodBalances = useMemo(() => withClaimMethodBalances(calculateMethodBala
     expenseRecords.forEach((r) => { amounts[r.date] = (amounts[r.date] || 0) + Number(r.amount || 0); });
     let dates = [];
     if (filterMode === "month") dates = dateRange(`${selectedMonth}-01`, daysInMonth(selectedMonth));
-    else if (filterMode === "recent30") dates = dateRange(recentStart(30), 30);
-    else if (filterMode === "recent7") dates = dateRange(recentStart(7), 7);
-    else if (filterMode === "recent3") dates = dateRange(recentStart(3), 3);
+    else if (filterMode === "recent30") dates = dateRange(recentStart(30,localToday), 30);
+    else if (filterMode === "recent7") dates = dateRange(recentStart(7,localToday), 7);
+    else if (filterMode === "recent3") dates = dateRange(recentStart(3,localToday), 3);
     else dates = Array.from(new Set(periodRecords.map((r) => r.date))).sort((a, b) => new Date(a) - new Date(b)).slice(-35);
     return dates.map((date) => ({ date, amount: Number(amounts[date] || 0) }));
-  }, [expenseRecords, periodRecords, filterMode, selectedMonth]);
+  }, [expenseRecords, periodRecords, filterMode, selectedMonth, localToday]);
 
   const topExpenses = useMemo(() => {
   const source = selectedCategoryFilter?.type === "expense" || topExpenseCategory === "all"
@@ -1765,7 +1768,7 @@ const methodBalances = useMemo(() => withClaimMethodBalances(calculateMethodBala
     .slice(0, 5);
 }, [expenseRecords, topExpenseCategory, selectedCategoryFilter]);
   const todaySummaryStats = useMemo(() => {
-  const todayRecords = records.filter((record) => record.date === today());
+  const todayRecords = records.filter((record) => record.date === localToday);
   const todayExpenseRecords = todayRecords.filter((record) => record.type === "expense");
 
   const categoryTotals = {};
@@ -3232,7 +3235,8 @@ categoryOptionsFor={categoryOptionsFor}
         <FinanceRuleAssistant userId={user?.id} onOpenTool={openStage2DockTool}
           ctx={{ready:initialDataReady&&!dataLoading,records,totalBalance,
             methods:methodBalances,monthRows,budgets,reviewState,bills:recurringBills,
-            activities,activityLinks,goals:savingsGoals,forecastPlans,openingBalanceTotal}}/>
+            activities,activityLinks,goals:savingsGoals,forecastPlans,openingBalanceTotal,
+             claimMovements,asOfDate:localToday,forecastMonth}}/>
         <footer className="pb-6 text-center text-xs text-slate-400">记账可视化软件 · Data synced with Supabase cloud · {records.length} total records</footer>
       </div>
     </div>

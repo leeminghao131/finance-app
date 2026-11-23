@@ -145,7 +145,7 @@ test("verified Excel export has full claim and reimbursement sheets and correctl
   assert.equal(stats.claimRepayments,1);
   assert.equal(stats.claimCashCents,-4000);
   const sum=XLSX.utils.sheet_to_json(recovered.Sheets["Export Summary"]);
-  assert.equal(sum.find(r=>r.Metric==="Estimated ledger balance (RM)").Value,960);
+  assert.equal(sum.find(r=>r.Metric==="Actual ledger-estimated balance through export date (RM)").Value,960);
   assert.equal(sum.find(r=>r.Metric==="Total expense (RM)").Value,0);
   assert.equal(sum.find(r=>r.Metric==="Total income (RM)").Value,0);
 });

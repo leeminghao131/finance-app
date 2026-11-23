@@ -40,7 +40,7 @@ export function answerFinanceQuestion(question,ctx,zh=true){
     return {answer:t("目前有 ","There are ")+n+t(" 笔待复查异常交易。可从提醒铃铛或 Review Inbox 打开。"," transactions awaiting review. Open Alerts or Review Inbox."),action:"review"};
   }
   if(/到期|账单|bill|due/.test(q)){
-    const due=billOccurrences(ctx.bills||[],localDateMY(),records,70,35).filter(x=>x.visible);
+    const due=billOccurrences(ctx.bills||[],ctx.asOfDate||localDateMY(),records,70,35,true).filter(x=>x.visible);
     return {answer:t("当前有 ","There are ")+due.length+t(" 个可见的账单提醒。"," due bill reminders.")+(due.length?" "+due.slice(0,3).map(x=>x.title+" "+x.due).join("；"):""),action:"bill"};
   }
   if(/预算|budget/.test(q)){
@@ -92,9 +92,11 @@ export function answerFinanceQuestion(question,ctx,zh=true){
   }
   if(/预测|月底|forecast|predict/.test(q)){
     try{
-      const f=calculateCashForecast(records,{asOfDate:localDateMY(),selectedMonth:localMonthMY(),
+      const f=calculateCashForecast(records,{asOfDate:ctx.asOfDate||localDateMY(),
+        selectedMonth:ctx.forecastMonth||localMonthMY(),
         horizon:"monthEnd",trailingDays:30,plannedIncomes:ctx.forecastPlans||[],
-        openingBalanceTotal:ctx.openingBalanceTotal||0});
+        openingBalanceTotal:ctx.openingBalanceTotal||0,
+        claimMovements:ctx.claimMovements||[]});
       return {answer:t("沿用 Cash Flow Forecast 的本月底预测：","Month-end estimate from Cash Flow Forecast: ")
         +money(f.predictedBalance)+t("；预计未来支出 ","; forecast expenses ")+money(f.expectedExpense)
         +t("，预计收入 ","; planned income ")+money(f.expectedIncome)

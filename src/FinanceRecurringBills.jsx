@@ -45,7 +45,7 @@ export default function FinanceRecurringBills({
   const today=localDateMY();
   const [calendarMonth,setCalendarMonth]=useState(today.slice(0,7));
   const [calendarDate,setCalendarDate]=useState(today);
-  const events=useMemo(()=>billOccurrences(bills,today,records,70,40),[bills,today,records]);
+  const events=useMemo(()=>billOccurrences(bills,today,records,70,40,true),[bills,today,records]);
   const pending=events.filter(e=>e.visible).sort((a,b)=>a.due.localeCompare(b.due));
   const calendarEvents=useMemo(()=>{
     const start=calendarMonth+"-01";

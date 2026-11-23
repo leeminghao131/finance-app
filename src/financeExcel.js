@@ -119,6 +119,20 @@ export function buildFinanceWorkbook({
   ]);
   const incomeCents=validRecords.filter(r=>r.type==="income").reduce((n,r)=>n+cents(r.amount),0);
   const expenseCents=validRecords.filter(r=>r.type==="expense").reduce((n,r)=>n+cents(r.amount),0);
+  // Export all selected rows faithfully, INCLUDING future-dated source records.
+  // Ledger balance is different: only money dated on/before the export date
+  // may affect today's cash. Include all historical rows even in month scope.
+  const throughDate=rows=>rows.filter(r=>r.date<=exportedOn&&!r.deleted_at);
+  const fullActual=throughDate(records);
+  const actualIncomeCents=fullActual.filter(r=>r.type==="income").reduce((n,r)=>n+cents(r.amount),0);
+  const actualExpenseCents=fullActual.filter(r=>r.type==="expense").reduce((n,r)=>n+cents(r.amount),0);
+  const allClaimCashCents=claimCashMovements(claims,claimRepayments)
+    .filter(e=>e.date<=exportedOn).reduce((n,e)=>n+e.sen,0);
+  const actualLedgerCents=initialCents+actualIncomeCents-actualExpenseCents+allClaimCashCents;
+  const scopedActual=throughDate(validRecords);
+  const scopedIncomeCents=scopedActual.filter(r=>r.type==="income").reduce((n,r)=>n+cents(r.amount),0);
+  const scopedExpenseCents=scopedActual.filter(r=>r.type==="expense").reduce((n,r)=>n+cents(r.amount),0);
+  const scopedNetCents=scopedIncomeCents-scopedExpenseCents+claimCashCents;
   const summaryRows=[
     ["Export date (MY)",exportedOn],
     ["Scope",scope==="all"?"All active records":"Selected month "+month],
@@ -126,7 +140,10 @@ export function buildFinanceWorkbook({
     ["Total income (RM)",rm(incomeCents)],
     ["Total expense (RM)",rm(expenseCents)],
     ["Opening balance total (RM)", rm(initialCents)],
-    ["Estimated ledger balance (RM)",rm(incomeCents-expenseCents+claimCashCents+(scope==="all"?initialCents:0))],
+    ["Actual ledger-estimated balance through export date (RM)",rm(actualLedgerCents)],
+    ["Selected-scope net cash movement through export date (RM)",rm(scopedNetCents)],
+    ["Future-dated finance records retained in export",validRecords.filter(r=>r.date>exportedOn).length],
+    ["Balance calculation cutoff (Asia/Kuala_Lumpur)",exportedOn],
     ["Claim cash advanced in scope (RM)",rm(claimAdvancedCents)],
     ["Claim reimbursements received in scope (RM)",rm(claimReceivedCents)],
     ["Net claim cash movement in scope (RM)",rm(claimCashCents)],
