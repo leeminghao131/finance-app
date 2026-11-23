@@ -29,6 +29,11 @@ const uniqueIds=list=>{
 };
 export function validateBills(raw){
   if(!Array.isArray(raw)||raw.length>40)throw Error("At most 40 recurring bills.");
+  // Keep every existing confirmation; never silently prune or auto-archive.
+  // 5,000 entries supports ~96 years of weekly confirmations per bill,
+  // while a total bound prevents an unbounded settings JSON payload.
+  const MAX_HISTORY_PER_BILL=5000,MAX_TOTAL_HISTORY=20000;
+  let totalHistory=0;
   const bills=raw.map(b=>{
     if(!b||typeof b!=="object"||Array.isArray(b))throw Error("Invalid bill plan.");
     const id=String(b.id||"");
@@ -44,7 +49,11 @@ export function validateBills(raw){
     const leadDays=Number(b.leadDays??0);
     if(!Number.isInteger(leadDays)||leadDays<0||leadDays>30)throw Error("Reminder lead days must be 0–30.");
     const occurrences=b.occurrences??[];
-    if(!Array.isArray(occurrences)||occurrences.length>160)throw Error("Too many bill confirmations. Archive in a future revision.");
+    if(!Array.isArray(occurrences)||occurrences.length>MAX_HISTORY_PER_BILL)
+      throw Error("Recurring bill history exceeds 5,000 entries; all existing confirmations retained. Export and review before proceeding.");
+    totalHistory+=occurrences.length;
+    if(totalHistory>MAX_TOTAL_HISTORY)
+      throw Error("Total recurring bill history exceeds safe cloud-settings size; no saved confirmations were removed.");
     const saved=occurrences.map(x=>{
       const due=iso(x?.due),status=x?.status;
       if(!["paid","skipped","snoozed"].includes(status))throw Error("Invalid bill occurrence status.");
