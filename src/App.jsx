@@ -2148,8 +2148,15 @@ async function addRecord(e) {
   }
 
   async function updateForeignRecord(original,change){
+    const owner=user?.id;
     const current=records.find(row=>row.id===original?.id);
-    if(!user||!initialDataReady||dataLoading||!current?.fx_currency||pendingRecordsRef.current.has(current.id))return false;
+    if(!owner||!isCurrentFinanceOwner(liveUserIdRef,owner)||!initialDataReady||
+      dataLoading||!current?.fx_currency||pendingRecordsRef.current.has(current.id))return false;
+    const openedVersion=change.expectedVersion??original?.version;
+    if(!matchesOpenedVersion(openedVersion,current.version)){
+      localizedFinanceAlert("FX record changed since editing began. Nothing overwritten; close and reopen.");
+      return false;
+    }
     let safe;
     try{
       safe=makeFxSnapshot({currency:change.fx_currency,foreignAmount:change.fx_amount,
@@ -2159,20 +2166,22 @@ async function addRecord(e) {
     }catch(e){localizedFinanceAlert(e.message);return false;}
     pendingRecordsRef.current.add(current.id);
     try{
+      if(!isCurrentFinanceOwner(liveUserIdRef,owner))return false;
       const columns="id,type,amount,category,method,note,date,created_at,updated_at,version,deleted_at,fx_currency,fx_amount,fx_rate,fx_rate_date,fx_provider";
       const {data,error}=await supabase.from("records").update({...safe,date:change.date})
-        .eq("id",current.id).eq("user_id",user.id).eq("version",current.version)
+        .eq("id",current.id).eq("user_id",owner).eq("version",openedVersion)
         .is("deleted_at",null).select(columns).maybeSingle();
+      if(!isCurrentFinanceOwner(liveUserIdRef,owner))return false;
       if(error)throw error;
       if(!data){
         await loadCloudData({background:true});
         throw Error("FX changed on another device; nothing overwritten.");
       }
-      if(liveUserIdRef.current!==user.id)return false;
+      if(!isCurrentFinanceOwner(liveUserIdRef,owner))return false;
       const result=normalizeRecord(data);
       setRecords(rows=>rows.map(row=>row.id===result.id?result:row));
       setSyncStatus("FX transaction saved to cloud");return true;
-    }catch(e){localizedFinanceAlert(e.message||String(e));return false;}
+    }catch(e){if(isCurrentFinanceOwner(liveUserIdRef,owner))localizedFinanceAlert(e.message||String(e));return false;}
     finally{pendingRecordsRef.current.delete(current.id);}
   }
 
