@@ -1966,8 +1966,14 @@ async function addRecord(e) {
   }
 
   async function updateTransfer(transferId, edit) {
+    const owner=user?.id;
     const current = transfers.find(r=>r.id===transferId);
-    if (!current || !user || pendingTransfersRef.current.has(transferId)) return false;
+    if (!current || !owner || !isCurrentFinanceOwner(liveUserIdRef,owner) ||
+      pendingTransfersRef.current.has(transferId)) return false;
+    if(!matchesOpenedVersion(edit.version,current.version)){
+      localizedFinanceAlert("Transfer changed since you opened the editor. Close and reopen; old draft was not saved.");
+      return false;
+    }
     let payload;
     try {
       const amount=parseEditedAmount(edit.amount);
@@ -1986,12 +1992,14 @@ async function addRecord(e) {
     }
     pendingTransfersRef.current.add(transferId);
     try {
+      if(!isCurrentFinanceOwner(liveUserIdRef,owner))return false;
       const {data,error}=await supabase.from("transfers")
         .update(payload)
-        .eq("id",transferId).eq("user_id",user.id)
-        .eq("version",current.version).is("deleted_at",null)
+        .eq("id",transferId).eq("user_id",owner)
+        .eq("version",edit.version).is("deleted_at",null)
         .select("id,from_method,to_method,amount,note,date,created_at,updated_at,version,deleted_at")
         .maybeSingle();
+      if(!isCurrentFinanceOwner(liveUserIdRef,owner))return false;
       if(error)throw error;
       if(!data){
         setSyncStatus("Transfer conflict — latest cloud data loaded; edit not applied.");
@@ -2003,55 +2011,61 @@ async function addRecord(e) {
       setTransfers(rows=>rows.map(r=>r.id===transferId?edited:r));
       setSyncStatus("Transfer updated");
       return true;
-    }catch(e){setSyncStatus("Transfer update failed: "+e.message);localizedFinanceAlert(e.message);return false;}
+    }catch(e){if(isCurrentFinanceOwner(liveUserIdRef,owner)){setSyncStatus("Transfer update failed: "+e.message);localizedFinanceAlert(e.message);}return false;}
     finally{pendingTransfersRef.current.delete(transferId);}
   }
 
   async function deleteTransfer(transferId) {
+    const owner=user?.id;
     const current=transfers.find(r=>r.id===transferId);
-    if(!current || !user || pendingTransfersRef.current.has(transferId))return false;
+    if(!current || !owner || !isCurrentFinanceOwner(liveUserIdRef,owner) ||
+      pendingTransfersRef.current.has(transferId))return false;
     pendingTransfersRef.current.add(transferId);
     try {
       const {data,error}=await supabase.from("transfers")
         .update({deleted_at:new Date().toISOString()})
-        .eq("id",transferId).eq("user_id",user.id)
+        .eq("id",transferId).eq("user_id",owner)
         .eq("version",current.version).is("deleted_at",null)
         .select("id,from_method,to_method,amount,note,date,created_at,updated_at,version,deleted_at")
         .maybeSingle();
+      if(!isCurrentFinanceOwner(liveUserIdRef,owner))return false;
       if(error)throw error;
       if(!data){await loadCloudData({background:true});localizedFinanceAlert("Transfer changed on another device; nothing deleted.");return false;}
       const deleted=normalizeTransfer(data);
-      setTransfers(rows=>rows.filter(r=>r.id!==transferId));
-      setDeletedTransfers(rows=>[deleted,...rows.filter(r=>r.id!==transferId)]);
+      setTransfers(rows=>removeRowById(rows,transferId));
+      setDeletedTransfers(rows=>upsertUniqueVersionedRow(rows,deleted));
       setUndoTransfer(deleted);
       clearTimeout(undoTransferTimeoutRef.current);
       undoTransferTimeoutRef.current=setTimeout(()=>setUndoTransfer(null),10000);
       setSyncStatus("Transfer moved to Recycle Bin");
       return true;
-    }catch(e){setSyncStatus("Transfer delete failed: "+e.message);localizedFinanceAlert(e.message);return false;}
+    }catch(e){if(isCurrentFinanceOwner(liveUserIdRef,owner)){setSyncStatus("Transfer delete failed: "+e.message);localizedFinanceAlert(e.message);}return false;}
     finally{pendingTransfersRef.current.delete(transferId);}
   }
 
   async function restoreTransfer(transferId) {
+    const owner=user?.id;
     const current=deletedTransfers.find(r=>r.id===transferId);
-    if(!current || !user || pendingTransfersRef.current.has(transferId))return false;
+    if(!current || !owner || !isCurrentFinanceOwner(liveUserIdRef,owner) ||
+      pendingTransfersRef.current.has(transferId))return false;
     pendingTransfersRef.current.add(transferId);
     try{
       const {data,error}=await supabase.from("transfers")
         .update({deleted_at:null})
-        .eq("id",transferId).eq("user_id",user.id)
+        .eq("id",transferId).eq("user_id",owner)
         .eq("version",current.version).not("deleted_at","is",null)
         .select("id,from_method,to_method,amount,note,date,created_at,updated_at,version,deleted_at")
         .maybeSingle();
+      if(!isCurrentFinanceOwner(liveUserIdRef,owner))return false;
       if(error)throw error;
       if(!data){await loadCloudData({background:true});localizedFinanceAlert("Transfer changed on another device; please refresh.");return false;}
       const restored=normalizeTransfer(data);
-      setDeletedTransfers(rows=>rows.filter(r=>r.id!==transferId));
-      setTransfers(rows=>[restored,...rows]);
+      setDeletedTransfers(rows=>removeRowById(rows,transferId));
+      setTransfers(rows=>upsertUniqueVersionedRow(rows,restored));
       if(undoTransfer?.id===transferId)setUndoTransfer(null);
       setSyncStatus("Transfer restored");
       return true;
-    }catch(e){setSyncStatus("Transfer restore failed: "+e.message);localizedFinanceAlert(e.message);return false;}
+    }catch(e){if(isCurrentFinanceOwner(liveUserIdRef,owner)){setSyncStatus("Transfer restore failed: "+e.message);localizedFinanceAlert(e.message);}return false;}
     finally{pendingTransfersRef.current.delete(transferId);}
   }
 
