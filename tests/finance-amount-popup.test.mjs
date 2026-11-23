@@ -51,6 +51,6 @@ test("08/09 popup is portaled out of grids, focus managed, Escape/backdrop closa
   assert.match(overlay,/fixed inset-0 z-\[100\]/);
   assert.match(overlay,/event\.key === "Escape"/);
   assert.match(overlay,/event\.target === event\.currentTarget/);
-  assert.match(overlay,/document\.body\.style\.overflow = previousOverflow/);
+  assert.match(overlay,/document\.body\.style\.overflow=bodyScrollLock\.overflow/);
   assert.match(overlay,/aria-label=\{"Close " \+ shownTitle\}/);
 });
