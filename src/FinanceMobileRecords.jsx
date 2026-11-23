@@ -21,6 +21,7 @@ export default function FinanceMobileRecords({ records, onUpdate, onDelete, onEd
   const editTriggerRef = React.useRef(null);
   const [field, setField] = useState("date");
   const [draft, setDraft] = useState("");
+  const [editVersion,setEditVersion] = useState(null);
   const [saving, setSaving] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(null);
   const record = records.find((item) => item.id === editingId);
@@ -32,6 +33,7 @@ export default function FinanceMobileRecords({ records, onUpdate, onDelete, onEd
 
   function startEdit(item) {
     setEditingId(item.id);
+    setEditVersion(item.version);
     setField("date");
     setDraft(item.date || "");
     setConfirmDelete(null);
@@ -45,12 +47,12 @@ export default function FinanceMobileRecords({ records, onUpdate, onDelete, onEd
 
   async function saveField() {
     if (!record || saving) return;
-    if (String(fieldValue(record, field)) === draft) return;
+    if (String(fieldValue(record, field)) === draft && Number(editVersion)===Number(record.version)) return;
     setSaving(true);
     try {
-      // Reuse the existing version-checked updateRecord handler unchanged.
-      // Keep the editor open: the handler reports conflicts/errors itself.
-      await onUpdate(record.id, field, draft);
+      // Capture the version from when editing STARTED, not a newer cloud refresh.
+      const updated=await onUpdate(record.id, field, draft, editVersion);
+      if(updated?.version)setEditVersion(updated.version);
     } finally {
       setSaving(false);
     }
@@ -137,8 +139,10 @@ export default function FinanceMobileRecords({ records, onUpdate, onDelete, onEd
             </label>
             {record.fx_currency&&(field==="amount"||field==="date")&&<p className="text-xs font-bold text-amber-700">Use FX Edit to update the original foreign-currency amount or date.</p>}
 
+            {record&&editVersion!==null&&Number(editVersion)!==Number(record.version)&&
+              <p role="alert" className="text-sm font-semibold text-amber-700">This record changed on another device. Close and reopen to review the new version; your old draft was not saved.</p>}
             <div className="flex gap-3">
-              <button type="button" onClick={saveField} disabled={saving || (record.fx_currency&&(field==="amount"||field==="date")) || draft === String(fieldValue(record, field))}
+              <button type="button" onClick={saveField} disabled={saving || (record.fx_currency&&(field==="amount"||field==="date")) || (editVersion!==null&&Number(editVersion)!==Number(record.version)) || draft === String(fieldValue(record, field))}
                 className="mh-touch flex-1 rounded-xl bg-slate-900 px-4 py-3 text-sm font-bold text-white disabled:opacity-50">
                 {saving ? "Saving..." : "Save field"}
               </button>

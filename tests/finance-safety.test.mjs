@@ -41,12 +41,14 @@ test("Record and transfer writes retain explicit user ownership", () => {
 });
 
 test("Record edits and soft deletes require owner and optimistic version checks", () => {
-  assert.match(app, /async function updateRecord\(recordId, field, value\)/);
+  assert.match(app, /async function updateRecord\(recordId, field, value, openedVersion=null\)/);
+  assert.match(app, /matchesOpenedVersion\(openedVersion,current\.version\)/);
   assert.match(app, /async function deleteRecord\(recordId\)/);
   assert.match(app, /async function restoreRecord\(recordId\)/);
   assert.match(app, /parseEditedAmount\(value\)/);
   assert.match(app, /\.eq\("version", current\.version\)/);
-  assert.match(app, /\.eq\("user_id", user\.id\)/);
+  assert.match(app, /\.eq\("user_id", owner\)/);
+  assert.match(app, /isCurrentFinanceOwner\(liveUserIdRef,owner\)/);
   assert.match(app, /\.update\(\{ deleted_at: new Date\(\)\.toISOString\(\) \}\)/);
   assert.match(app, /\.update\(\{ deleted_at: null \}\)/);
   assert.doesNotMatch(app, /\.from\("records"\)\s*\.delete\(/);

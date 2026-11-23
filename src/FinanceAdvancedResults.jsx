@@ -11,8 +11,8 @@ export default function FinanceAdvancedResults({rows=[],EditableCell,onUpdate,on
     return {income:rm(income),expense:rm(expense),net:rm(income-expense)};
   },[rows]);
   const shown=rows.slice(0,visible);
-  const editable=(r,field,value)=> <EditableCell value={value} field={field} recordType={r.type}
-    onSave={next=>onUpdate(r.id,field,next)} categoryOptionsFor={categoryOptionsFor} methodOptionsFor={methodOptionsFor}/>;
+  const editable=(r,field,value)=> <EditableCell value={value} field={field} recordType={r.type} recordVersion={r.version}
+    onSave={(next,openedVersion)=>onUpdate(r.id,field,next,openedVersion)} categoryOptionsFor={categoryOptionsFor} methodOptionsFor={methodOptionsFor}/>;
   return <section className="mt-4 min-w-0" aria-label="Advanced search results">
     <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl bg-slate-50 p-3">
       <b className="text-sm">{rows.length} matching records (global sort)</b>

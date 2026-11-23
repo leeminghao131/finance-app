@@ -3,11 +3,11 @@ import FinanceOverlay from "./FinanceOverlay.jsx";
 import {useFinanceLanguage,localizedFinanceConfirm} from "./FinanceLanguageLayer.jsx";
 import {localDateMY} from "./financeCalendar.js";
 import {claimSummary} from "./financeClaims.js";
+import {getClaimRequest,confirmClaimRequest} from "./financeClaimRequestId.js";
 
 const money=value=>new Intl.NumberFormat("en-MY",{style:"currency",currency:"MYR"}).format(Number(value||0));
 const initialDraft=()=>({title:"",claimant:"Company",amount:"",method:"BANK",paid_on:localDateMY(),note:""});
 const initialRepay=()=>({amount:"",method:"BANK",received_on:localDateMY(),note:""});
-const makeRequest=()=>crypto.randomUUID();
 
 export default function FinanceClaimTracker({
   claims=[],repayments=[],methods=[],userId=null,disabled=false,
@@ -21,13 +21,16 @@ export default function FinanceClaimTracker({
   const [focusedClaimId,setFocusedClaimId]=useState(null);
   const [busy,setBusy]=useState(false),[error,setError]=useState(""),[info,setInfo]=useState("");
   const triggerRef=useRef(null),createReq=useRef(null),repayReq=useRef(null);
-  const lastRequestRef=useRef(null),topRef=useRef(null);
+  const lastRequestRef=useRef(null),topRef=useRef(null),busyRef=useRef(null);
+  const liveOwnerRef=useRef(userId);
+  liveOwnerRef.current=userId;
   const summary=useMemo(()=>claimSummary(claims,repayments),[claims,repayments]);
   const sorted=filter==="outstanding"?summary.open:filter==="completed"
     ?summary.rows.filter(c=>c.status==="completed"):summary.rows;
   useEffect(()=>{
     setOpen(false);setError("");setInfo("");setShowNew(false);
     setRepayFor(null);setFocusedClaimId(null);createReq.current=null;repayReq.current=null;
+    setBusy(false);
     setDraft(initialDraft());setRepayDraft(initialRepay());
   },[userId]);
   useEffect(()=>{
@@ -46,17 +49,39 @@ export default function FinanceClaimTracker({
     repayReq.current=null;setRepayDraft(p=>({...p,[key]:value}));setError("");setInfo("");
   };
   const run=async(action,success)=>{
+    const owner=userId;
+    if(busyRef.current===owner||disabled||!owner)return;
+    busyRef.current=owner;
     setBusy(true);setError("");setInfo("");
-    try{await action();setInfo(success);}
-    catch(e){setError(e?.message||"Unable to save. Refresh before retrying.");}
-    finally{setBusy(false);}
+    try{
+      await action();
+      if(liveOwnerRef.current===owner)setInfo(success);
+    }catch(e){
+      if(liveOwnerRef.current===owner)
+        setError(e?.message||"Unable to save. Refresh before retrying.");
+    }finally{
+      if(busyRef.current===owner)busyRef.current=null;
+      if(liveOwnerRef.current===owner)setBusy(false);
+    }
   };
   const saveNew=async e=>{
     e.preventDefault();
-    if(!createReq.current)createReq.current=makeRequest();
-    const requestId=createReq.current;
+    const owner=userId;
     await run(async()=>{
-      await onCreate(draft,requestId);
+      const storage=window.localStorage;
+      if(createReq.current&&!createReq.current.key.startsWith(
+        "mh-finance-pending-claim-v1:"+owner+":advance:"))createReq.current=null;
+      if(!createReq.current){
+        const pending=await getClaimRequest(owner,"advance",draft,storage,crypto,navigator.locks);
+        if(liveOwnerRef.current!==owner)return;
+        createReq.current=pending;
+      }
+      if(liveOwnerRef.current!==owner)return;
+      const request=createReq.current;
+      await onCreate(draft,request.requestId);
+      // Only an acknowledged server row clears the persisted request ID.
+      confirmClaimRequest(owner,"advance",request,storage);
+      if(liveOwnerRef.current!==owner)return;
       createReq.current=null;setDraft(initialDraft());setShowNew(false);
       setFilter("outstanding");
     },t("已确认保存垫付记录。","Advance confirmed in cloud."));
@@ -70,10 +95,22 @@ export default function FinanceClaimTracker({
   };
   const saveRepay=async(e,claim)=>{
     e.preventDefault();
-    if(!repayReq.current)repayReq.current=makeRequest();
-    const requestId=repayReq.current;
+    const owner=userId;
     await run(async()=>{
-      await onRepay(claim,repayDraft,requestId);
+      const storage=window.localStorage;
+      if(repayReq.current&&!repayReq.current.key.startsWith(
+        "mh-finance-pending-claim-v1:"+owner+":repayment:"))repayReq.current=null;
+      if(!repayReq.current){
+        const pending=await getClaimRequest(owner,"repayment",
+          {...repayDraft,claimId:claim.id},storage,crypto,navigator.locks);
+        if(liveOwnerRef.current!==owner)return;
+        repayReq.current=pending;
+      }
+      if(liveOwnerRef.current!==owner)return;
+      const request=repayReq.current;
+      await onRepay(claim,repayDraft,request.requestId);
+      confirmClaimRequest(owner,"repayment",request,storage);
+      if(liveOwnerRef.current!==owner)return;
       repayReq.current=null;setRepayFor(null);setRepayDraft(initialRepay());
     },t("收到的报销已确认保存。","Reimbursement confirmed in cloud."));
   };
@@ -129,26 +166,26 @@ export default function FinanceClaimTracker({
           <h3>{t("记录你已经替别人支付的钱","Record money you already paid for someone else")}</h3>
           <div className="mh-claim-fields">
             <label>{t("用途／名称","Description")}
-              <input required maxLength={160} className={fieldClass} value={draft.title}
+              <input required maxLength={160} disabled={busy||disabled} className={fieldClass} value={draft.title}
                 placeholder={t("例如：公司同事午餐","e.g. Team lunch")}
                 onChange={e=>updateDraft("title",e.target.value)}/></label>
             <label>{t("谁需要报销给你","Claim from")}
-              <input required maxLength={160} className={fieldClass} value={draft.claimant}
+              <input required maxLength={160} disabled={busy||disabled} className={fieldClass} value={draft.claimant}
                 onChange={e=>updateDraft("claimant",e.target.value)}/></label>
             <label>{t("垫付金额（RM 正常输入）","Amount (RM typing)")}
-              <input required type="text" inputMode="decimal" className={fieldClass}
+              <input required type="text" inputMode="decimal" disabled={busy||disabled} className={fieldClass}
                 placeholder="100.00" value={draft.amount}
                 onChange={e=>updateDraft("amount",e.target.value)}/></label>
             <label>{t("实际付款方式","Paid using")}
-              <select required className={fieldClass} value={draft.method}
+              <select required disabled={busy||disabled} className={fieldClass} value={draft.method}
                 onChange={e=>updateDraft("method",e.target.value)}>
                 {methods.map(method=><option key={method} value={method}>{method}</option>)}
               </select></label>
             <label>{t("实际付款日期","Paid on")}
-              <input required type="date" max={localDateMY()} className={fieldClass}
+              <input required type="date" max={localDateMY()} disabled={busy||disabled} className={fieldClass}
                 value={draft.paid_on} onChange={e=>updateDraft("paid_on",e.target.value)}/></label>
             <label>{t("备注（可选）","Note (optional)")}
-              <input maxLength={1000} className={fieldClass} value={draft.note}
+              <input maxLength={1000} disabled={busy||disabled} className={fieldClass} value={draft.note}
                 onChange={e=>updateDraft("note",e.target.value)}/></label>
           </div>
           <button type="submit" disabled={disabled||busy} className="mh-claim-save">
@@ -196,19 +233,19 @@ export default function FinanceClaimTracker({
                 <h4>{t("实际收到多少？支持分批报销","How much was actually received? Partial payments supported.")}</h4>
                 <div className="mh-claim-fields">
                   <label>{t("到账金额 RM","Received RM")}
-                    <input required className={fieldClass} type="text" inputMode="decimal"
+                    <input required disabled={busy||disabled} className={fieldClass} type="text" inputMode="decimal"
                       value={repayDraft.amount} onChange={e=>updateRepay("amount",e.target.value)}/></label>
                   <label>{t("收到钱的账户","Received into")}
-                    <select className={fieldClass} value={repayDraft.method}
+                    <select disabled={busy||disabled} className={fieldClass} value={repayDraft.method}
                       onChange={e=>updateRepay("method",e.target.value)}>
                       {methods.map(m=><option key={m} value={m}>{m}</option>)}
                     </select></label>
                   <label>{t("实际到账日期","Received date")}
-                    <input required className={fieldClass} type="date"
+                    <input required disabled={busy||disabled} className={fieldClass} type="date"
                       min={claim.paid_on} max={localDateMY()} value={repayDraft.received_on}
                       onChange={e=>updateRepay("received_on",e.target.value)}/></label>
                   <label>{t("备注","Note")}
-                    <input className={fieldClass} maxLength={1000} value={repayDraft.note}
+                    <input disabled={busy||disabled} className={fieldClass} maxLength={1000} value={repayDraft.note}
                       onChange={e=>updateRepay("note",e.target.value)}/></label>
                 </div>
                 <button type="submit" disabled={busy||disabled} className="mh-claim-save">

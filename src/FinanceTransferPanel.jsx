@@ -39,7 +39,7 @@ export default function FinanceTransferPanel({
   function startEditing(item) {
     setShowAll(true);
     setEditing({
-      id:item.id, fromMethod:item.fromMethod, toMethod:item.toMethod,
+      id:item.id, version:item.version, fromMethod:item.fromMethod, toMethod:item.toMethod,
       amount:Number(item.amount).toFixed(2), date:item.date, note:item.note || "",
     });
   }

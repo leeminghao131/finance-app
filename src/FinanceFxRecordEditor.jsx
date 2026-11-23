@@ -1,4 +1,4 @@
-import React,{useEffect,useState} from "react";
+import React,{useEffect,useState,useRef} from "react";
 import FinanceOverlay from "./FinanceOverlay.jsx";
 import {useFinanceLanguage} from "./FinanceLanguageLayer.jsx";
 import {FX_FAVORITES,FX_SOURCE,makeFxSnapshot,getReferenceFxRate,getSupportedFxCurrencies} from "./financeFx.js";
@@ -17,13 +17,15 @@ export default function FinanceFxRecordEditor({record,onSave,onClose,triggerRef}
   const [date,setDate]=useState(""),[quote,setQuote]=useState(null);
   const [loading,setLoading]=useState(false),[saving,setSaving]=useState(false);
   const [error,setError]=useState("");
+  const openedVersionRef=useRef(null);
   useEffect(()=>{
     if(!record)return;
+    openedVersionRef.current=record.version;
     setCurrency(record.fx_currency);setForeignAmount(String(record.fx_amount));
     setDate(record.date);setQuote({currency:record.fx_currency,requestedDate:record.date,
       date:record.fx_rate_date,rate:String(record.fx_rate),source:FX_SOURCE});
     setError("");
-  },[record?.id,record?.version]);
+  },[record?.id]); // Realtime version changes must NOT erase an in-progress FX draft.
   useEffect(()=>{
     if(!record||!date||!currency)return;
     if(date===record.date&&currency===record.fx_currency)return;
@@ -42,7 +44,7 @@ export default function FinanceFxRecordEditor({record,onSave,onClose,triggerRef}
     if(!record||!snap||loading||saving)return;
     setSaving(true);setError("");
     try{
-      const ok=await onSave(record,{...snap,date});
+      const ok=await onSave(record,{...snap,date,expectedVersion:openedVersionRef.current});
       if(!ok)throw Error(t("云端未确认保存，数据可能已变化；请刷新核对。","Cloud save not confirmed. Refresh and verify."));
       onClose();
     }catch(e){setError(e.message||String(e));}

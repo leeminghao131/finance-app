@@ -20,7 +20,8 @@ test("UI: transaction records move to an overlay without losing original fields 
     assert.match(records, new RegExp(">" + field + "<"));
   }
   assert.match(records, /toggleDateGroup\(group\.date\)/);
-  assert.match(records, /updateRecord\(record\.id, "amount", v\)/);
+  assert.match(records, /updateRecord\(record\.id, "amount", v,opened\)/);
+  assert.match(records, /recordVersion=\{record\.version\}/);
   assert.match(records, /deleteRecord\(record\.id\)/);
   assert.match(records, /<FinanceMobileRecords/);
   assert.match(records, /Total \(\{filteredRecords\.length\} records\)/);

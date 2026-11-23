@@ -57,6 +57,7 @@ const FinanceExcelExportPanel = React.lazy(() => import("./FinanceExcelExportPan
 import { normalizeRecord, normalizeTransfer, toRecordPayload } from "./financeRecords.js";
 import { fetchFinanceSnapshot } from "./financeCloudService.js";
 import { getRecordRequestId, confirmRecordRequest, getTransferRequestId, confirmTransferRequest, assertRecoveredRecordMatchesPayload, assertRecoveredTransferMatchesPayload } from "./financeSaveIdempotency.js";
+import {isCurrentFinanceOwner,matchesOpenedVersion,removeRowById,upsertUniqueVersionedRow,replaceExistingVersionedRow,hasNewerVersion} from "./financeMutationSafety.js";
 import { CoinRainEffect, IncomeCoinSpinEffect } from "./FinanceVisualEffects.jsx";
 import { FinanceLanguageProvider, FinanceLanguageButton, useFinanceLanguage, localizedFinanceAlert, localizedFinanceConfirm } from "./FinanceLanguageLayer.jsx";
 // Chart data remains unchanged; drawing now uses bounded native SVG components.
@@ -469,7 +470,7 @@ function TodaySummaryCard({ stats }) {
     </Card>
   );
 }
-function EditableCell({ value, field, recordType, onSave, categoryOptionsFor, methodOptionsFor }) {
+function EditableCell({ value, field, recordType, recordVersion, onSave, categoryOptionsFor, methodOptionsFor }) {
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState(value ?? "");
 
@@ -479,12 +480,14 @@ function EditableCell({ value, field, recordType, onSave, categoryOptionsFor, me
   }, [value, editing]);
 
   const savingRef = useRef(false);
+  const openedRef = useRef(null);
   function commit() {
     if (savingRef.current) return;
     savingRef.current = true;
     setEditing(false);
-    if (String(draft) !== String(value ?? "")) {
-      onSave(draft);
+    const opened=openedRef.current;
+    if (opened && String(draft) !== String(opened.value ?? "")) {
+      onSave(draft,opened.version);
     }
   }
 
@@ -493,7 +496,7 @@ function EditableCell({ value, field, recordType, onSave, categoryOptionsFor, me
       <span
         data-i18n-ignore={field === "note" ? "" : undefined}
         className="cursor-pointer rounded px-1 py-0.5 hover:bg-slate-100"
-        onClick={() => { savingRef.current = false; setEditing(true); }}
+        onClick={() => { savingRef.current = false; openedRef.current={value:value??"",version:recordVersion}; setDraft(value??""); setEditing(true); }}
       >
       {value ? (
   field === "category"
@@ -636,6 +639,12 @@ function FinanceVisualizerAppContent() {
   const [deletedRecords, setDeletedRecords] = useState([]);
   const [transfers, setTransfers] = useState([]);
   const [deletedTransfers, setDeletedTransfers] = useState([]);
+  // Latest committed React view, for rejecting older responses arriving after
+  // a newer Realtime refresh. This ref never writes to the database.
+  const latestLedgerRef=useRef({records,deletedRecords,transfers,deletedTransfers});
+  useEffect(()=>{
+    latestLedgerRef.current={records,deletedRecords,transfers,deletedTransfers};
+  },[records,deletedRecords,transfers,deletedTransfers]);
   const [undoTransfer, setUndoTransfer] = useState(null);
   const [monthRows, setMonthRows] = useState([]);
   const [budgetMonth, setBudgetMonth] = useState(monthNow());
@@ -793,20 +802,26 @@ function FinanceVisualizerAppContent() {
       return;
     }
     let mounted = true;
+    let authEventSeen = false;
     supabase.auth.getSession().then(({ data, error }) => {
-      if (!mounted) return;
+      // getSession can resolve AFTER an auth event; never roll the UI back
+      // to a former account because an earlier request returned late.
+      if (!mounted || authEventSeen) return;
       if (error) setSyncStatus(error.message);
       liveUserIdRef.current = data.session?.user?.id || null;
       setSession(data.session || null);
       setUser(data.session?.user || null);
       setAuthLoading(false);
     }).catch((error) => {
-      if (mounted) { setSyncStatus(error.message); setAuthLoading(false); }
+      if (mounted && !authEventSeen) { setSyncStatus(error.message); setAuthLoading(false); }
     });
     const { data: listener } = supabase.auth.onAuthStateChange((_event, nextSession) => {
+      if (!mounted) return;
+      authEventSeen = true;
       liveUserIdRef.current = nextSession?.user?.id || null;
       setSession(nextSession || null);
       setUser(nextSession?.user || null);
+      setAuthLoading(false);
     });
     return () => { mounted = false; listener.subscription.unsubscribe(); };
   }, []);
@@ -1963,8 +1978,14 @@ async function addRecord(e) {
   }
 
   async function updateTransfer(transferId, edit) {
+    const owner=user?.id;
     const current = transfers.find(r=>r.id===transferId);
-    if (!current || !user || pendingTransfersRef.current.has(transferId)) return false;
+    if (!current || !owner || !isCurrentFinanceOwner(liveUserIdRef,owner) ||
+      pendingTransfersRef.current.has(transferId)) return false;
+    if(!matchesOpenedVersion(edit.version,current.version)){
+      localizedFinanceAlert("Transfer changed since you opened the editor. Close and reopen; old draft was not saved.");
+      return false;
+    }
     let payload;
     try {
       const amount=parseEditedAmount(edit.amount);
@@ -1983,12 +2004,14 @@ async function addRecord(e) {
     }
     pendingTransfersRef.current.add(transferId);
     try {
+      if(!isCurrentFinanceOwner(liveUserIdRef,owner))return false;
       const {data,error}=await supabase.from("transfers")
         .update(payload)
-        .eq("id",transferId).eq("user_id",user.id)
-        .eq("version",current.version).is("deleted_at",null)
+        .eq("id",transferId).eq("user_id",owner)
+        .eq("version",edit.version).is("deleted_at",null)
         .select("id,from_method,to_method,amount,note,date,created_at,updated_at,version,deleted_at")
         .maybeSingle();
+      if(!isCurrentFinanceOwner(liveUserIdRef,owner))return false;
       if(error)throw error;
       if(!data){
         setSyncStatus("Transfer conflict — latest cloud data loaded; edit not applied.");
@@ -1997,58 +2020,76 @@ async function addRecord(e) {
         return false;
       }
       const edited=normalizeTransfer(data);
-      setTransfers(rows=>rows.map(r=>r.id===transferId?edited:r));
+      if(hasNewerVersion(edited,latestLedgerRef.current.transfers,latestLedgerRef.current.deletedTransfers)){
+        setSyncStatus("Transfer changed again on another device; newer cloud state retained.");
+        return true;
+      }
+      setTransfers(rows=>replaceExistingVersionedRow(rows,edited));
       setSyncStatus("Transfer updated");
       return true;
-    }catch(e){setSyncStatus("Transfer update failed: "+e.message);localizedFinanceAlert(e.message);return false;}
+    }catch(e){if(isCurrentFinanceOwner(liveUserIdRef,owner)){setSyncStatus("Transfer update failed: "+e.message);localizedFinanceAlert(e.message);}return false;}
     finally{pendingTransfersRef.current.delete(transferId);}
   }
 
   async function deleteTransfer(transferId) {
+    const owner=user?.id;
     const current=transfers.find(r=>r.id===transferId);
-    if(!current || !user || pendingTransfersRef.current.has(transferId))return false;
+    if(!current || !owner || !isCurrentFinanceOwner(liveUserIdRef,owner) ||
+      pendingTransfersRef.current.has(transferId))return false;
     pendingTransfersRef.current.add(transferId);
     try {
       const {data,error}=await supabase.from("transfers")
         .update({deleted_at:new Date().toISOString()})
-        .eq("id",transferId).eq("user_id",user.id)
+        .eq("id",transferId).eq("user_id",owner)
         .eq("version",current.version).is("deleted_at",null)
         .select("id,from_method,to_method,amount,note,date,created_at,updated_at,version,deleted_at")
         .maybeSingle();
+      if(!isCurrentFinanceOwner(liveUserIdRef,owner))return false;
       if(error)throw error;
       if(!data){await loadCloudData({background:true});localizedFinanceAlert("Transfer changed on another device; nothing deleted.");return false;}
       const deleted=normalizeTransfer(data);
-      setTransfers(rows=>rows.filter(r=>r.id!==transferId));
-      setDeletedTransfers(rows=>[deleted,...rows.filter(r=>r.id!==transferId)]);
+      if(hasNewerVersion(deleted,latestLedgerRef.current.transfers,latestLedgerRef.current.deletedTransfers)){
+        setSyncStatus("Transfer changed again; newer cloud version retained.");
+        return true;
+      }
+      setTransfers(rows=>removeRowById(rows,transferId));
+      setDeletedTransfers(rows=>upsertUniqueVersionedRow(rows,deleted));
       setUndoTransfer(deleted);
       clearTimeout(undoTransferTimeoutRef.current);
       undoTransferTimeoutRef.current=setTimeout(()=>setUndoTransfer(null),10000);
       setSyncStatus("Transfer moved to Recycle Bin");
       return true;
-    }catch(e){setSyncStatus("Transfer delete failed: "+e.message);localizedFinanceAlert(e.message);return false;}
+    }catch(e){if(isCurrentFinanceOwner(liveUserIdRef,owner)){setSyncStatus("Transfer delete failed: "+e.message);localizedFinanceAlert(e.message);}return false;}
     finally{pendingTransfersRef.current.delete(transferId);}
   }
 
   async function restoreTransfer(transferId) {
+    const owner=user?.id;
     const current=deletedTransfers.find(r=>r.id===transferId);
-    if(!current || !user || pendingTransfersRef.current.has(transferId))return false;
+    if(!current || !owner || !isCurrentFinanceOwner(liveUserIdRef,owner) ||
+      pendingTransfersRef.current.has(transferId))return false;
     pendingTransfersRef.current.add(transferId);
     try{
       const {data,error}=await supabase.from("transfers")
         .update({deleted_at:null})
-        .eq("id",transferId).eq("user_id",user.id)
+        .eq("id",transferId).eq("user_id",owner)
         .eq("version",current.version).not("deleted_at","is",null)
         .select("id,from_method,to_method,amount,note,date,created_at,updated_at,version,deleted_at")
         .maybeSingle();
+      if(!isCurrentFinanceOwner(liveUserIdRef,owner))return false;
       if(error)throw error;
       if(!data){await loadCloudData({background:true});localizedFinanceAlert("Transfer changed on another device; please refresh.");return false;}
       const restored=normalizeTransfer(data);
-      setDeletedTransfers(rows=>rows.filter(r=>r.id!==transferId));
-      setTransfers(rows=>[restored,...rows]);
+      if(hasNewerVersion(restored,latestLedgerRef.current.transfers,latestLedgerRef.current.deletedTransfers)){
+        setSyncStatus("Transfer restored then changed again; newest version retained.");
+        return true;
+      }
+      setDeletedTransfers(rows=>removeRowById(rows,transferId));
+      setTransfers(rows=>upsertUniqueVersionedRow(rows,restored));
       if(undoTransfer?.id===transferId)setUndoTransfer(null);
       setSyncStatus("Transfer restored");
       return true;
-    }catch(e){setSyncStatus("Transfer restore failed: "+e.message);localizedFinanceAlert(e.message);return false;}
+    }catch(e){if(isCurrentFinanceOwner(liveUserIdRef,owner)){setSyncStatus("Transfer restore failed: "+e.message);localizedFinanceAlert(e.message);}return false;}
     finally{pendingTransfersRef.current.delete(transferId);}
   }
 
@@ -2071,10 +2112,16 @@ async function addRecord(e) {
     catch { setCalculationResult(null); localizedFinanceAlert("Invalid calculation. Example: 3.50 + 12.90 + 2*5.40"); }
   }
 
-  async function updateRecord(recordId, field, value) {
+  async function updateRecord(recordId, field, value, openedVersion=null) {
+    const owner=user?.id;
     const current = records.find((row) => row.id === recordId);
-    if (!current || !user) return;
-    if (pendingRecordsRef.current.has(recordId)) return;
+    if (!current || !owner || !isCurrentFinanceOwner(liveUserIdRef,owner)) return false;
+    if (pendingRecordsRef.current.has(recordId)) return false;
+    // Never attach an old editor draft to a newer Realtime version.
+    if(openedVersion!==null&&!matchesOpenedVersion(openedVersion,current.version)){
+      localizedFinanceAlert("This record changed since editing started. No edit saved. Close and reopen.");
+      return false;
+    }
     if(current.fx_currency&&(field==="amount"||field==="date")){
       localizedFinanceAlert("Use FX Edit to update the original foreign amount/date safely.");
       return false;
@@ -2085,21 +2132,23 @@ async function addRecord(e) {
         ? { type: value, category: categoryOptionsFor(value)[0], method: methodOptionsFor(value)[0] }
         : { [field]: field === "amount" ? parseEditedAmount(value) : value };
       if (field === "date") requireCalendarDate(value);
-      if (field === "amount" && current.amount === updates.amount) return;
+      if (field === "amount" && current.amount === updates.amount) return current;
     } catch (error) {
       localizedFinanceAlert(error.message);
       return;
     }
     pendingRecordsRef.current.add(recordId);
     try {
+      if(!isCurrentFinanceOwner(liveUserIdRef,owner))return false;
       const { data, error } = await supabase.from("records")
         .update(updates)
         .eq("id", recordId)
-        .eq("user_id", user.id)
-        .eq("version", current.version)
+        .eq("user_id", owner)
+        .eq("version", openedVersion===null?current.version:openedVersion)
         .is("deleted_at", null)
         .select("id,type,amount,category,method,note,date,created_at,updated_at,version,deleted_at,fx_currency,fx_amount,fx_rate,fx_rate_date,fx_provider")
         .maybeSingle();
+      if(!isCurrentFinanceOwner(liveUserIdRef,owner))return false;
       if (error) throw error;
       if (!data) {
         setSyncStatus("Conflict: this record changed on another device. Nothing overwritten.");
@@ -2108,19 +2157,34 @@ async function addRecord(e) {
         return;
       }
       const result = normalizeRecord(data);
-      setRecords((previous) => previous.map((row) => row.id === recordId ? result : row));
+      if(hasNewerVersion(result,latestLedgerRef.current.records,latestLedgerRef.current.deletedRecords)){
+        setSyncStatus("Record changed again; newer cloud version retained.");
+        return result;
+      }
+      setRecords(previous=>replaceExistingVersionedRow(previous,result));
       setSyncStatus("Record synced");
+      return result;
     } catch (error) {
-      setSyncStatus("Record edit not saved: " + error.message);
-      localizedFinanceAlert(error.message);
+      if(isCurrentFinanceOwner(liveUserIdRef,owner)){
+        setSyncStatus("Record edit not saved: " + error.message);
+        localizedFinanceAlert(error.message);
+      }
+      return false;
     } finally {
       pendingRecordsRef.current.delete(recordId);
     }
   }
 
   async function updateForeignRecord(original,change){
+    const owner=user?.id;
     const current=records.find(row=>row.id===original?.id);
-    if(!user||!initialDataReady||dataLoading||!current?.fx_currency||pendingRecordsRef.current.has(current.id))return false;
+    if(!owner||!isCurrentFinanceOwner(liveUserIdRef,owner)||!initialDataReady||
+      dataLoading||!current?.fx_currency||pendingRecordsRef.current.has(current.id))return false;
+    const openedVersion=change.expectedVersion??original?.version;
+    if(!matchesOpenedVersion(openedVersion,current.version)){
+      localizedFinanceAlert("FX record changed since editing began. Nothing overwritten; close and reopen.");
+      return false;
+    }
     let safe;
     try{
       safe=makeFxSnapshot({currency:change.fx_currency,foreignAmount:change.fx_amount,
@@ -2130,34 +2194,43 @@ async function addRecord(e) {
     }catch(e){localizedFinanceAlert(e.message);return false;}
     pendingRecordsRef.current.add(current.id);
     try{
+      if(!isCurrentFinanceOwner(liveUserIdRef,owner))return false;
       const columns="id,type,amount,category,method,note,date,created_at,updated_at,version,deleted_at,fx_currency,fx_amount,fx_rate,fx_rate_date,fx_provider";
       const {data,error}=await supabase.from("records").update({...safe,date:change.date})
-        .eq("id",current.id).eq("user_id",user.id).eq("version",current.version)
+        .eq("id",current.id).eq("user_id",owner).eq("version",openedVersion)
         .is("deleted_at",null).select(columns).maybeSingle();
+      if(!isCurrentFinanceOwner(liveUserIdRef,owner))return false;
       if(error)throw error;
       if(!data){
         await loadCloudData({background:true});
         throw Error("FX changed on another device; nothing overwritten.");
       }
-      if(liveUserIdRef.current!==user.id)return false;
+      if(!isCurrentFinanceOwner(liveUserIdRef,owner))return false;
       const result=normalizeRecord(data);
-      setRecords(rows=>rows.map(row=>row.id===result.id?result:row));
+      if(hasNewerVersion(result,latestLedgerRef.current.records,latestLedgerRef.current.deletedRecords)){
+        setSyncStatus("FX record changed again; newer cloud version retained.");
+        return true;
+      }
+      setRecords(rows=>replaceExistingVersionedRow(rows,result));
       setSyncStatus("FX transaction saved to cloud");return true;
-    }catch(e){localizedFinanceAlert(e.message||String(e));return false;}
+    }catch(e){if(isCurrentFinanceOwner(liveUserIdRef,owner))localizedFinanceAlert(e.message||String(e));return false;}
     finally{pendingRecordsRef.current.delete(current.id);}
   }
 
   async function deleteRecord(recordId) {
+    const owner=user?.id;
     const current = records.find((row) => row.id === recordId);
-    if (!current || !user || pendingRecordsRef.current.has(recordId)) return;
+    if (!current || !owner || !isCurrentFinanceOwner(liveUserIdRef,owner) ||
+      pendingRecordsRef.current.has(recordId)) return false;
     pendingRecordsRef.current.add(recordId);
     try {
       const { data, error } = await supabase.from("records")
         .update({ deleted_at: new Date().toISOString() })
-        .eq("id", recordId).eq("user_id", user.id)
+        .eq("id", recordId).eq("user_id", owner)
         .eq("version", current.version).is("deleted_at", null)
         .select("id,type,amount,category,method,note,date,created_at,updated_at,version,deleted_at,fx_currency,fx_amount,fx_rate,fx_rate_date,fx_provider")
         .maybeSingle();
+      if(!isCurrentFinanceOwner(liveUserIdRef,owner))return false;
       if (error) throw error;
       if (!data) {
         await loadCloudData({ background: true });
@@ -2165,32 +2238,43 @@ async function addRecord(e) {
         return;
       }
       const removed = normalizeRecord(data);
-      setRecords((previous) => previous.filter((row) => row.id !== recordId));
-      setDeletedRecords((previous) => [removed, ...previous]);
+      if(hasNewerVersion(removed,latestLedgerRef.current.records,latestLedgerRef.current.deletedRecords)){
+        setSyncStatus("Record changed again; newer cloud version retained.");
+        return true;
+      }
+      setRecords((previous) => removeRowById(previous,recordId));
+      setDeletedRecords((previous) => upsertUniqueVersionedRow(previous,removed));
       setDeleteConfirm(null);
       setUndoDeleted(removed);
       clearTimeout(undoTimeoutRef.current);
       undoTimeoutRef.current = setTimeout(() => setUndoDeleted(null), 10000);
       setSyncStatus("Record moved to Recycle Bin — can be restored anytime.");
+      return true;
     } catch (error) {
-      setSyncStatus("Delete failed: " + error.message);
-      localizedFinanceAlert(error.message);
+      if(isCurrentFinanceOwner(liveUserIdRef,owner)){
+        setSyncStatus("Delete failed: " + error.message);
+        localizedFinanceAlert(error.message);
+      }
+      return false;
     } finally {
       pendingRecordsRef.current.delete(recordId);
     }
   }
 
   async function restoreRecord(recordId) {
+    const owner=user?.id;
     const current = deletedRecords.find((row) => row.id === recordId);
-    if (!current || !user || pendingRecordsRef.current.has(recordId)) return;
+    if (!current || !owner || !isCurrentFinanceOwner(liveUserIdRef,owner) ||
+      pendingRecordsRef.current.has(recordId)) return false;
     pendingRecordsRef.current.add(recordId);
     try {
       const { data, error } = await supabase.from("records")
         .update({ deleted_at: null })
-        .eq("id", recordId).eq("user_id", user.id)
+        .eq("id", recordId).eq("user_id", owner)
         .eq("version", current.version).not("deleted_at", "is", null)
         .select("id,type,amount,category,method,note,date,created_at,updated_at,version,deleted_at,fx_currency,fx_amount,fx_rate,fx_rate_date,fx_provider")
         .maybeSingle();
+      if(!isCurrentFinanceOwner(liveUserIdRef,owner))return false;
       if (error) throw error;
       if (!data) {
         await loadCloudData({ background: true });
@@ -2198,13 +2282,21 @@ async function addRecord(e) {
         return;
       }
       const restored = normalizeRecord(data);
-      setDeletedRecords((previous) => previous.filter((row) => row.id !== recordId));
-      setRecords((previous) => [restored, ...previous]);
+      if(hasNewerVersion(restored,latestLedgerRef.current.records,latestLedgerRef.current.deletedRecords)){
+        setSyncStatus("Record changed again; newest cloud version retained.");
+        return true;
+      }
+      setDeletedRecords((previous) => removeRowById(previous,recordId));
+      setRecords((previous) => upsertUniqueVersionedRow(previous,restored));
       if (undoDeleted?.id === recordId) setUndoDeleted(null);
       setSyncStatus("Record restored from Recycle Bin");
+      return true;
     } catch (error) {
-      setSyncStatus("Restore failed: " + error.message);
-      localizedFinanceAlert(error.message);
+      if(isCurrentFinanceOwner(liveUserIdRef,owner)){
+        setSyncStatus("Restore failed: " + error.message);
+        localizedFinanceAlert(error.message);
+      }
+      return false;
     } finally {
       pendingRecordsRef.current.delete(recordId);
     }
@@ -2968,7 +3060,7 @@ return (
                   {group.records.map((record) => (
                     <tr key={record.id} className="group hover:bg-slate-50">
                       <td className="py-3 pr-4 font-mono text-xs text-slate-600">
-                        <EditableCell value={record.date} field="date" recordType={record.type} onSave={(v) => updateRecord(record.id, "date", v)}
+                        <EditableCell value={record.date} field="date" recordType={record.type} recordVersion={record.version} onSave={(v,opened) => updateRecord(record.id, "date", v,opened)}
 categoryOptionsFor={categoryOptionsFor}
   methodOptionsFor={methodOptionsFor} />
                       </td>
@@ -2980,13 +3072,13 @@ categoryOptionsFor={categoryOptionsFor}
                       </td>
 
                       <td className="py-3 pr-4 font-medium text-slate-800">
-                        <EditableCell value={record.category} field="category" recordType={record.type} onSave={(v) => updateRecord(record.id, "category", v)}
+                        <EditableCell value={record.category} field="category" recordType={record.type} recordVersion={record.version} onSave={(v,opened) => updateRecord(record.id, "category", v,opened)}
 categoryOptionsFor={categoryOptionsFor}
   methodOptionsFor={methodOptionsFor} />
                       </td>
 
                       <td className="py-3 pr-4 text-slate-600">
-                        <EditableCell value={recordMethod(record)} field="method" recordType={record.type} onSave={(v) => updateRecord(record.id, "method", v)}
+                        <EditableCell value={recordMethod(record)} field="method" recordType={record.type} recordVersion={record.version} onSave={(v,opened) => updateRecord(record.id, "method", v,opened)}
 categoryOptionsFor={categoryOptionsFor}
   methodOptionsFor={methodOptionsFor} />
                       </td>
@@ -2995,8 +3087,8 @@ categoryOptionsFor={categoryOptionsFor}
   <span className="mr-1">{recordTypeStyle(record.type).sign}</span>
   {record.fx_currency
     ? <span className="font-semibold">{money(record.amount)}</span>
-    : <EditableCell value={record.amount} field="amount" recordType={record.type}
-        onSave={(v) => updateRecord(record.id, "amount", v)}
+    : <EditableCell value={record.amount} field="amount" recordType={record.type} recordVersion={record.version}
+        onSave={(v,opened) => updateRecord(record.id, "amount", v,opened)}
         categoryOptionsFor={categoryOptionsFor} methodOptionsFor={methodOptionsFor}/>}
   {record.fx_currency&&<div className="mt-1 text-xs text-slate-500" data-i18n-ignore>
     {record.fx_currency} {record.fx_amount} · 1 {record.fx_currency} = RM{record.fx_rate}
@@ -3006,7 +3098,7 @@ categoryOptionsFor={categoryOptionsFor}
 </td>
 
                       <td className="py-3 pr-4 text-slate-500">
-                        <EditableCell value={record.note || ""} field="note" recordType={record.type} onSave={(v) => updateRecord(record.id, "note", v)} categoryOptionsFor={categoryOptionsFor}
+                        <EditableCell value={record.note || ""} field="note" recordType={record.type} recordVersion={record.version} onSave={(v,opened) => updateRecord(record.id, "note", v,opened)} categoryOptionsFor={categoryOptionsFor}
   methodOptionsFor={methodOptionsFor} />
                         {record.type==="expense"&&activityOfRecord(record.id,activityLinks,activities)&&<span data-i18n-ignore
                           className="ml-1 inline-flex max-w-40 truncate rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-semibold text-amber-900">

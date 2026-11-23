@@ -64,7 +64,7 @@ test("Stage 2.6: four anomaly switches and bill payment idempotency remain in pl
   const review=source("FinanceReviewInbox.jsx"),bills=source("FinanceRecurringBills.jsx");
   assert.match(review,/REVIEW_RULE_KEYS\.map/);
   assert.match(review,/role="switch"/);
-  assert.match(review,/onUpdateRecord\(c\.record\.id,fieldName,editValue\)/);
+  assert.match(review,/onUpdateRecord\(c\.record\.id,fieldName,editValue,editVersion\)/);
   assert.match(bills,/onConfirmPayment\(\{billId:event\.billId,due:event\.due\}\)/);
   assert.match(source("financeBillPayment.js"),/recurringBillRequestId/);
   assert.match(source("financeStage2.js"),/findReviewCandidates/);

@@ -18,11 +18,12 @@ export default function FinanceReviewInbox({
   const t=(cn,en)=>zh?cn:en;
   const [onlyPending,setOnlyPending]=useState(true),[editingId,setEditingId]=useState(null);
   const [fieldName,setFieldName]=useState("note"),[editValue,setEditValue]=useState("");
+  const [editVersion,setEditVersion]=useState(null);
   const [busy,setBusy]=useState(false),[error,setError]=useState(""),[message,setMessage]=useState("");
   const candidates=useMemo(()=>findReviewCandidates(records,reviewState,localDateMY()),[records,reviewState]);
   const selected=candidates.find(c=>c.id===selectedId);
   const displayed=selectedId?selected?[selected]:[]:onlyPending?candidates.filter(c=>!c.confirmed):candidates;
-  const startEdit=c=>{setEditingId(c.id);setFieldName("note");setEditValue(String(c.record.note||""));setError("");setMessage("");};
+  const startEdit=c=>{setEditingId(c.id);setEditVersion(c.record.version);setFieldName("note");setEditValue(String(c.record.note||""));setError("");setMessage("");};
   const setEditField=(c,next)=>{
     setFieldName(next);
     setEditValue(String(c.record[next]??""));
@@ -52,7 +53,7 @@ export default function FinanceReviewInbox({
     try{
       // Existing updateRecord performs input validation, owner id, version CAS
       // and background conflict refresh. The Review UI never writes SQL itself.
-      const ok=await onUpdateRecord(c.record.id,fieldName,editValue);
+      const ok=await onUpdateRecord(c.record.id,fieldName,editValue,editVersion);
       if(!ok)throw Error(t("修改未成功，请检查记录并刷新。","Edit was not saved. Refresh before retrying."));
       setEditingId(null);
       setMessage(t("记录已保存。若仍符合异常规则，会继续等待确认。","Record saved. Remaining flags still require review."));
