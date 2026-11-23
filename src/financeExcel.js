@@ -147,7 +147,7 @@ export function buildFinanceWorkbook({
     ["Claim cash advanced in scope (RM)",rm(claimAdvancedCents)],
     ["Claim reimbursements received in scope (RM)",rm(claimReceivedCents)],
     ["Net claim cash movement in scope (RM)",rm(claimCashCents)],
-    ["Outstanding claims through export date (RM)",claimSummary(claims,claimRepayments,exportedOn).outstanding],
+    ["All-account outstanding claims through export date (RM; NOT month-scoped)",claimSummary(claims,claimRepayments,exportedOn).outstanding],
     ["Claim advance rows (incl cancelled)",visibleClaims.length],
     ["Claim repayment rows (incl voided)",visibleRepayments.length],
     ["Opening balances in selected-month subtotal","Excluded: opening amounts are not period income"],
