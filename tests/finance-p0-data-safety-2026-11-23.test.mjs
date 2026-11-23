@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import {webcrypto} from "node:crypto";
 import {readFileSync} from "node:fs";
 import {getClaimRequest,confirmClaimRequest} from "../src/financeClaimRequestId.js";
+import {createFinanceClaim} from "../src/financeClaimService.js";
 import {
   isCurrentFinanceOwner,matchesOpenedVersion,removeRowById,upsertUniqueVersionedRow,
   replaceExistingVersionedRow,hasNewerVersion
@@ -212,4 +213,45 @@ test("P0 account-switch race cannot reapply stale auth session or clear another 
   assert.match(panel,/if\(liveOwnerRef\.current!==owner\)return/);
   assert.match(panel,/if\(busyRef\.current===owner\)busyRef\.current=null/);
   assert.match(panel,/if\(liveOwnerRef\.current===owner\)setBusy\(false\)/);
+});
+
+
+test("P0 end-to-end simulated lost Cloud write + refresh creates EXACTLY ONE Claim row",async()=>{
+  const cache=store();
+  const first=await getClaimRequest("user-1","advance",draft,cache,webcrypto);
+  let row=null,insertCalls=0,findCalls=0;
+  // Test-only mock of the exact Supabase chain used by financeClaimService.
+  const client={from(table){
+    assert.equal(table,"finance_claims");
+    return {
+      select(){
+        return {
+          eq(){return this;},
+          async maybeSingle(){
+            findCalls++;
+            if(findCalls===2)return {data:null,error:{message:"simulated internet failure"}};
+            return {data:row,error:null};
+          }
+        };
+      },
+      insert(payload){
+        insertCalls++;
+        row={...payload,id:"mock-claim-1",version:1,created_at:"2026-01-08T00:00:00Z"};
+        return {select(){return {async single(){
+          return {data:null,error:{message:"simulated lost insert response"}};
+        }}}};
+      }
+    };
+  }};
+  await assert.rejects(createFinanceClaim(client,"user-1",draft,first.requestId),
+    /network was interrupted|same draft|simulated internet failure/i);
+  assert.equal(insertCalls,1,"mock server committed the row before the connection dropped");
+  const afterRefresh=await getClaimRequest("user-1","advance",draft,cache,webcrypto);
+  assert.equal(afterRefresh.requestId,first.requestId,"refresh must recover exactly same request ID");
+  const recovered=await createFinanceClaim(client,"user-1",draft,afterRefresh.requestId);
+  assert.equal(recovered.id,"mock-claim-1");
+  assert.equal(recovered.client_request_id,first.requestId);
+  assert.equal(insertCalls,1,"lost network reply MUST NOT cause a second INSERT");
+  assert.equal(confirmClaimRequest("user-1","advance",afterRefresh,cache),true);
+  assert.equal(cache.values.size,0);
 });
