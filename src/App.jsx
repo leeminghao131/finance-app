@@ -351,6 +351,7 @@ function HeatmapCard({
   asOfDate="",ownerKey=null,
 }) {
   const [selectedDate,setSelectedDate]=useState(null);
+  const [selectedOwner,setSelectedOwner]=useState(null);
   const [requestedPage,setRequestedPage]=useState("");
   const heatmapTriggerRef=useRef(null);
   const paged=filterMode==="year"||filterMode==="all";
@@ -361,10 +362,12 @@ function HeatmapCard({
     ?page?heatmapMonthCalendarDays(page,days):[]
     :days,[paged,page,days]);
   const max=visibleDays.reduce((largest,day)=>Math.max(largest,day.amount||0),1);
-  const selectedDay=visibleDays.find(day=>day.date===selectedDate)||null;
+  const selectedDay=selectedOwner===ownerKey
+    ?visibleDays.find(day=>day.date===selectedDate)||null:null;
   useEffect(()=>{
     // A new filter/account never keeps the previous account's open day popup.
     setSelectedDate(null);
+    setSelectedOwner(null);
     setRequestedPage("");
   },[filterMode,selectedMonth,selectedYear,ownerKey]);
   const changePage=next=>{
@@ -410,7 +413,8 @@ function HeatmapCard({
           return <button key={d.date} type="button" title={d.date+": "+money(d.amount)}
             aria-label={d.date+" · Spending "+money(d.amount)+" · Open daily details"}
             aria-haspopup="dialog" aria-expanded={selectedDate===d.date}
-            onClick={event=>{heatmapTriggerRef.current=event.currentTarget;setSelectedDate(d.date);}}
+            onClick={event=>{heatmapTriggerRef.current=event.currentTarget;
+              setSelectedOwner(ownerKey);setSelectedDate(d.date);}}
             className={"mh-cosmic-heat__day text-center text-xs font-bold "+(d.amount>0?"is-active":"is-empty")}
             style={{"--mh-day-intensity":intensity}}>
             <span className="block">{d.date.slice(8)}</span>
