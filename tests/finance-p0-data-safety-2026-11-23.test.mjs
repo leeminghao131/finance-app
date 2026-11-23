@@ -199,3 +199,17 @@ test("P0 each async mutation rejects superseded REST replies across active and t
   assert.match(app,/setTransfers\(rows=>replaceExistingVersionedRow\(rows,edited\)\)/);
   assert.match(app,/setRecords\(rows=>replaceExistingVersionedRow\(rows,result\)\)/);
 });
+
+
+test("P0 account-switch race cannot reapply stale auth session or clear another owner's Claim draft",()=>{
+  const app=source("App.jsx"),panel=source("FinanceClaimTracker.jsx");
+  assert.match(app,/let authEventSeen = false/);
+  assert.match(app,/if \(!mounted \|\| authEventSeen\) return/);
+  assert.match(app,/authEventSeen = true/);
+  assert.match(app,/onAuthStateChange\(/);
+  assert.match(panel,/const liveOwnerRef=useRef\(userId\)/);
+  assert.match(panel,/liveOwnerRef\.current=userId/);
+  assert.match(panel,/if\(liveOwnerRef\.current!==owner\)return/);
+  assert.match(panel,/if\(busyRef\.current===owner\)busyRef\.current=null/);
+  assert.match(panel,/if\(liveOwnerRef\.current===owner\)setBusy\(false\)/);
+});
