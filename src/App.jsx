@@ -57,7 +57,7 @@ const FinanceExcelExportPanel = React.lazy(() => import("./FinanceExcelExportPan
 import { normalizeRecord, normalizeTransfer, toRecordPayload } from "./financeRecords.js";
 import { fetchFinanceSnapshot } from "./financeCloudService.js";
 import { getRecordRequestId, confirmRecordRequest, getTransferRequestId, confirmTransferRequest, assertRecoveredRecordMatchesPayload, assertRecoveredTransferMatchesPayload } from "./financeSaveIdempotency.js";
-import {isCurrentFinanceOwner,matchesOpenedVersion,removeRowById,upsertUniqueVersionedRow} from "./financeMutationSafety.js";
+import {isCurrentFinanceOwner,matchesOpenedVersion,removeRowById,upsertUniqueVersionedRow,replaceExistingVersionedRow,hasNewerVersion} from "./financeMutationSafety.js";
 import { CoinRainEffect, IncomeCoinSpinEffect } from "./FinanceVisualEffects.jsx";
 import { FinanceLanguageProvider, FinanceLanguageButton, useFinanceLanguage, localizedFinanceAlert, localizedFinanceConfirm } from "./FinanceLanguageLayer.jsx";
 // Chart data remains unchanged; drawing now uses bounded native SVG components.
@@ -639,6 +639,12 @@ function FinanceVisualizerAppContent() {
   const [deletedRecords, setDeletedRecords] = useState([]);
   const [transfers, setTransfers] = useState([]);
   const [deletedTransfers, setDeletedTransfers] = useState([]);
+  // Latest committed React view, for rejecting older responses arriving after
+  // a newer Realtime refresh. This ref never writes to the database.
+  const latestLedgerRef=useRef({records,deletedRecords,transfers,deletedTransfers});
+  useEffect(()=>{
+    latestLedgerRef.current={records,deletedRecords,transfers,deletedTransfers};
+  },[records,deletedRecords,transfers,deletedTransfers]);
   const [undoTransfer, setUndoTransfer] = useState(null);
   const [monthRows, setMonthRows] = useState([]);
   const [budgetMonth, setBudgetMonth] = useState(monthNow());
@@ -2008,7 +2014,11 @@ async function addRecord(e) {
         return false;
       }
       const edited=normalizeTransfer(data);
-      setTransfers(rows=>rows.map(r=>r.id===transferId?edited:r));
+      if(hasNewerVersion(edited,latestLedgerRef.current.transfers,latestLedgerRef.current.deletedTransfers)){
+        setSyncStatus("Transfer changed again on another device; newer cloud state retained.");
+        return true;
+      }
+      setTransfers(rows=>replaceExistingVersionedRow(rows,edited));
       setSyncStatus("Transfer updated");
       return true;
     }catch(e){if(isCurrentFinanceOwner(liveUserIdRef,owner)){setSyncStatus("Transfer update failed: "+e.message);localizedFinanceAlert(e.message);}return false;}
@@ -2032,6 +2042,10 @@ async function addRecord(e) {
       if(error)throw error;
       if(!data){await loadCloudData({background:true});localizedFinanceAlert("Transfer changed on another device; nothing deleted.");return false;}
       const deleted=normalizeTransfer(data);
+      if(hasNewerVersion(deleted,latestLedgerRef.current.transfers,latestLedgerRef.current.deletedTransfers)){
+        setSyncStatus("Transfer changed again; newer cloud version retained.");
+        return true;
+      }
       setTransfers(rows=>removeRowById(rows,transferId));
       setDeletedTransfers(rows=>upsertUniqueVersionedRow(rows,deleted));
       setUndoTransfer(deleted);
@@ -2060,6 +2074,10 @@ async function addRecord(e) {
       if(error)throw error;
       if(!data){await loadCloudData({background:true});localizedFinanceAlert("Transfer changed on another device; please refresh.");return false;}
       const restored=normalizeTransfer(data);
+      if(hasNewerVersion(restored,latestLedgerRef.current.transfers,latestLedgerRef.current.deletedTransfers)){
+        setSyncStatus("Transfer restored then changed again; newest version retained.");
+        return true;
+      }
       setDeletedTransfers(rows=>removeRowById(rows,transferId));
       setTransfers(rows=>upsertUniqueVersionedRow(rows,restored));
       if(undoTransfer?.id===transferId)setUndoTransfer(null);
@@ -2133,7 +2151,11 @@ async function addRecord(e) {
         return;
       }
       const result = normalizeRecord(data);
-      setRecords((previous) => previous.map((row) => row.id === recordId ? result : row));
+      if(hasNewerVersion(result,latestLedgerRef.current.records,latestLedgerRef.current.deletedRecords)){
+        setSyncStatus("Record changed again; newer cloud version retained.");
+        return result;
+      }
+      setRecords(previous=>replaceExistingVersionedRow(previous,result));
       setSyncStatus("Record synced");
       return result;
     } catch (error) {
@@ -2179,7 +2201,11 @@ async function addRecord(e) {
       }
       if(!isCurrentFinanceOwner(liveUserIdRef,owner))return false;
       const result=normalizeRecord(data);
-      setRecords(rows=>rows.map(row=>row.id===result.id?result:row));
+      if(hasNewerVersion(result,latestLedgerRef.current.records,latestLedgerRef.current.deletedRecords)){
+        setSyncStatus("FX record changed again; newer cloud version retained.");
+        return true;
+      }
+      setRecords(rows=>replaceExistingVersionedRow(rows,result));
       setSyncStatus("FX transaction saved to cloud");return true;
     }catch(e){if(isCurrentFinanceOwner(liveUserIdRef,owner))localizedFinanceAlert(e.message||String(e));return false;}
     finally{pendingRecordsRef.current.delete(current.id);}
@@ -2206,6 +2232,10 @@ async function addRecord(e) {
         return;
       }
       const removed = normalizeRecord(data);
+      if(hasNewerVersion(removed,latestLedgerRef.current.records,latestLedgerRef.current.deletedRecords)){
+        setSyncStatus("Record changed again; newer cloud version retained.");
+        return true;
+      }
       setRecords((previous) => removeRowById(previous,recordId));
       setDeletedRecords((previous) => upsertUniqueVersionedRow(previous,removed));
       setDeleteConfirm(null);
@@ -2246,6 +2276,10 @@ async function addRecord(e) {
         return;
       }
       const restored = normalizeRecord(data);
+      if(hasNewerVersion(restored,latestLedgerRef.current.records,latestLedgerRef.current.deletedRecords)){
+        setSyncStatus("Record changed again; newest cloud version retained.");
+        return true;
+      }
       setDeletedRecords((previous) => removeRowById(previous,recordId));
       setRecords((previous) => upsertUniqueVersionedRow(previous,restored));
       if (undoDeleted?.id === recordId) setUndoDeleted(null);
