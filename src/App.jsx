@@ -1757,7 +1757,12 @@ const methodBalances = useMemo(() => withClaimMethodBalances(calculateMethodBala
 ),claimMovements,localToday,normalizeMethodForBalance),
 [accountMethodOptions, openingBalances, currentLedgerRecords, currentTransfers,claimMovements,localToday]);
   const openingBalanceTotal = useMemo(() => openingTotal(openingBalances), [openingBalances]);
-  const totalBalance = openingBalanceTotal + income - expense + claimCashSenUntil(claimMovements,localToday)/100;
+  // One verified cents ledger for assets; Transfers cancel and Claims remain
+  // cash movements, not fake personal Income/Expense.
+  const totalBalanceSen=Math.round(openingBalanceTotal*100)+
+    Math.round(income*100)-Math.round(expense*100)+claimCashSenUntil(claimMovements,localToday);
+  if(!Number.isSafeInteger(totalBalanceSen))throw Error("Balance exceeds exact sen precision; figures withheld.");
+  const totalBalance=totalBalanceSen/100;
   // Savings Goals reserve the current natural month's budget, not the Dashboard filter.
   // Saved month snapshot wins; only months without one use the default template.
   const savingsBudgetMonth = localMonthMY();
