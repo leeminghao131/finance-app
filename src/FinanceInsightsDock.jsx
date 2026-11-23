@@ -1,3 +1,4 @@
+import {localDateMY} from "./financeCalendar.js";
 import React,{useEffect,useLayoutEffect,useRef,useState} from "react";
 import FinanceWrapped from "./FinanceWrapped.jsx";
 import FinanceActivityPanel from "./FinanceActivityPanel.jsx";
@@ -29,7 +30,7 @@ function DockCardPopup({title,icon,children,disabled=false,widthClass="max-w-5xl
 
 /** Long-hold to reorder only the drawer launchers, never their stored data. */
 export default function FinanceInsightsDock({
-  records,monthRows,budgetTemplate,totalBalance,userId,
+  records,monthRows,budgetTemplate,totalBalance,userId,asOfDate=localDateMY(),
   goals=[],onSaveSavingsGoals,savingsAvailability,budgetMonth,calculationError,
   disabled=false,onOpenStage2Tool=()=>{},onOpenDataTool=()=>{},
   activities=[],activityLinks=[],onCreateActivity,onUpdateActivity,onLinkActivity,onUnlinkActivity,
@@ -141,7 +142,7 @@ export default function FinanceInsightsDock({
         onActivityOpenRequestHandled={onActivityOpenRequestHandled}/>},
     {id:"simulator",label:zh?"情境模拟":"Scenario Simulator",icon:"🧮",node:
       <FinanceScenarioSimulator records={records} totalBalance={totalBalance}
-        userId={userId} disabled={disabled} dockButton/>},
+        userId={userId} asOfDate={asOfDate} disabled={disabled} dockButton/>},
     {id:"comparison",label:zh?"月度财务对比":"Month Comparison",icon:"📊",node:
       <DockCardPopup title={zh?"月度财务对比":"Month Comparison"} icon="📊" disabled={disabled}>
         <FinanceMonthComparison records={records}/>
