@@ -71,6 +71,10 @@ export function billOccurrences(bills,asOfDate,records=[],history=35,horizon=35,
   iso(asOfDate);
   if(!Array.isArray(records))throw Error("Verified Expense records are unavailable.");
   const first=shiftCalendarDay(asOfDate,-history),last=shiftCalendarDay(asOfDate,horizon),items=[];
+  // With longer immutable confirmation histories, never scan all Expenses for
+  // EACH paid occurrence; one equivalent lookup set retains the old behavior.
+  const activeExpenseIds=new Set(records.filter(r=>r.type==="expense"&&!r.deleted_at)
+    .map(r=>String(r.id)));
   for(const b of validateBills(bills)){
     if(!b.active)continue;
     let oldestUnresolved=null;
@@ -83,8 +87,7 @@ export function billOccurrences(bills,asOfDate,records=[],history=35,horizon=35,
       const due=b.cycle==="weekly"?shiftCalendarDay(b.anchorDate,n*offset):addMonth(b.anchorDate,n*offset);
       if(due>last)break;
       const status=statusByDate.get(due);
-      const linked=status?.status==="paid"
-        ?records.some(r=>String(r.id)===status.recordId&&r.type==="expense"&&!r.deleted_at):false;
+      const linked=status?.status==="paid" ? activeExpenseIds.has(status.recordId) : false;
       const dismissed=status?.status==="skipped"||status?.status==="paid"&&linked;
       const noticeDate=status?.status==="snoozed"?status.remindOn:shiftCalendarDay(due,-b.leadDays);
       const item={id:b.id+":"+due,billId:b.id,title:b.title,category:b.category,method:b.method,
