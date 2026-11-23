@@ -1,7 +1,7 @@
 import React,{useEffect,useRef,useState} from "react";
 import {
   chartFields,chartViewport,chartNumber,chartLineRuns,
-  chartTickIndices,chartTimeTickIndices,chartBalanceSegments
+  chartTickIndices,chartTimeTickIndices,chartBalanceSegments,chartHasVisibleBar
 } from "./financeChartPlot.js";
 
 const GREEN="#34d399", RED="#fb8285", BLUE="#60a5fa";
@@ -170,7 +170,7 @@ export default function FinanceNativeChart({
         const band=Math.max(.15,Math.min(13,(barSlot-gap)/2));
         return fields.map((field,offset)=>{
           const value=chartNumber(row?.[field]);
-          if(value===null||value===0)return null;
+          if(!chartHasVisibleBar(value))return null;
           const barX=position(index)+(offset===0?-band-gap/2:gap/2);
           const pointY=y(value);
           return <rect key={index+"-"+field} x={barX}
