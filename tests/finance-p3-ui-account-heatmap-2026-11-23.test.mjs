@@ -185,8 +185,10 @@ test("P3 #17: daily popup remains accessible while heatmap only renders one mont
   assert.match(app,/filterMode==="year"\|\|filterMode==="all"/);
   assert.match(app,/aria-label="Complete spending heatmap month navigation"/);
   assert.match(app,/type="month" value=\{page\} min=\{scope.first\} max=\{scope.last\}/);
-  assert.match(app,/onClick=\{event=>\{heatmapTriggerRef\.current=event\.currentTarget;setSelectedDate\(d\.date\);\}\}/);
+  assert.match(app,/onClick=\{event=>\{heatmapTriggerRef\.current=event\.currentTarget;[\s\S]*?setSelectedOwner\(ownerKey\);setSelectedDate\(d\.date\);\}\}/);
   assert.match(app,/<FinanceHeatmapDayDetails/);
   assert.match(app,/ownerKey=\{user\?\.id\}/);
+  assert.match(app,/selectedDay=selectedOwner===ownerKey/);
+  assert.match(app,/setSelectedOwner\(null\)/);
   assert.match(app,/Math\.max\(largest,day\.amount\|\|0\)/);
 });

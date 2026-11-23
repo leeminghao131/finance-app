@@ -51,7 +51,7 @@ test("heatmap still colors by filtered expense but shows selected date all actua
   assert.match(app,/const heatmapDays = useMemo/);
   assert.match(app,/expenseRecords\.forEach/);
   assert.match(app,/<HeatmapCard days=\{heatmapDays\} label=\{filterLabel\} records=\{periodRecords\}/);
-  assert.match(app,/onClick=\{event=>\{heatmapTriggerRef\.current=event\.currentTarget;setSelectedDate\(d\.date\);\}\}/);
+  assert.match(app,/onClick=\{event=>\{heatmapTriggerRef\.current=event\.currentTarget;[\s\S]*?setSelectedOwner\(ownerKey\);setSelectedDate\(d\.date\);\}\}/);
   assert.match(app,/aria-haspopup="dialog" aria-expanded=\{selectedDate===d\.date\}/);
   assert.match(app,/onClose=\{\(\)=>setSelectedDate\(null\)\}/);
   assert.match(app,/selectedDay\?\.amount\?\?0/);
