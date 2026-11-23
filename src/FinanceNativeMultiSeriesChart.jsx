@@ -90,7 +90,7 @@ export default function FinanceNativeMultiSeriesChart({
       </text>:null)}
       {mode==="bars"?data.flatMap((row,index)=>displaySeries.map((serie,seriesIndex)=>{
         const value=chartNumber(row?.[serie.key]);
-        if(value===null)return null;
+        if(value===null||value===0)return null;
         const top=y(value);
         return <rect key={index+"-"+serie.key}
           x={position(index)-groupWidth/2+seriesIndex*barWidth+1}

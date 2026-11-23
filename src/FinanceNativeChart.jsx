@@ -1,7 +1,7 @@
 import React,{useEffect,useRef,useState} from "react";
 import {
   chartFields,chartViewport,chartNumber,chartLineRuns,
-  chartTickIndices,chartBalanceSegments
+  chartTickIndices,chartTimeTickIndices,chartBalanceSegments
 } from "./financeChartPlot.js";
 
 const GREEN="#34d399", RED="#fb8285", BLUE="#60a5fa";
@@ -82,8 +82,8 @@ export default function FinanceNativeChart({
   const fields=chartFields(kind);
   const isMobile=size.width<540 || Boolean(window.matchMedia?.("(pointer: coarse)")?.matches);
   const capacity=Math.max(2,Math.floor(pw/(isMobile?77:83))+1);
-  const ticks=new Set(chartTickIndices(data.length,
-    Math.min(capacity,isMobile?maxTicksMobile:maxTicksDesktop)));
+  const ticks=new Set(chartTimeTickIndices(data,view,
+    Math.min(capacity,isMobile?maxTicksMobile:maxTicksDesktop),isMobile?64:70));
   const selectedIndex=data.findIndex(row=>row?.dateKey===selectedDate);
   // Bars use centered bins; line plots use first/last at the plot edges.
   const barSlot=pw/Math.max(1,data.length);
@@ -170,7 +170,7 @@ export default function FinanceNativeChart({
         const band=Math.max(.15,Math.min(13,(barSlot-gap)/2));
         return fields.map((field,offset)=>{
           const value=chartNumber(row?.[field]);
-          if(value===null)return null;
+          if(value===null||value===0)return null;
           const barX=position(index)+(offset===0?-band-gap/2:gap/2);
           const pointY=y(value);
           return <rect key={index+"-"+field} x={barX}
@@ -227,9 +227,14 @@ export default function FinanceNativeChart({
         </g>;
       })}
       {data.map((row,index)=>{
-        const spacing=kind==="bars"?barSlot:data.length<2?pw:pw/(data.length-1);
-        const left=Math.max(margin.left,position(index)-spacing/2);
-        const right=Math.min(margin.left+pw,position(index)+spacing/2);
+        // Midpoint hit zones track true date spacing. Sparse daily points
+        // never overlap and Android taps select the nearest real date.
+        const left=kind==="bars"
+          ?Math.max(margin.left,position(index)-barSlot/2)
+          :index===0?margin.left:(position(index-1)+position(index))/2;
+        const right=kind==="bars"
+          ?Math.min(margin.left+pw,position(index)+barSlot/2)
+          :index===data.length-1?margin.left+pw:(position(index)+position(index+1))/2;
         return <rect key={"hit-"+index} {...marker(index)}
           x={left} y={margin.top} width={Math.max(1,right-left)}
           height={ph} fill="transparent" style={{cursor:"crosshair",touchAction:"pan-y"}}/>;
