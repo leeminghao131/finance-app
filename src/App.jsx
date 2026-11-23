@@ -802,20 +802,26 @@ function FinanceVisualizerAppContent() {
       return;
     }
     let mounted = true;
+    let authEventSeen = false;
     supabase.auth.getSession().then(({ data, error }) => {
-      if (!mounted) return;
+      // getSession can resolve AFTER an auth event; never roll the UI back
+      // to a former account because an earlier request returned late.
+      if (!mounted || authEventSeen) return;
       if (error) setSyncStatus(error.message);
       liveUserIdRef.current = data.session?.user?.id || null;
       setSession(data.session || null);
       setUser(data.session?.user || null);
       setAuthLoading(false);
     }).catch((error) => {
-      if (mounted) { setSyncStatus(error.message); setAuthLoading(false); }
+      if (mounted && !authEventSeen) { setSyncStatus(error.message); setAuthLoading(false); }
     });
     const { data: listener } = supabase.auth.onAuthStateChange((_event, nextSession) => {
+      if (!mounted) return;
+      authEventSeen = true;
       liveUserIdRef.current = nextSession?.user?.id || null;
       setSession(nextSession || null);
       setUser(nextSession?.user || null);
+      setAuthLoading(false);
     });
     return () => { mounted = false; listener.subscription.unsubscribe(); };
   }, []);
