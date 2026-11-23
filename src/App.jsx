@@ -2399,7 +2399,7 @@ return (
    claims={claimOverview.open}
    onOpenClaim={(claimId,source)=>setClaimOpenRequest({claimId,source,nonce:makeId()})}
   bills={recurringBills} reviewState={reviewState} checks={accountChecks}
-  records={records} transfers={transfers} balances={methodBalances}
+  records={records} transfers={transfers} claimMovements={claimMovements} balances={methodBalances}
   categories={expenseCategoryOptions} methods={expenseMethodOptions}
   onSaveBills={(next,baseline)=>saveStage2Field("recurring_bills",next,baseline)}
   onConfirmBillPayment={confirmStage2BillPayment}

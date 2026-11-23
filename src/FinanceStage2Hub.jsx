@@ -12,7 +12,7 @@ import {useFinanceLanguage} from "./FinanceLanguageLayer.jsx";
 /** Animated in-app alerts only, no push permissions/paid provider/browser notifications. */
 export default function FinanceStage2Hub({
   bills=[],reviewState={threshold:500,decisions:[]},checks=[],claims=[],onOpenClaim=()=>{},
-  records=[],transfers=[],balances=[],categories=[],methods=[],
+  records=[],transfers=[],claimMovements=[],balances=[],categories=[],methods=[],
   onSaveBills,onConfirmBillPayment,onSaveReview,onUpdateRecord,onDeleteRecord,onEditFx,onOpenAccountCheck,
   onSaveChecks,onExecuteTransfers,onPrefillRecord,
   optionsFor,disabled=false,toolRequest=null,
@@ -174,7 +174,7 @@ export default function FinanceStage2Hub({
         onEditFx={(record,element)=>{close();onEditFx?.(record,element);}}
         selectedId={selectedRecordId} disabled={disabled}/>}
       {mode==="accounts"&&<FinanceAccountReconciliation
-        records={records} transfers={transfers} balances={balances} checks={checks}
+        records={records} transfers={transfers} claimMovements={claimMovements} balances={balances} checks={checks}
         onSave={onSaveChecks} onExecuteTransfers={onExecuteTransfers}
         onPrefillRecord={prefillAndClose}
         selectedMethod={selectedAccountMethod} disabled={disabled}/>}
