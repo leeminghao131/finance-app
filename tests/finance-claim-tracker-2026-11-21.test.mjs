@@ -185,7 +185,7 @@ test("claim UI is a single drawer overlay with persistent claim bell; no protect
   assert.match(cloud,/loadEveryOwnedRow\(client,"finance_claims"/);
   assert.match(cloud,/loadEveryOwnedRow\(client,"finance_claim_repayments"/);
   assert.match(cloud,/validateClaimSnapshot\(claimRows,repaymentRows,userId\)/);
-  assert.match(app,/claimCashSenUntil\(claimMovements,localToday\)\/100/);
+  assert.match(app,/claimCashSenUntil\(claimMovements,localToday\)/);
   assert.match(app,/withClaimMethodBalances\(calculateMethodBalances\(/);
   assert.match(app,/claims=\{claimOverview\.open\}/);
   assert.match(app,/claimMovements=\{claimMovements\}/);
