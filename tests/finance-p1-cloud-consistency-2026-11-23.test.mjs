@@ -9,20 +9,23 @@ const names=["records","transfers","finance_activities","finance_activity_links"
 
 function mockCloud(tables,settings=null,months=[]){
   return {from(table){
-    if(table==="user_settings")return {
-      select(){return {eq(){return {async maybeSingle(){return {data:settings,error:null};}}}};}
-    };
-    if(table==="monthly_budgets")return {
-      select(){return {eq(){return {order(){return {async limit(){
-        return {data:months,error:null};
-      }};}};}};}
-    };
+    if(table==="user_settings")
+      return {select:()=>({eq:()=>({maybeSingle:async()=>({data:settings,error:null})})})};
+    if(table==="monthly_budgets")
+      return {select:()=>({eq:()=>({order:()=>({
+        limit:async()=>({data:months,error:null})
+      })})})};
     assert.ok(tables[table],"unknown fake table "+table);
     return {select(_columns,options){
-      if(options?.head)return {eq(){return Promise.resolve({count:tables[table].length,error:null});}};
-      return {eq(){return {order(){return {async range(start,end){
-        return {data:tables[table].slice(start,end+1).map(row=>({...row})),error:null};
-      }};}};}};
+      if(options?.head)return {
+        eq:async()=>({count:tables[table].length,error:null})
+      };
+      return {eq:()=>({order:()=>({
+        range:async(start,end)=>({
+          data:tables[table].slice(start,end+1).map(row=>({...row})),
+          error:null
+        })
+      })})};
     }};
   }};
 }
@@ -68,21 +71,23 @@ test("P1 cloud snapshot only applies a complete cross-table revision-verified re
 });
 
 
-function emptyFinanceCloud(settingsVersions) {
+function emptyFinanceCloud(settingsVersions){
   let reads=0;
   return {
     get reads(){return reads;},
     from(table){
-      if(table==="user_settings")return {select(){return {eq(){return {async maybeSingle(){
-        const version=settingsVersions[Math.min(reads++,settingsVersions.length-1)];
-        return {data:{version,opening_balances:{},category_budgets:{},custom_options:{}},error:null};
-      }}}}}};
-      if(table==="monthly_budgets")return {select(){return {eq(){return {order(){return {
-        async limit(){return {data:[],error:null};}
-      }}}}}}}};
-      return {select(_columns,opts){
-        if(opts?.head)return {eq(){return Promise.resolve({count:0,error:null});}};
-        return {eq(){return {order(){return {async range(){return {data:[],error:null};}}}}}};
+      if(table==="user_settings")return {select:()=>({eq:()=>({
+        maybeSingle:async()=>{
+          const version=settingsVersions[Math.min(reads++,settingsVersions.length-1)];
+          return {data:{version,opening_balances:{},category_budgets:{},custom_options:{}},error:null};
+        }
+      })})};
+      if(table==="monthly_budgets")return {select:()=>({eq:()=>({order:()=>({
+        limit:async()=>({data:[],error:null})
+      })})})};
+      return {select(_cols,opts){
+        if(opts?.head)return {eq:async()=>({count:0,error:null})};
+        return {eq:()=>({order:()=>({range:async()=>({data:[],error:null})})})};
       }};
     }
   };
