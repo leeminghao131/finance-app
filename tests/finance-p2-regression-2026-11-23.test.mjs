@@ -168,9 +168,13 @@ test("P2 reserved custom categories survive monthly comparisons and budget JSON 
   const compared=compareFinanceMonths(list,"2026-10","2026-11");
   assert.equal(compared.first.expense,10);
   assert.equal(compared.second.expense,54);
-  assert.equal(compared.first.categories["__proto__"],10);
-  assert.equal(compared.second.categories.constructor,35);
-  assert.equal(compared.second.categories.toString,7);
+  // The long-standing first/second.categories internal contract is integer sen.
+  assert.equal(compared.first.categories["__proto__"],1000);
+  assert.equal(compared.second.categories.constructor,3500);
+  assert.equal(compared.second.categories.toString,700);
+  // Public cross-month category comparison is RM, with no rounding change.
+  assert.equal(compared.categories.find(x=>x.category==="__proto__").first,10);
+  assert.equal(compared.categories.find(x=>x.category==="constructor").second,35);
   const budget=summarizeMonthlyBudget(list,normalized,"2026-11");
   assert.equal(budget.rows.find(row=>row.category==="__proto__").spent,12);
   assert.equal(budget.rows.find(row=>row.category==="constructor").spent,35);
