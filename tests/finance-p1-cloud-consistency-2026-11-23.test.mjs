@@ -2,6 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import {readFileSync} from "node:fs";
 import {financeRevisionSignature,verifyFinanceSnapshotRevisions} from "../src/financeSnapshotConsistency.js";
+import {fetchFinanceSnapshot} from "../src/financeCloudService.js";
 const src=name=>readFileSync(new URL("../src/"+name,import.meta.url),"utf8");
 const names=["records","transfers","finance_activities","finance_activity_links",
   "finance_claims","finance_claim_repayments"];
@@ -64,4 +65,41 @@ test("P1 cloud snapshot only applies a complete cross-table revision-verified re
   assert.doesNotMatch(check,/\.insert\(|\.update\(|\.upsert\(|\.delete\(|\.rpc\(|service_role/);
   assert.match(check,/loadEveryOwnedRow\(client,table,"id,version",userId\)/);
   assert.match(cloud,/validateFinanceSnapshotRows\(recordRows,transferRows,settingsRow\)/);
+});
+
+
+function emptyFinanceCloud(settingsVersions) {
+  let reads=0;
+  return {
+    get reads(){return reads;},
+    from(table){
+      if(table==="user_settings")return {select(){return {eq(){return {async maybeSingle(){
+        const version=settingsVersions[Math.min(reads++,settingsVersions.length-1)];
+        return {data:{version,opening_balances:{},category_budgets:{},custom_options:{}},error:null};
+      }}}}}};
+      if(table==="monthly_budgets")return {select(){return {eq(){return {order(){return {
+        async limit(){return {data:[],error:null};}
+      }}}}}}}};
+      return {select(_columns,opts){
+        if(opts?.head)return {eq(){return Promise.resolve({count:0,error:null});}};
+        return {eq(){return {order(){return {async range(){return {data:[],error:null};}}}}}};
+      }};
+    }
+  };
+}
+
+test("P1 full fetch retries changed settings with a NEW complete read, never an old result",async()=>{
+  const client=emptyFinanceCloud([1,2,2,2]);
+  const result=await fetchFinanceSnapshot(client,"owner1");
+  assert.equal(result.settingsRow.version,2);
+  assert.equal(result.records.length,0);
+  assert.equal(result.claims.length,0);
+  assert.equal(client.reads,4,"initial+verify for BOTH complete reads");
+});
+
+test("P1 full fetch refuses to publish unstable cross-table settings after two full retries",async()=>{
+  const client=emptyFinanceCloud([1,2,3,4]);
+  await assert.rejects(fetchFinanceSnapshot(client,"owner1"),
+    /Totals are withheld/);
+  assert.equal(client.reads,4);
 });
