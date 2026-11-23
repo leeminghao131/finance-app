@@ -3,10 +3,11 @@ import { normalizeRecord,normalizeTransfer } from "./financeRecords.js";
 import { validateFinanceSnapshotRows } from "./financeIntegrity.js";
 import {validateActivities,validateActivityLinks} from "./financeActivity.js";
 import {validateClaimSnapshot} from "./financeClaims.js";
+import {verifyFinanceSnapshotRevisions} from "./financeSnapshotConsistency.js";
 
 // Fetch one coherent, count-checked cloud snapshot without mutating the source DB.
 // All visible totals are replaced only after the caller receives this full result.
-export async function fetchFinanceSnapshot(client,userId,onProgress) {
+async function readFinanceSnapshotOnce(client,userId,onProgress) {
   if(!userId)throw new Error("Authentication is required to fetch finance data.");
   // Independent, read-only, owner-filtered table scans can overlap.
   // Each loader still paginates and count-verifies ALL rows; no cache, RLS or
@@ -42,6 +43,16 @@ export async function fetchFinanceSnapshot(client,userId,onProgress) {
   if((savedMonths||[]).length===1000)
     throw new Error("Monthly budget history reached the read cap; refusing incomplete data.");
   validateFinanceSnapshotRows(recordRows,transferRows,settingsRow);
+  const revisionsStable=await verifyFinanceSnapshotRevisions(client,userId,{
+    records:recordRows,transfers:transferRows,
+    finance_activities:activityRows,finance_activity_links:linkRows,
+    finance_claims:claimRows,finance_claim_repayments:repaymentRows,
+  },settingsRow,savedMonths);
+  if(!revisionsStable){
+    const error=new Error("Finance tables or settings changed during synchronization; retrying full read.");
+    error.financeSnapshotDrift=true;
+    throw error;
+  }
   const byNewest=(a,b)=>String(b.date||"").localeCompare(String(a.date||""))
     || new Date(b.created_at||0)-new Date(a.created_at||0);
   const {active:records,deleted:deletedRecords}=splitRecordStatus(
@@ -53,4 +64,20 @@ export async function fetchFinanceSnapshot(client,userId,onProgress) {
   const activityLinks=validateActivityLinks(linkRows,activities,[...records,...deletedRecords]);
   return {records,deletedRecords,transfers,deletedTransfers,
     settingsRow:settingsRow||null,monthRows:savedMonths||[],activities,activityLinks,claims,repayments};
+}
+
+
+// Retry a cross-table drift only by re-reading the ENTIRE snapshot. Other
+// database, permissions, or network errors fail closed immediately.
+// The caller updates visible totals ONLY after a complete verified result.
+export async function fetchFinanceSnapshot(client,userId,onProgress) {
+  for(let attempt=0;attempt<2;attempt++){
+    try{return await readFinanceSnapshotOnce(client,userId,onProgress);}
+    catch(error){
+      if(!error?.financeSnapshotDrift)throw error;
+      if(attempt===1)throw new Error(
+        "Finance data changed across tables while syncing. Totals are withheld; retry when devices stop editing.");
+    }
+  }
+  throw Error("Unable to confirm complete finance cloud snapshot.");
 }
