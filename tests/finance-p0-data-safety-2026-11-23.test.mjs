@@ -4,7 +4,8 @@ import {webcrypto} from "node:crypto";
 import {readFileSync} from "node:fs";
 import {getClaimRequest,confirmClaimRequest} from "../src/financeClaimRequestId.js";
 import {
-  isCurrentFinanceOwner,matchesOpenedVersion,removeRowById,upsertUniqueVersionedRow
+  isCurrentFinanceOwner,matchesOpenedVersion,removeRowById,upsertUniqueVersionedRow,
+  replaceExistingVersionedRow,hasNewerVersion
 } from "../src/financeMutationSafety.js";
 
 const source=(path)=>readFileSync(new URL("../src/"+path,import.meta.url),"utf8");
@@ -167,4 +168,34 @@ test("P0 pending old-owner replies cannot update new account UI; restored rows a
   assert.match(claim,/confirmClaimRequest\(/);
   assert.match(claim,/busyRef\.current/);
   assert.doesNotMatch(claim,/const makeRequest=\(\)=>crypto\.randomUUID\(\)/);
+});
+
+
+test("P0 older REST edit replies cannot downgrade newer Realtime rows",()=>{
+  const old={id:"t1",version:2,amount:80},now={id:"t1",version:3,amount:90};
+  const unrelated={id:"t2",version:1,amount:23};
+  assert.deepEqual(replaceExistingVersionedRow([now,unrelated],old),[now,unrelated]);
+  assert.deepEqual(replaceExistingVersionedRow([old,unrelated],now),[now,unrelated]);
+  assert.deepEqual(replaceExistingVersionedRow([unrelated],now),[unrelated],
+    "stale update after a delete cannot resurrect an absent active row");
+  assert.ok(hasNewerVersion(old,[],[now]));
+  assert.ok(hasNewerVersion(old,[now],[]));
+  assert.equal(hasNewerVersion(now,[old],[]),false);
+  assert.equal(hasNewerVersion(now,[],[now]),false);
+  assert.throws(()=>replaceExistingVersionedRow({},now),/invalid/);
+});
+test("P0 each async mutation rejects superseded REST replies across active and trash",()=>{
+  const app=source("App.jsx");
+  assert.match(app,/const latestLedgerRef=useRef\(\{records,deletedRecords,transfers,deletedTransfers\}\)/);
+  assert.match(app,/latestLedgerRef\.current=\{records,deletedRecords,transfers,deletedTransfers\}/);
+  for(const name of ["updateTransfer","deleteTransfer","restoreTransfer",
+    "updateRecord","updateForeignRecord","deleteRecord","restoreRecord"]){
+    const start=app.indexOf("async function "+name+"("),end=app.indexOf("\n  }",start);
+    assert.ok(start>0 && end>start);
+    const block=app.slice(start,end);
+    assert.match(block,/hasNewerVersion\(/,name+" needs a version-aware late-response gate");
+  }
+  assert.match(app,/setRecords\(previous=>replaceExistingVersionedRow\(previous,result\)\)/);
+  assert.match(app,/setTransfers\(rows=>replaceExistingVersionedRow\(rows,edited\)\)/);
+  assert.match(app,/setRecords\(rows=>replaceExistingVersionedRow\(rows,result\)\)/);
 });
