@@ -51,7 +51,8 @@ test("Previous dialogs preserve all callbacks while opening and closing from the
   assert.match(expanded, /triggerRef=\{triggerRef\}/);
   assert.match(app, /budgetDraftDirty && !localizedFinanceConfirm/);
   assert.match(opening, /Discard unsaved opening balance changes/);
-  assert.match(mobile, /await onUpdate\(record\.id, field, draft\)/);
+  assert.match(mobile, /await onUpdate\(record\.id, field, draft, editVersion\)/);
+  assert.match(mobile,/setEditVersion\(item\.version\)/);
   assert.match(overlay, /openDialogStack\.push\(currentDialog\)/);
   assert.match(overlay, /openDialogStack\[openDialogStack\.length - 1\] !== currentDialog/);
   assert.match(overlay, /document\.body\.style\.overflow = previousOverflow/);
