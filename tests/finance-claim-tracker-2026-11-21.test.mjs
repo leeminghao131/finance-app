@@ -176,7 +176,8 @@ test("claim UI is a single drawer overlay with persistent claim bell; no protect
   assert.match(panel,/Claim Tracker/);
   assert.match(panel,/<FinanceOverlay open=\{open\}/);
   assert.match(panel,/onRepay\(claim,repayDraft,request\.requestId\)/);
-  assert.match(panel,/confirmClaimRequest\(userId,"repayment",request,storage\)/);
+  assert.match(panel,/confirmClaimRequest\(owner,"repayment",request,storage\)/);
+  assert.match(panel,/if\(liveOwnerRef\.current!==owner\)return/);
   assert.match(panel,/Mark Submitted/);
   assert.match(hub,/type:"claim"/);
   assert.match(hub,/claims\.filter\(x=>x\.outstanding>0\)/);
