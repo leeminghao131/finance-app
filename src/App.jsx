@@ -3232,7 +3232,8 @@ categoryOptionsFor={categoryOptionsFor}
         <FinanceRuleAssistant userId={user?.id} onOpenTool={openStage2DockTool}
           ctx={{ready:initialDataReady&&!dataLoading,records,totalBalance,
             methods:methodBalances,monthRows,budgets,reviewState,bills:recurringBills,
-            activities,activityLinks,goals:savingsGoals,forecastPlans,openingBalanceTotal}}/>
+            activities,activityLinks,goals:savingsGoals,forecastPlans,openingBalanceTotal,
+             claimMovements,asOfDate:localToday,forecastMonth}}/>
         <footer className="pb-6 text-center text-xs text-slate-400">记账可视化软件 · Data synced with Supabase cloud · {records.length} total records</footer>
       </div>
     </div>

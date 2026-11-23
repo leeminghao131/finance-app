@@ -92,9 +92,11 @@ export function answerFinanceQuestion(question,ctx,zh=true){
   }
   if(/预测|月底|forecast|predict/.test(q)){
     try{
-      const f=calculateCashForecast(records,{asOfDate:localDateMY(),selectedMonth:localMonthMY(),
+      const f=calculateCashForecast(records,{asOfDate:ctx.asOfDate||localDateMY(),
+        selectedMonth:ctx.forecastMonth||localMonthMY(),
         horizon:"monthEnd",trailingDays:30,plannedIncomes:ctx.forecastPlans||[],
-        openingBalanceTotal:ctx.openingBalanceTotal||0});
+        openingBalanceTotal:ctx.openingBalanceTotal||0,
+        claimMovements:ctx.claimMovements||[]});
       return {answer:t("沿用 Cash Flow Forecast 的本月底预测：","Month-end estimate from Cash Flow Forecast: ")
         +money(f.predictedBalance)+t("；预计未来支出 ","; forecast expenses ")+money(f.expectedExpense)
         +t("，预计收入 ","; planned income ")+money(f.expectedIncome)
