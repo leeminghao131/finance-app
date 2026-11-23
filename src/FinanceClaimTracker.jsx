@@ -69,8 +69,14 @@ export default function FinanceClaimTracker({
     const owner=userId;
     await run(async()=>{
       const storage=window.localStorage;
-      if(!createReq.current)createReq.current=await getClaimRequest(
-        owner,"advance",draft,storage,crypto,navigator.locks);
+      if(createReq.current&&!createReq.current.key.startsWith(
+        "mh-finance-pending-claim-v1:"+owner+":advance:"))createReq.current=null;
+      if(!createReq.current){
+        const pending=await getClaimRequest(owner,"advance",draft,storage,crypto,navigator.locks);
+        if(liveOwnerRef.current!==owner)return;
+        createReq.current=pending;
+      }
+      if(liveOwnerRef.current!==owner)return;
       const request=createReq.current;
       await onCreate(draft,request.requestId);
       // Only an acknowledged server row clears the persisted request ID.
@@ -92,8 +98,15 @@ export default function FinanceClaimTracker({
     const owner=userId;
     await run(async()=>{
       const storage=window.localStorage;
-      if(!repayReq.current)repayReq.current=await getClaimRequest(
-        owner,"repayment",{...repayDraft,claimId:claim.id},storage,crypto,navigator.locks);
+      if(repayReq.current&&!repayReq.current.key.startsWith(
+        "mh-finance-pending-claim-v1:"+owner+":repayment:"))repayReq.current=null;
+      if(!repayReq.current){
+        const pending=await getClaimRequest(owner,"repayment",
+          {...repayDraft,claimId:claim.id},storage,crypto,navigator.locks);
+        if(liveOwnerRef.current!==owner)return;
+        repayReq.current=pending;
+      }
+      if(liveOwnerRef.current!==owner)return;
       const request=repayReq.current;
       await onRepay(claim,repayDraft,request.requestId);
       confirmClaimRequest(owner,"repayment",request,storage);
@@ -153,26 +166,26 @@ export default function FinanceClaimTracker({
           <h3>{t("记录你已经替别人支付的钱","Record money you already paid for someone else")}</h3>
           <div className="mh-claim-fields">
             <label>{t("用途／名称","Description")}
-              <input required maxLength={160} className={fieldClass} value={draft.title}
+              <input required maxLength={160} disabled={busy||disabled} className={fieldClass} value={draft.title}
                 placeholder={t("例如：公司同事午餐","e.g. Team lunch")}
                 onChange={e=>updateDraft("title",e.target.value)}/></label>
             <label>{t("谁需要报销给你","Claim from")}
-              <input required maxLength={160} className={fieldClass} value={draft.claimant}
+              <input required maxLength={160} disabled={busy||disabled} className={fieldClass} value={draft.claimant}
                 onChange={e=>updateDraft("claimant",e.target.value)}/></label>
             <label>{t("垫付金额（RM 正常输入）","Amount (RM typing)")}
-              <input required type="text" inputMode="decimal" className={fieldClass}
+              <input required type="text" inputMode="decimal" disabled={busy||disabled} className={fieldClass}
                 placeholder="100.00" value={draft.amount}
                 onChange={e=>updateDraft("amount",e.target.value)}/></label>
             <label>{t("实际付款方式","Paid using")}
-              <select required className={fieldClass} value={draft.method}
+              <select required disabled={busy||disabled} className={fieldClass} value={draft.method}
                 onChange={e=>updateDraft("method",e.target.value)}>
                 {methods.map(method=><option key={method} value={method}>{method}</option>)}
               </select></label>
             <label>{t("实际付款日期","Paid on")}
-              <input required type="date" max={localDateMY()} className={fieldClass}
+              <input required type="date" max={localDateMY()} disabled={busy||disabled} className={fieldClass}
                 value={draft.paid_on} onChange={e=>updateDraft("paid_on",e.target.value)}/></label>
             <label>{t("备注（可选）","Note (optional)")}
-              <input maxLength={1000} className={fieldClass} value={draft.note}
+              <input maxLength={1000} disabled={busy||disabled} className={fieldClass} value={draft.note}
                 onChange={e=>updateDraft("note",e.target.value)}/></label>
           </div>
           <button type="submit" disabled={disabled||busy} className="mh-claim-save">
@@ -220,19 +233,19 @@ export default function FinanceClaimTracker({
                 <h4>{t("实际收到多少？支持分批报销","How much was actually received? Partial payments supported.")}</h4>
                 <div className="mh-claim-fields">
                   <label>{t("到账金额 RM","Received RM")}
-                    <input required className={fieldClass} type="text" inputMode="decimal"
+                    <input required disabled={busy||disabled} className={fieldClass} type="text" inputMode="decimal"
                       value={repayDraft.amount} onChange={e=>updateRepay("amount",e.target.value)}/></label>
                   <label>{t("收到钱的账户","Received into")}
-                    <select className={fieldClass} value={repayDraft.method}
+                    <select disabled={busy||disabled} className={fieldClass} value={repayDraft.method}
                       onChange={e=>updateRepay("method",e.target.value)}>
                       {methods.map(m=><option key={m} value={m}>{m}</option>)}
                     </select></label>
                   <label>{t("实际到账日期","Received date")}
-                    <input required className={fieldClass} type="date"
+                    <input required disabled={busy||disabled} className={fieldClass} type="date"
                       min={claim.paid_on} max={localDateMY()} value={repayDraft.received_on}
                       onChange={e=>updateRepay("received_on",e.target.value)}/></label>
                   <label>{t("备注","Note")}
-                    <input className={fieldClass} maxLength={1000} value={repayDraft.note}
+                    <input disabled={busy||disabled} className={fieldClass} maxLength={1000} value={repayDraft.note}
                       onChange={e=>updateRepay("note",e.target.value)}/></label>
                 </div>
                 <button type="submit" disabled={busy||disabled} className="mh-claim-save">
