@@ -4,6 +4,11 @@ export function chartNumber(value) {
   const n = Number(value);
   return Number.isFinite(n) ? n : null;
 }
+// RM0 means there is no visible bar, not a tiny positive payment.
+export function chartHasVisibleBar(value) {
+  const amount=chartNumber(value);
+  return amount!==null&&amount!==0;
+}
 export function chartFields(kind) {
   if(Array.isArray(kind) && kind.length && kind.every(field=>typeof field==="string" && /^[a-zA-Z][a-zA-Z0-9]*$/.test(field))) return [...kind];
   if (kind === "bars") return ["income", "expense"];
