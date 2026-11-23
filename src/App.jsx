@@ -26,7 +26,7 @@ import {validateBills,validateReviewState,validateAccountChecks,withBillOccurren
 import {checkBillPaymentEligibility,createBillPaymentExpense} from "./financeBillPayment.js";
 import {canonicalFinanceMethod} from "./financeMethodKeys.js";
 import {planReconciliationTransfers,writeReconciliationTransfer} from "./financeReconciliationTransfers.js";
-import {validateSavedFilters,filterFinanceRecordsAdvanced} from "./financeStage1Analytics.js";
+import {validateSavedFilters,filterFinanceRecordsAdvanced,cents as financeCents} from "./financeStage1Analytics.js";
 import {validateSavingsGoals,calculateSavingsAvailable} from "./financePlanning.js";
 import {readFxCurrencyPreference,writeFxCurrencyPreference} from "./financeFxCurrencyPreference.js";
 import { openingTotal, calculateMethodBalances } from "./financeOpeningBalance.js";
@@ -56,6 +56,7 @@ const FinanceCsvImportPanel = React.lazy(() => import("./FinanceCsvImportPanel.j
 const FinanceExcelExportPanel = React.lazy(() => import("./FinanceExcelExportPanel.jsx"));
 import { normalizeRecord, normalizeTransfer, toRecordPayload } from "./financeRecords.js";
 import { fetchFinanceSnapshot } from "./financeCloudService.js";
+import {loadSnapshotAfterWriteStability} from "./financeSnapshotReadGuard.js";
 import { getRecordRequestId, confirmRecordRequest, getTransferRequestId, confirmTransferRequest, assertRecoveredRecordMatchesPayload, assertRecoveredTransferMatchesPayload } from "./financeSaveIdempotency.js";
 import {isCurrentFinanceOwner,matchesOpenedVersion,removeRowById,upsertUniqueVersionedRow,replaceExistingVersionedRow,hasNewerVersion} from "./financeMutationSafety.js";
 import {DEFAULT_FINANCE_BALANCE_ALERT,readFinanceBalanceAlert,saveFinanceBalanceAlert,normalizedFinanceBalanceAlert} from "./financeBalanceAlertPreference.js";
@@ -157,8 +158,13 @@ const addDays = shiftCalendarDay;
 const dateRange = calendarDaysRange;
 const recentStart = previousCalendarDays;
 
-function sumType(records, type) {
-  return records.filter((r) => r.type === type).reduce((s, r) => s + Number(r.amount || 0), 0);
+function sumType(records,type) {
+  let totalSen=0;
+  for(const row of records)if(row.type===type){
+    totalSen+=financeCents(row.amount);
+    if(!Number.isSafeInteger(totalSen))throw Error("Finance sum exceeded exact sen precision. Totals withheld.");
+  }
+  return totalSen/100;
 }
 
 function group(records, keyFn) {
@@ -251,8 +257,9 @@ function StatCard({ title, value, icon, desc, action }) {
 }
 
 function BalanceCard({ title, value, desc, limit, methodBalances = [], openingBalanceControl = null }) {
-  const safeLimit = Number(limit || 0);
-  const low = value < safeLimit;
+  const alertEnabled=limit!=null&&String(limit).trim()!==""&&Number.isFinite(Number(limit));
+  const safeLimit=alertEnabled?Number(limit):0;
+  const low=alertEnabled&&value<safeLimit;
   const [open, setOpen] = useState(false);
   const methodTriggerRef = useRef(null);
 
@@ -529,6 +536,7 @@ function TodaySummaryCard({ stats }) {
 function EditableCell({ value, field, recordType, recordVersion, onSave, categoryOptionsFor, methodOptionsFor }) {
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState(value ?? "");
+  const [editSaveError,setEditSaveError]=useState("");
 
   useEffect(() => {
     // A cloud refresh must never erase a value that the user is actively typing.
@@ -537,14 +545,22 @@ function EditableCell({ value, field, recordType, recordVersion, onSave, categor
 
   const savingRef = useRef(false);
   const openedRef = useRef(null);
-  function commit() {
-    if (savingRef.current) return;
-    savingRef.current = true;
-    setEditing(false);
+  async function commit() {
+    if(savingRef.current)return;
     const opened=openedRef.current;
-    if (opened && String(draft) !== String(opened.value ?? "")) {
-      onSave(draft,opened.version);
+    if(!opened||String(draft)===String(opened.value??"")){
+      setEditSaveError("");setEditing(false);return;
     }
+    savingRef.current=true;setEditSaveError("");
+    try{
+      const saved=await onSave(draft,opened.version);
+      if(!saved)throw Error("Edit was not confirmed by the cloud. Review the latest record and retry.");
+      setEditing(false);
+    }catch(error){
+      const msg=error?.message||"Finance edit not confirmed.";
+      setEditSaveError(msg);
+      localizedFinanceAlert(msg);
+    }finally{savingRef.current=false;}
   }
 
   if (!editing) {
@@ -552,7 +568,7 @@ function EditableCell({ value, field, recordType, recordVersion, onSave, categor
       <span
         data-i18n-ignore={field === "note" ? "" : undefined}
         className="cursor-pointer rounded px-1 py-0.5 hover:bg-slate-100"
-        onClick={() => { savingRef.current = false; openedRef.current={value:value??"",version:recordVersion}; setDraft(value??""); setEditing(true); }}
+        onClick={() => { savingRef.current = false; setEditSaveError(""); openedRef.current={value:value??"",version:recordVersion}; setDraft(value??""); setEditing(true); }}
       >
       {value ? (
   field === "category"
@@ -598,7 +614,7 @@ if (field === "category" || field === "method") {
       title={field === "amount" ? "Enter normal RM amount: 100 means RM100.00" : undefined}
       onChange={(e) => setDraft(e.target.value)}
       onBlur={commit}
-      onKeyDown={(e) => e.key === "Enter" && commit()}
+      onKeyDown={(e) => {if(e.key==="Enter"){e.preventDefault();commit();}}}
       className="rounded border border-slate-300 px-1 py-0.5 text-xs outline-none"
     />
   );
@@ -738,6 +754,7 @@ function FinanceVisualizerAppContent() {
   const [syncProgress, setSyncProgress] = useState("");
   const [settingsVersion, setSettingsVersion] = useState(null);
   const [initialDataReady, setInitialDataReady] = useState(false);
+  const [verifiedDataOwnerId,setVerifiedDataOwnerId]=useState(null);
   const [importOpen, setImportOpen] = useState(false);
   const [exportOpen, setExportOpen] = useState(false);
   const dataToolTriggerRef=useRef(null);
@@ -748,6 +765,8 @@ function FinanceVisualizerAppContent() {
   const pendingBudgetTemplateRef = useRef(null);
   const pendingBudgetBaselineRef = useRef(null);
   const recordsLoadCounterRef = useRef(0);
+  const ledgerMutationEpochRef=useRef(0);
+  const markLedgerWriteConfirmed=()=>{ledgerMutationEpochRef.current+=1;};
   const liveUserIdRef = useRef(null);
   const undoTimeoutRef = useRef(null);
   const undoTransferTimeoutRef = useRef(null);
@@ -894,9 +913,11 @@ function FinanceVisualizerAppContent() {
   useEffect(() => {
     if (user) {
       liveUserIdRef.current = user.id;
+      setVerifiedDataOwnerId(null);
       setInitialDataReady(false);
       loadCloudData();
     } else {
+      setVerifiedDataOwnerId(null);
       recordsLoadCounterRef.current += 1;
       liveUserIdRef.current = null;
       settingsVersionRef.current = null;
@@ -1040,10 +1061,13 @@ useEffect(() => {
     setDataLoading(true);setSyncProgress("");
     setSyncStatus(background?"Refreshing finance data...":"Loading complete cloud data...");
     try {
-      const snapshot=await fetchFinanceSnapshot(supabase,accountId,(loaded,total,table)=>{
-        if(isCurrent())setSyncProgress(table+": "+loaded+" / "+total);
-      });
-      if(!isCurrent())return;
+      const snapshot=await loadSnapshotAfterWriteStability(
+        ()=>fetchFinanceSnapshot(supabase,accountId,(loaded,total,table)=>{
+          if(isCurrent())setSyncProgress(table+": "+loaded+" / "+total);
+        }),
+        ()=>ledgerMutationEpochRef.current,isCurrent
+      );
+      if(!snapshot||!isCurrent())return;
       setRecords(snapshot.records);
       setDeletedRecords(snapshot.deletedRecords);
       setTransfers(snapshot.transfers);
@@ -1071,12 +1095,13 @@ useEffect(() => {
       const version=settingsRow?Number(settingsRow.version||1):null;
       settingsVersionRef.current=version;setSettingsVersion(version);
       setSyncStatus("Cloud synced — all records loaded");
+      setVerifiedDataOwnerId(accountId);
       setSyncProgress("");setInitialDataReady(true);setDataLoading(false);
     }catch(error){
       if(!isCurrent())return;
       // A failed background refresh means the cached figures may be stale.
       // Hide the dashboard rather than presenting previous totals as verified.
-      setInitialDataReady(false);
+      setVerifiedDataOwnerId(null);setInitialDataReady(false);
       setSyncStatus("Cloud sync failed: "+(error.message||"unknown error")+". Totals hidden until cloud data is verified.");
       setSyncProgress("");setDataLoading(false);
     }
@@ -1110,6 +1135,7 @@ useEffect(() => {
           return false;
         }
         const nextVersion = Number(data.version);
+        markLedgerWriteConfirmed();
         settingsVersionRef.current = nextVersion;
         setSettingsVersion(nextVersion);
         setSyncStatus("Settings synced");
@@ -1228,6 +1254,7 @@ useEffect(() => {
       }
       const baseline=JSON.stringify(recurringBills);
       const {record}=await createBillPaymentExpense(supabase,accountId,bill,due,today(),crypto);
+      markLedgerWriteConfirmed();
       recordSaved=true; // only after DB acknowledges a real, matching, non-deleted Expense
       if(liveUserIdRef.current!==accountId) return {completed:false,recordSaved:true};
       setRecords(rows=>rows.some(r=>String(r.id)===String(record.id))?rows:[record,...rows]);
@@ -1308,6 +1335,7 @@ useEffect(() => {
         if(liveUserIdRef.current!==accountId)throw Error("Account changed during saving.");
         setTransfers(rows=>rows.some(r=>String(r.id)===String(answer.transfer.id))
           ?rows:[answer.transfer,...rows]);
+        markLedgerWriteConfirmed();
         count++;
       }
       setSyncStatus("Reconciliation Transfers saved: "+count);
@@ -1419,6 +1447,7 @@ useEffect(() => {
         await loadCloudData({background:true});
         return false;
       }
+      markLedgerWriteConfirmed();
       setMonthRows(current => [data, ...current.filter(row=>row.month!==month)]);
       setSyncStatus("Saved monthly budget " + month);
       return true;
@@ -1680,8 +1709,10 @@ const methodOptionsFor = () => expenseMethodOptions;
     [records, filterMode, selectedMonth, selectedYear, localToday]);
   const searchPeriodRecords = useMemo(() => filterRecords(records, filterMode, selectedMonth, selectedYear, keyword, localToday),
     [records, filterMode, selectedMonth, selectedYear, keyword, localToday]);
-  const categoryChoices = useMemo(() => makeDashboardCategoryChoices(expenseCategoryOptions, incomeCategoryOptions),
-    [expenseCategoryOptions, incomeCategoryOptions]);
+  const categoryChoices=useMemo(()=>makeDashboardCategoryChoices(
+    uniqueOptions(expenseCategoryOptions,records.filter(r=>r.type==="expense").map(r=>r.category)),
+    uniqueOptions(incomeCategoryOptions,records.filter(r=>r.type==="income").map(r=>r.category))
+  ),[expenseCategoryOptions,incomeCategoryOptions,records]);
   const selectedCategoryFilter = useMemo(() => selectedDashboardCategory(categoryChoices, categoryFilterKey),
     [categoryChoices, categoryFilterKey]);
   const filteredRecords = useMemo(() => categoryOnlyRows(searchPeriodRecords, selectedCategoryFilter),
@@ -1726,7 +1757,12 @@ const methodBalances = useMemo(() => withClaimMethodBalances(calculateMethodBala
 ),claimMovements,localToday,normalizeMethodForBalance),
 [accountMethodOptions, openingBalances, currentLedgerRecords, currentTransfers,claimMovements,localToday]);
   const openingBalanceTotal = useMemo(() => openingTotal(openingBalances), [openingBalances]);
-  const totalBalance = openingBalanceTotal + income - expense + claimCashSenUntil(claimMovements,localToday)/100;
+  // One verified cents ledger for assets; Transfers cancel and Claims remain
+  // cash movements, not fake personal Income/Expense.
+  const totalBalanceSen=Math.round(openingBalanceTotal*100)+
+    Math.round(income*100)-Math.round(expense*100)+claimCashSenUntil(claimMovements,localToday);
+  if(!Number.isSafeInteger(totalBalanceSen))throw Error("Balance exceeds exact sen precision; figures withheld.");
+  const totalBalance=totalBalanceSen/100;
   // Savings Goals reserve the current natural month's budget, not the Dashboard filter.
   // Saved month snapshot wins; only months without one use the default template.
   const savingsBudgetMonth = localMonthMY();
@@ -1956,6 +1992,7 @@ async function addRecord(e) {
     if (liveUserIdRef.current !== user.id) return;
     confirmRecordRequest(user.id, requestId, sessionStorage);
     const insertedRecord = normalizeRecord(data);
+      markLedgerWriteConfirmed();
     setRecords((p) => p.some(row => row.id === insertedRecord.id) ? p : [insertedRecord, ...p]);
     setForm((p) => ({ ...p, amount: amountEntryMode === "rm" ? "" : "0.00", note: "", date: today() }));
     if(typeof setFxForeignAmount==="function")setFxForeignAmount("");
@@ -2034,7 +2071,8 @@ async function addRecord(e) {
       if(liveUserIdRef.current !== user.id) return;
       confirmTransferRequest(user.id,requestId,sessionStorage);
       const added=normalizeTransfer(data);
-      setTransfers(rows => rows.some(row=>row.id===added.id)?rows:[added,...rows]);
+        markLedgerWriteConfirmed();
+    setTransfers(rows => rows.some(row=>row.id===added.id)?rows:[added,...rows]);
       setTransferForm(previous => ({
         ...previous,amount:"0.00",note:"",date:today(),
       }));
@@ -2094,6 +2132,7 @@ async function addRecord(e) {
         setSyncStatus("Transfer changed again on another device; newer cloud state retained.");
         return true;
       }
+      markLedgerWriteConfirmed();
       setTransfers(rows=>replaceExistingVersionedRow(rows,edited));
       setSyncStatus("Transfer updated");
       return true;
@@ -2122,6 +2161,7 @@ async function addRecord(e) {
         setSyncStatus("Transfer changed again; newer cloud version retained.");
         return true;
       }
+      markLedgerWriteConfirmed();
       setTransfers(rows=>removeRowById(rows,transferId));
       setDeletedTransfers(rows=>upsertUniqueVersionedRow(rows,deleted));
       setUndoTransfer(deleted);
@@ -2154,6 +2194,7 @@ async function addRecord(e) {
         setSyncStatus("Transfer restored then changed again; newest version retained.");
         return true;
       }
+      markLedgerWriteConfirmed();
       setDeletedTransfers(rows=>removeRowById(rows,transferId));
       setTransfers(rows=>upsertUniqueVersionedRow(rows,restored));
       if(undoTransfer?.id===transferId)setUndoTransfer(null);
@@ -2231,6 +2272,7 @@ async function addRecord(e) {
         setSyncStatus("Record changed again; newer cloud version retained.");
         return result;
       }
+      markLedgerWriteConfirmed();
       setRecords(previous=>replaceExistingVersionedRow(previous,result));
       setSyncStatus("Record synced");
       return result;
@@ -2281,6 +2323,7 @@ async function addRecord(e) {
         setSyncStatus("FX record changed again; newer cloud version retained.");
         return true;
       }
+      markLedgerWriteConfirmed();
       setRecords(rows=>replaceExistingVersionedRow(rows,result));
       setSyncStatus("FX transaction saved to cloud");return true;
     }catch(e){if(isCurrentFinanceOwner(liveUserIdRef,owner))localizedFinanceAlert(e.message||String(e));return false;}
@@ -2312,6 +2355,7 @@ async function addRecord(e) {
         setSyncStatus("Record changed again; newer cloud version retained.");
         return true;
       }
+      markLedgerWriteConfirmed();
       setRecords((previous) => removeRowById(previous,recordId));
       setDeletedRecords((previous) => upsertUniqueVersionedRow(previous,removed));
       setDeleteConfirm(null);
@@ -2356,6 +2400,7 @@ async function addRecord(e) {
         setSyncStatus("Record changed again; newest cloud version retained.");
         return true;
       }
+      markLedgerWriteConfirmed();
       setDeletedRecords((previous) => removeRowById(previous,recordId));
       setRecords((previous) => upsertUniqueVersionedRow(previous,restored));
       if (undoDeleted?.id === recordId) setUndoDeleted(null);
@@ -2383,30 +2428,35 @@ async function addRecord(e) {
   async function handleCreateClaim(draft,requestId){
     const owner=claimWriteOwner();
     const saved=await createFinanceClaim(supabase,owner,draft,requestId);
+    if(liveUserIdRef.current===owner)markLedgerWriteConfirmed();
     if(liveUserIdRef.current===owner)await loadCloudData({background:true});
     return saved;
   }
   async function handleSubmitClaim(claim){
     const owner=claimWriteOwner();
     const saved=await submitFinanceClaim(supabase,owner,claim);
+    if(liveUserIdRef.current===owner)markLedgerWriteConfirmed();
     if(liveUserIdRef.current===owner)await loadCloudData({background:true});
     return saved;
   }
   async function handleCancelClaim(claim){
     const owner=claimWriteOwner();
     const saved=await cancelFinanceClaim(supabase,owner,claim,claimRepayments);
+    if(liveUserIdRef.current===owner)markLedgerWriteConfirmed();
     if(liveUserIdRef.current===owner)await loadCloudData({background:true});
     return saved;
   }
   async function handleRepayClaim(claim,draft,requestId){
     const owner=claimWriteOwner();
     const saved=await createFinanceClaimRepayment(supabase,owner,claim,draft,claimRepayments,requestId);
+    if(liveUserIdRef.current===owner)markLedgerWriteConfirmed();
     if(liveUserIdRef.current===owner)await loadCloudData({background:true});
     return saved;
   }
   async function handleVoidClaimRepayment(entry){
     const owner=claimWriteOwner();
     const saved=await voidFinanceClaimRepayment(supabase,owner,entry);
+    if(liveUserIdRef.current===owner)markLedgerWriteConfirmed();
     if(liveUserIdRef.current===owner)await loadCloudData({background:true});
     return saved;
   }
@@ -2422,7 +2472,7 @@ async function addRecord(e) {
   if (!session) {
     return <AuthScreen />;
   }
-  if (!initialDataReady) {
+  if (!initialDataReady || verifiedDataOwnerId!==user?.id) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-slate-50 p-5 text-slate-900">
         <div className="w-full max-w-lg rounded-3xl bg-white p-7 shadow-sm ring-1 ring-slate-200">
@@ -2541,6 +2591,7 @@ return (
           <React.Suspense fallback={<div role="status" className="p-4 text-sm text-slate-600">Loading...</div>}>
             {importOpen && <FinanceCsvImportPanel
               supabase={supabase} user={user}
+              ownerIsCurrent={()=>liveUserIdRef.current===user?.id}
               existingRecords={[...records,...deletedRecords]}
               onClose={() => setImportOpen(false)}
               onImported={() => loadCloudData({background:true})}/>}
@@ -2946,7 +2997,7 @@ return (
                     📊
                 </button>}
               />
-              <BalanceCard title="Filtered Balance" value={periodIncome - periodExpense} desc={"Period net change (Opening Balance excluded): " + filterLabel} limit={balanceLimit} />
+              <BalanceCard title="Filtered Balance" value={periodIncome - periodExpense} desc={"Period net change (Opening Balance excluded): " + filterLabel} limit={null} />
             </section>
             <FinanceOverlay open={budgetOpen} title="Monthly Budget / 分类预算"
               onClose={() => {
@@ -3281,7 +3332,7 @@ categoryOptionsFor={categoryOptionsFor}
            claimOpenRequest={claimOpenRequest}
            onClaimOpenRequestHandled={()=>setClaimOpenRequest(null)}
           records={records} monthRows={monthRows} budgetTemplate={budgets}
-          totalBalance={totalBalance} userId={user?.id}
+          totalBalance={totalBalance} userId={user?.id} asOfDate={localToday}
           goals={savingsGoals} onSaveSavingsGoals={saveSavingsGoals}
           savingsAvailability={savingsCalculation.data}
           calculationError={savingsCalculation.error}

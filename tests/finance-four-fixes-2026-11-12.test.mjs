@@ -53,6 +53,7 @@ test("double click submits one income/expense while first insert is pending", as
     };}},
     liveUserIdRef:{current:"fake-test-user"},
     normalizeRecord:r=>r,
+    markLedgerWriteConfirmed:()=>{},
     setRecords:fn=>state.splice(0,state.length,...fn(state)),
     setForm:()=>{},
     setSyncStatus:()=>{},

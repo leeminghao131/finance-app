@@ -4,6 +4,22 @@ import { createPortal } from "react-dom";
 // The visual transition is deliberately isolated from all finance forms and their state.
 export const FINANCE_MODAL_MOTION_MS = 300;
 const openDialogStack = [];
+// Ref-counted body scroll lock: closing a lower dialog must not unlock its child.
+const bodyScrollLock={count:0,overflow:"",paddingRight:""};
+function acquireBodyScrollLock(){
+  if(bodyScrollLock.count++>0)return;
+  bodyScrollLock.overflow=document.body.style.overflow;
+  bodyScrollLock.paddingRight=document.body.style.paddingRight;
+  const width=Math.max(0,window.innerWidth-document.documentElement.clientWidth);
+  document.body.style.overflow="hidden";
+  if(width)document.body.style.paddingRight=width+"px";
+}
+function releaseBodyScrollLock(){
+  if(bodyScrollLock.count<=0)return;
+  if(--bodyScrollLock.count>0)return;
+  document.body.style.overflow=bodyScrollLock.overflow;
+  document.body.style.paddingRight=bodyScrollLock.paddingRight;
+}
 
 function openerRect(triggerRef) {
   const el = triggerRef?.current;
@@ -117,11 +133,7 @@ export default function FinanceOverlay({
   useEffect(() => {
     if (!mounted || typeof document === "undefined") return undefined;
     const activeBeforeOpen = document.activeElement;
-    const previousOverflow = document.body.style.overflow;
-    const previousPaddingRight = document.body.style.paddingRight;
-    const scrollBarWidth = Math.max(0, window.innerWidth - document.documentElement.clientWidth);
-    document.body.style.overflow = "hidden";
-    if (scrollBarWidth) document.body.style.paddingRight = scrollBarWidth + "px";
+    acquireBodyScrollLock();
     const currentDialog = dialogRef.current;
     openDialogStack.push(currentDialog);
     currentDialog?.focus();
@@ -149,10 +161,14 @@ export default function FinanceOverlay({
     return () => {
       document.removeEventListener("keydown", onKeyDown);
       const index = openDialogStack.lastIndexOf(currentDialog);
-      if (index !== -1) openDialogStack.splice(index, 1);
-      document.body.style.overflow = previousOverflow;
-      document.body.style.paddingRight = previousPaddingRight;
-      if (activeBeforeOpen && typeof activeBeforeOpen.focus === "function") activeBeforeOpen.focus();
+      const wasTop=index===openDialogStack.length-1;
+      if(index!==-1)openDialogStack.splice(index,1);
+      releaseBodyScrollLock();
+      if(wasTop){
+        const nextTop=openDialogStack[openDialogStack.length-1];
+        if(nextTop?.focus)nextTop.focus();
+        else if(activeBeforeOpen?.focus)activeBeforeOpen.focus();
+      }
     };
   }, [mounted]);
 

@@ -6,7 +6,7 @@ import { findImportedSourceRows, importReviewedCsvRows } from "./financeImportSe
 
 const btn="rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm font-bold text-slate-800 hover:bg-slate-50 disabled:opacity-50";
 export default function FinanceCsvImportPanel({
-  supabase,user,existingRecords,onClose,onImported,
+  supabase,user,existingRecords,onClose,onImported,ownerIsCurrent=()=>false,
 }) {
   const fileRef=useRef(null);
   const [fileName,setFileName]=useState("");
@@ -40,6 +40,7 @@ export default function FinanceCsvImportPanel({
       const csvText=new TextDecoder("utf-8",{fatal:true}).decode(buffer);
       const inspected=await resolveImportedFxRows(inspectCsvText(csvText,existingRecords),undefined,existingRecords);
       const already=await findImportedSourceRows(supabase,user.id,sha);
+      if(!ownerIsCurrent())throw Error("The signed-in account changed during CSV inspection.");
       setFileName(file.name);setFileHash(sha);
       setRows(inspected);setPreviouslyImported(already);
       setSelected(new Set(inspected.filter(row=>
@@ -62,7 +63,8 @@ export default function FinanceCsvImportPanel({
     setBusy(true);setError("");setSuccess(null);
     try {
       const result=await importReviewedCsvRows(
-        supabase,fileHash,selectedItems.map(row=>row.record),setProgress
+        supabase,fileHash,selectedItems.map(row=>row.record),setProgress,
+        {ownerId:user.id,isOwnerCurrent:ownerIsCurrent}
       );
       const seen=await findImportedSourceRows(supabase,user.id,fileHash);
       setPreviouslyImported(seen);

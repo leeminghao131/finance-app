@@ -12,7 +12,7 @@ const labels={
 };
 export default function FinanceReviewInbox({
   records=[],reviewState={threshold:500,decisions:[]},onSave,optionsFor,
-  onUpdateRecord,onDeleteRecord,onEditFx=()=>{},open=false,selectedId=null,disabled=false,onClose=()=>{},
+  onUpdateRecord,onDeleteRecord,onEditFx=()=>{},open=false,selectedId=null,disabled=false,onClose=()=>{},asOfDate=localDateMY(),
 }){
   const {language}=useFinanceLanguage(),zh=language==="zh";
   const t=(cn,en)=>zh?cn:en;
@@ -20,7 +20,7 @@ export default function FinanceReviewInbox({
   const [fieldName,setFieldName]=useState("note"),[editValue,setEditValue]=useState("");
   const [editVersion,setEditVersion]=useState(null);
   const [busy,setBusy]=useState(false),[error,setError]=useState(""),[message,setMessage]=useState("");
-  const candidates=useMemo(()=>findReviewCandidates(records,reviewState,localDateMY()),[records,reviewState]);
+  const candidates=useMemo(()=>findReviewCandidates(records,reviewState,asOfDate),[records,reviewState,asOfDate]);
   const selected=candidates.find(c=>c.id===selectedId);
   const displayed=selectedId?selected?[selected]:[]:onlyPending?candidates.filter(c=>!c.confirmed):candidates;
   const startEdit=c=>{setEditingId(c.id);setEditVersion(c.record.version);setFieldName("note");setEditValue(String(c.record.note||""));setError("");setMessage("");};
@@ -44,7 +44,7 @@ export default function FinanceReviewInbox({
     await saveSnapshot(next,JSON.stringify(reviewState));
   };
   const confirm=async c=>{
-    if(await saveSnapshot(confirmReview(reviewState,c.record,localDateMY()),JSON.stringify(reviewState)))
+    if(await saveSnapshot(confirmReview(reviewState,c.record,asOfDate),JSON.stringify(reviewState)))
       setMessage(t("已确认无误，之后同版本不会重复提醒。","Confirmed. This unchanged record will not alert again."));
   };
   const saveEdit=async c=>{

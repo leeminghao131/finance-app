@@ -33,7 +33,7 @@ export function checkBillPaymentEligibility(bills,billId,due,records=[],today){
   const plans=validateBills(bills);
   const bill=plans.find(b=>b.id===billId&&b.active);
   if(!bill)throw Error("Bill plan is missing or inactive. Refresh the page.");
-  const occurrence=billOccurrences(plans,today,records,90,45).find(e=>e.billId===billId&&e.due===due);
+  const occurrence=billOccurrences(plans,today,records,90,45,true).find(e=>e.billId===billId&&e.due===due);
   if(!occurrence)throw Error("Selected bill date is no longer scheduled. Refresh.");
   if(occurrence.status==="paid"||occurrence.status==="unlinked")
     throw Error("This bill was already marked paid. Restore or review its existing Expense; do not create another.");

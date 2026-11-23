@@ -16,7 +16,7 @@ const safeRead=userId=>{
   }catch{return [];}
 };
 
-export default function FinanceScenarioSimulator({records=[],totalBalance=0,userId,disabled=false,dockButton=false}){
+export default function FinanceScenarioSimulator({records=[],totalBalance=0,userId,asOfDate=localDateMY(),disabled=false,dockButton=false}){
   const {language}=useFinanceLanguage();
   const zh=language==="zh";
   const t=(cn,en)=>zh?cn:en;
@@ -28,10 +28,10 @@ export default function FinanceScenarioSimulator({records=[],totalBalance=0,user
   // Read-only scenarios now accept signed deltas. Old device presets are mapped in memory only.
   const result=useMemo(()=>{
     try{return {value:simulateFinanceScenarios(records,{
-      currentBalance:totalBalance,asOfDate:localDateMY(),months:Number(form.months),
+      currentBalance:totalBalance,asOfDate,months:Number(form.months),
       incomeDelta:form.incomeDelta,spendingDelta:form.spendingDelta,
     })};}catch(e){return {error:e.message};}
-  },[records,totalBalance,form.months,form.incomeDelta,form.spendingDelta]);
+  },[records,totalBalance,asOfDate,form.months,form.incomeDelta,form.spendingDelta]);
   const update=(key,value)=>setForm(p=>({...p,[key]:value}));
   function persist(next){
     if(!userId)throw new Error(t("请先登录再保存模拟方案。","Sign in before saving simulation presets."));
@@ -64,12 +64,12 @@ export default function FinanceScenarioSimulator({records=[],totalBalance=0,user
   const comparisons=useMemo(()=>saved.map((preset,index)=>{
     try{
       const value=simulateFinanceScenarios(records,{
-        currentBalance:totalBalance,asOfDate:localDateMY(),months:Number(preset.months),
+        currentBalance:totalBalance,asOfDate,months:Number(preset.months),
         incomeDelta:preset.incomeDelta,spendingDelta:preset.spendingDelta,
       });
       return {index,name:preset.name,months:Number(preset.months),value,form:preset};
     }catch{return null;}
-  }).filter(Boolean),[saved,records,totalBalance]);
+  }).filter(Boolean),[saved,records,totalBalance,asOfDate]);
   const comparisonData=v?.baseline.map((row,i)=>{
     const entry={month:row.month,baseline:row.balance,scenario:v.scenario[i].balance};
     for(const p of comparisons)if(p.months===Number(form.months))entry["saved"+p.index]=p.value.scenario[i].balance;

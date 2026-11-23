@@ -80,18 +80,32 @@ export function calculateCashForecast(records, {
   const actualDays = inclusiveCalendarDays(actualStart, actualEnd);
   const timeline = [];
   if (actualDays > 0 && actualDays <= 400) {
-    const actualDates = calendarDaysRange(actualStart,actualDays);
-    for (const date of actualDates) {
-      const balance = openingCents + usedRecords.filter(r=>r.date<=date).reduce((sum,r)=>sum+signedCents(r),0)+claimCentsTo(date);
-      timeline.push({date,day:date.slice(5),actual:money(balance),forecast:null});
+    // Aggregate once, scan in calendar order: O(records + claims + chart days)
+    // instead of scanning every historical transaction for EACH day.
+    // All values stay integer sen and the original date/money formula is unchanged.
+    const changes=new Map();
+    for(const row of usedRecords)
+      changes.set(row.date,(changes.get(row.date)||0)+signedCents(row));
+    for(const event of claimMovements)
+      changes.set(event.date,(changes.get(event.date)||0)+event.sen);
+    const dated=[...changes].sort((a,b)=>a[0].localeCompare(b[0]));
+    let cursor=0,running=openingCents;
+    const actualDates=calendarDaysRange(actualStart,actualDays);
+    for(const date of actualDates){
+      while(cursor<dated.length&&dated[cursor][0]<=date){
+        running+=dated[cursor][1];cursor++;
+      }
+      timeline.push({date,day:date.slice(5),actual:money(running),forecast:null});
     }
   }
   if (!historical && remainingDays > 0) {
-    // Connect the prediction line to the latest actual point.
     if (timeline.length) timeline[timeline.length-1].forecast = money(currentCents);
+    const datedPlans=plans.slice().sort((a,b)=>a.date.localeCompare(b.date));
+    let planCursor=0,scheduled=0;
     for (let day=1;day<=remainingDays;day++) {
       const date = shiftCalendarDay(asOfDate,day);
-      const scheduled = plans.filter(p=>p.date<=date).reduce((sum,p)=>sum+p.centAmount,0);
+      while(planCursor<datedPlans.length&&datedPlans[planCursor].date<=date)
+        scheduled+=datedPlans[planCursor++].centAmount;
       timeline.push({
         date,day:date.slice(5),actual:null,
         forecast:money(currentCents + scheduled - Math.round(meanDailyCents*day)),

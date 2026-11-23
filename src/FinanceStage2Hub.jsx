@@ -47,7 +47,7 @@ export default function FinanceStage2Hub({
     },150);
   };
   useEffect(()=>()=>{if(hoverCloseTimerRef.current!==null)window.clearTimeout(hoverCloseTimerRef.current);},[]);
-  const today=localDateMY();
+  const today=asOfDate;
   const billsDue=useMemo(()=>billOccurrences(bills,today,records,70,35,true).filter(x=>x.visible),[bills,records,today]);
   const candidates=useMemo(()=>findReviewCandidates(records,reviewState,today).filter(x=>!x.confirmed),
     [records,reviewState,today]);
@@ -172,7 +172,7 @@ export default function FinanceStage2Hub({
       {mode==="review"&&<FinanceReviewInbox records={records} reviewState={reviewState}
         onSave={onSaveReview} optionsFor={optionsFor} onUpdateRecord={onUpdateRecord} onDeleteRecord={onDeleteRecord}
         onEditFx={(record,element)=>{close();onEditFx?.(record,element);}}
-        selectedId={selectedRecordId} disabled={disabled}/>}
+        selectedId={selectedRecordId} disabled={disabled} asOfDate={asOfDate}/>}
       {mode==="accounts"&&<FinanceAccountReconciliation
         records={records} transfers={transfers} claimMovements={claimMovements} balances={balances} checks={checks}
         onSave={onSaveChecks} onExecuteTransfers={onExecuteTransfers}

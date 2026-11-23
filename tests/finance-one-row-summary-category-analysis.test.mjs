@@ -91,7 +91,7 @@ test("Category charts and transaction views remain distinct from protected perio
   assert.match(app,/const expenseRecords = chartRecords\.filter\(\(r\) => r\.type === "expense"\)/);
   assert.match(app,/const categoryData = useMemo\(\(\) => group\(expenseRecords/);
   assert.match(app,/const methodData = useMemo\(\(\) => group\(expenseRecords/);
-  assert.match(app,/const totalBalance = openingBalanceTotal \+ income - expense/);
+  assert.match(app,/const totalBalanceSen=Math\.round\(openingBalanceTotal\*100\)\+/);
   assert.match(app,/<BalanceCard title="Filtered Balance" value=\{periodIncome - periodExpense\}/);
   assert.match(app,/periodRecords\.forEach\(\(r\) => \{\s*if \(!out\[r\.date\]\) out\[r\.date\] = \{ dateKey: r\.date, day: chartLabel\(r\.date\), expense: 0, dailyBalance: 0 \}/);
   assert.match(app,/dailyData=\{expandedTrend === "balance" \? periodDailyData : dailyData\}/);

@@ -2,7 +2,7 @@ import React,{useEffect,useMemo,useRef,useState} from "react";
 import FinanceOverlay from "./FinanceOverlay.jsx";
 import {useFinanceLanguage,localizedFinanceConfirm} from "./FinanceLanguageLayer.jsx";
 import {localDateMY} from "./financeCalendar.js";
-import {claimSummary} from "./financeClaims.js";
+import {claimSummary,claimSen} from "./financeClaims.js";
 import {getClaimRequest,confirmClaimRequest} from "./financeClaimRequestId.js";
 
 const money=value=>new Intl.NumberFormat("en-MY",{style:"currency",currency:"MYR"}).format(Number(value||0));
@@ -67,6 +67,18 @@ export default function FinanceClaimTracker({
   const saveNew=async e=>{
     e.preventDefault();
     const owner=userId;
+    // Identical-looking claims can be two distinct payments. Warn the owner;
+    // NEVER silently merge, delete, or make a non-unique business fingerprint.
+    let proposedSen=null;
+    try{proposedSen=claimSen(draft.amount);}catch{/* normal validation reports later */}
+    const duplicate=proposedSen!==null&&claims.some(c=>!c.cancelled_at&&
+      c.paid_on===draft.paid_on&&c.method===draft.method&&
+      String(c.title).trim()===draft.title.trim()&&
+      String(c.claimant).trim()===draft.claimant.trim()&&
+      claimSen(c.amount)===proposedSen);
+    if(duplicate&&!localizedFinanceConfirm(t(
+      "已存在日期、金额、付款方式及报销对象相同的垫付。仅当这是另一笔真实付款时才继续。",
+      "A matching advance already exists. Continue only if this was a separate real payment.")))return;
     await run(async()=>{
       const storage=window.localStorage;
       if(createReq.current&&!createReq.current.key.startsWith(

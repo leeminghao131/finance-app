@@ -116,12 +116,14 @@ export default function FinanceCategoryBubbleChart({ data, emptyText = "No expen
   useEffect(() => {
     if (!visible || !bodies.length) return undefined;
     const motion = window.matchMedia?.("(prefers-reduced-motion: reduce)");
-    if (motion?.matches) return undefined;
+    if (motion?.matches || window.matchMedia?.("(pointer: coarse)")?.matches) return undefined;
     let frame = 0;
     let last = performance.now();
     const particles = bodies.map(b => ({ ...b }));
     function tick(now) {
       if (document.hidden) { last = now; frame = requestAnimationFrame(tick); return; }
+      // Cap desktop visual-only physics at ~30Hz; on touch devices it is static.
+      if (now - last < 33) { frame = requestAnimationFrame(tick); return; }
       const step = cap((now - last) / 16.667, 0.1, 1.5);
       last = now;
       for (let i = 0; i < particles.length; i++) {
