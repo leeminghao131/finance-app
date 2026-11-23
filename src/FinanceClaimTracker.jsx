@@ -21,13 +21,16 @@ export default function FinanceClaimTracker({
   const [focusedClaimId,setFocusedClaimId]=useState(null);
   const [busy,setBusy]=useState(false),[error,setError]=useState(""),[info,setInfo]=useState("");
   const triggerRef=useRef(null),createReq=useRef(null),repayReq=useRef(null);
-  const lastRequestRef=useRef(null),topRef=useRef(null),busyRef=useRef(false);
+  const lastRequestRef=useRef(null),topRef=useRef(null),busyRef=useRef(null);
+  const liveOwnerRef=useRef(userId);
+  liveOwnerRef.current=userId;
   const summary=useMemo(()=>claimSummary(claims,repayments),[claims,repayments]);
   const sorted=filter==="outstanding"?summary.open:filter==="completed"
     ?summary.rows.filter(c=>c.status==="completed"):summary.rows;
   useEffect(()=>{
     setOpen(false);setError("");setInfo("");setShowNew(false);
     setRepayFor(null);setFocusedClaimId(null);createReq.current=null;repayReq.current=null;
+    setBusy(false);
     setDraft(initialDraft());setRepayDraft(initialRepay());
   },[userId]);
   useEffect(()=>{
@@ -46,23 +49,33 @@ export default function FinanceClaimTracker({
     repayReq.current=null;setRepayDraft(p=>({...p,[key]:value}));setError("");setInfo("");
   };
   const run=async(action,success)=>{
-    if(busyRef.current||disabled||!userId)return;
-    busyRef.current=true;
+    const owner=userId;
+    if(busyRef.current===owner||disabled||!owner)return;
+    busyRef.current=owner;
     setBusy(true);setError("");setInfo("");
-    try{await action();setInfo(success);}
-    catch(e){setError(e?.message||"Unable to save. Refresh before retrying.");}
-    finally{busyRef.current=false;setBusy(false);}
+    try{
+      await action();
+      if(liveOwnerRef.current===owner)setInfo(success);
+    }catch(e){
+      if(liveOwnerRef.current===owner)
+        setError(e?.message||"Unable to save. Refresh before retrying.");
+    }finally{
+      if(busyRef.current===owner)busyRef.current=null;
+      if(liveOwnerRef.current===owner)setBusy(false);
+    }
   };
   const saveNew=async e=>{
     e.preventDefault();
+    const owner=userId;
     await run(async()=>{
       const storage=window.localStorage;
       if(!createReq.current)createReq.current=await getClaimRequest(
-        userId,"advance",draft,storage,crypto,navigator.locks);
+        owner,"advance",draft,storage,crypto,navigator.locks);
       const request=createReq.current;
       await onCreate(draft,request.requestId);
       // Only an acknowledged server row clears the persisted request ID.
-      confirmClaimRequest(userId,"advance",request,storage);
+      confirmClaimRequest(owner,"advance",request,storage);
+      if(liveOwnerRef.current!==owner)return;
       createReq.current=null;setDraft(initialDraft());setShowNew(false);
       setFilter("outstanding");
     },t("已确认保存垫付记录。","Advance confirmed in cloud."));
@@ -76,13 +89,15 @@ export default function FinanceClaimTracker({
   };
   const saveRepay=async(e,claim)=>{
     e.preventDefault();
+    const owner=userId;
     await run(async()=>{
       const storage=window.localStorage;
       if(!repayReq.current)repayReq.current=await getClaimRequest(
-        userId,"repayment",{...repayDraft,claimId:claim.id},storage,crypto,navigator.locks);
+        owner,"repayment",{...repayDraft,claimId:claim.id},storage,crypto,navigator.locks);
       const request=repayReq.current;
       await onRepay(claim,repayDraft,request.requestId);
-      confirmClaimRequest(userId,"repayment",request,storage);
+      confirmClaimRequest(owner,"repayment",request,storage);
+      if(liveOwnerRef.current!==owner)return;
       repayReq.current=null;setRepayFor(null);setRepayDraft(initialRepay());
     },t("收到的报销已确认保存。","Reimbursement confirmed in cloud."));
   };
