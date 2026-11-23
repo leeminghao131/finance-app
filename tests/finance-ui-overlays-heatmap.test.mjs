@@ -54,9 +54,9 @@ test("UI: heatmap displays complete amount in responsive minimum-width date cell
 test("UI: nested records mobile editor only responds to topmost modal keyboard handling", () => {
   assert.match(overlay, /openDialogStack\.push\(currentDialog\)/);
   assert.match(overlay, /openDialogStack\[openDialogStack\.length - 1\] !== currentDialog/);
-  assert.match(overlay, /openDialogStack\.splice\(index, 1\)/);
+  assert.match(overlay, /openDialogStack\.splice\(index,1\)/);
   assert.match(overlay, /showTitle = true/);
-  assert.match(overlay, /document\.body\.style\.overflow = previousOverflow/);
+  assert.match(overlay, /document\.body\.style\.overflow=bodyScrollLock\.overflow/);
 });
 
 test("UI: category pie remains, but the duplicate category records list is removed", () => {
