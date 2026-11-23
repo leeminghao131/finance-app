@@ -12,6 +12,53 @@ export function chartFields(kind) {
   if (kind === "forecast") return ["actual", "forecast"];
   throw new Error("Unsupported chart kind");
 }
+// Date-driven trend geometry. Dates are parsed as UTC calendar days (not the
+// device time zone), so missing days occupy their real share of the X axis.
+// Invalid, repeated or unsorted dates retain the legacy index spacing rather
+// than being silently re-ordered or corrupting a chart.
+export function chartDayFractions(rows) {
+  if(!Array.isArray(rows)||rows.length<2)return null;
+  const days=[];
+  for(const row of rows){
+    const date=String(row?.dateKey||row?.date||"");
+    if(!/^\d{4}-\d{2}-\d{2}$/.test(date))return null;
+    const milliseconds=Date.parse(date+"T00:00:00Z");
+    if(!Number.isFinite(milliseconds)||
+      new Date(milliseconds).toISOString().slice(0,10)!==date)return null;
+    const day=milliseconds/86400000;
+    if(days.length&&day<=days[days.length-1])return null;
+    days.push(day);
+  }
+  const span=days[days.length-1]-days[0];
+  return span>0?days.map(day=>(day-days[0])/span):null;
+}
+
+// Sparse dates can cluster near one side of the chart. Choose tick labels by
+// pixel distance and always preserve the first/last day, not by row index.
+export function chartTimeTickIndices(rows,view,maxLabels=5,minGap=58) {
+  const data=Array.isArray(rows)?rows:[];
+  if(data.length<=1)return chartTickIndices(data.length,maxLabels);
+  if(!view?.dateFractions)return chartTickIndices(data.length,maxLabels);
+  const count=Math.max(2,Math.min(data.length,Math.floor(Number(maxLabels)||5),
+    Math.floor(view.pw/Math.max(1,minGap))+1));
+  const last=data.length-1;
+  const selected=[0];
+  for(let step=1;step<count-1;step++){
+    const target=view.margin.left+view.pw*step/(count-1);
+    const limit=view.x(last)-minGap;
+    let best=-1,smallest=Infinity;
+    for(let i=1;i<last;i++){
+      const px=view.x(i);
+      if(px<view.x(selected[selected.length-1])+minGap||px>limit)continue;
+      const distance=Math.abs(px-target);
+      if(distance<smallest){best=i;smallest=distance;}
+    }
+    if(best>=0)selected.push(best);
+  }
+  selected.push(last);
+  return [...new Set(selected)].sort((a,b)=>a-b);
+}
+
 export function chartViewport(rows, kind, width, height) {
   const data = Array.isArray(rows) ? rows : [];
   const fields = chartFields(kind);
@@ -29,11 +76,12 @@ export function chartViewport(rows, kind, width, height) {
   const low = min < 0 ? min - pad : 0;
   const high = max > 0 ? max + pad : spread ? 0 : 1;
   const range = Math.max(.000001, high - low);
+  const dateFractions=chartDayFractions(data);
   const x = i => data.length <= 1 ? margin.left + pw / 2 :
-    margin.left + i / (data.length - 1) * pw;
+    margin.left + (dateFractions ? dateFractions[i] : i/(data.length-1))*pw;
   const y = value => margin.top + (high - value) / range * ph;
   return {
-    data, fields, width:w, height:h, compact, margin, pw, ph, low, high,
+    data, fields, width:w, height:h, compact, margin, pw, ph, low, high, dateFractions,
     x, y, ticks: Array.from({length:5}, (_, i) => low + (high - low) * i / 4),
     baseline:y(0),
   };
