@@ -29,16 +29,16 @@ export function summarizeMonthlyBudget(records, budgets, month, categoryOptions 
 }
 
 export function normalizeBudgetsInput(budgets) {
-  const saved = {};
+  const saved = new Map();
   for (const [category, raw] of Object.entries(budgets || {})) {
     const value = String(raw ?? "").trim();
-    if (value === "") { saved[category] = ""; continue; }
+    if (value === "") { saved.set(category,""); continue; }
     if (!/^\d+(\.\d{1,2})?$/.test(value) || cents(value) < 0 || !Number.isSafeInteger(cents(value))) {
       throw new Error("Invalid RM budget for " + category + " — use a nonnegative amount up to 2 decimal places.");
     }
-    saved[category] = money(cents(value)).toFixed(2);
+    saved.set(category,money(cents(value)).toFixed(2));
   }
-  return saved;
+  return Object.fromEntries(saved);
 }
 
 export function calculateCashForecast(records, {

@@ -3,13 +3,14 @@ import {localDateMY} from "./financeCalendar.js";
 import {reconcileMethod,validateAccountChecks} from "./financeStage2.js";
 import {planReconciliationTransfers} from "./financeReconciliationTransfers.js";
 import {canonicalFinanceMethod} from "./financeMethodKeys.js";
+import {reconciliationRecentActivity} from "./financeReconciliationActivity.js";
 import {useFinanceLanguage} from "./FinanceLanguageLayer.jsx";
 
 const money=n=>new Intl.NumberFormat("en-MY",{style:"currency",currency:"MYR"}).format(n);
 const field="w-full min-w-0 rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm";
 export default function FinanceAccountReconciliation({
-  balances=[],records=[],transfers=[],checks=[],onSave,onPrefillRecord,onExecuteTransfers,
-  disabled=false,selectedMethod=null,
+  balances=[],records=[],transfers=[],claimMovements=[],checks=[],onSave,onPrefillRecord,onExecuteTransfers,
+  disabled=false,selectedMethod=null,asOfDate=localDateMY(),
 }){
   const {language}=useFinanceLanguage(),zh=language==="zh",t=(cn,en)=>zh?cn:en;
   const [actualByMethod,setActualByMethod]=useState({}),[note,setNote]=useState("");
@@ -26,20 +27,10 @@ export default function FinanceAccountReconciliation({
   },[completed,normalizedBalances,actualByMethod]);
   const plan=result.plan;
   const normalizedMethod=m=>canonicalFinanceMethod(m);
-  const recent=useMemo(()=>{
-    const selected=focusMethod||normalizedBalances[0]?.method;
-    if(!selected)return [];
-    const rows=[
-      ...records.filter(r=>!r.deleted_at&&normalizedMethod(r.method)===selected)
-        .map(r=>({id:"record-"+r.id,date:r.date,kind:r.type,
-          amount:r.type==="income"?Number(r.amount):-Number(r.amount),note:r.note||r.category})),
-      ...transfers.filter(r=>!r.deleted_at&&
-          (normalizedMethod(r.fromMethod)===selected||normalizedMethod(r.toMethod)===selected))
-        .map(r=>({id:"transfer-"+r.id,date:r.date,kind:"transfer",
-          amount:(normalizedMethod(r.toMethod)===selected?1:-1)*Number(r.amount),note:r.note||"Transfer"})),
-    ];
-    return rows.sort((a,b)=>b.date.localeCompare(a.date)).slice(0,12);
-  },[focusMethod,normalizedBalances,records,transfers]);
+  const recent=useMemo(()=>reconciliationRecentActivity(
+    records,transfers,claimMovements,focusMethod||normalizedBalances[0]?.method,
+    asOfDate,12
+  ),[focusMethod,normalizedBalances,records,transfers,claimMovements,asOfDate]);
   const relevant=checks.filter(c=>normalizedMethod(c.method)===focusMethod)
     .slice().sort((a,b)=>b.date.localeCompare(a.date));
 
@@ -196,7 +187,9 @@ export default function FinanceAccountReconciliation({
         <div className="mt-2 max-h-44 space-y-2 overflow-auto">
           {recent.map(row=><div key={row.id}
             className="flex items-center justify-between gap-2 rounded-lg bg-slate-50 p-2 text-xs">
-            <div className="min-w-0"><b>{row.date} · {row.kind}</b>
+            <div className="min-w-0"><b>{row.date} · {row.kind==="claim-advance"
+              ?t("垫付","Claim advance"):row.kind==="claim-reimbursement"
+              ?t("报销到账","Reimbursement received"):row.kind}</b>
               <p className="break-words text-slate-500" data-i18n-ignore>{row.note}</p></div>
             <b className={(row.amount>=0?"text-emerald-700":"text-red-700")+" tabular-nums"}>
               {row.amount>0?"+":""}{money(row.amount)}</b>

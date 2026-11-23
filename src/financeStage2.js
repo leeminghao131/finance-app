@@ -29,6 +29,11 @@ const uniqueIds=list=>{
 };
 export function validateBills(raw){
   if(!Array.isArray(raw)||raw.length>40)throw Error("At most 40 recurring bills.");
+  // Keep every existing confirmation; never silently prune or auto-archive.
+  // 5,000 entries supports ~96 years of weekly confirmations per bill,
+  // while a total bound prevents an unbounded settings JSON payload.
+  const MAX_HISTORY_PER_BILL=5000,MAX_TOTAL_HISTORY=20000;
+  let totalHistory=0;
   const bills=raw.map(b=>{
     if(!b||typeof b!=="object"||Array.isArray(b))throw Error("Invalid bill plan.");
     const id=String(b.id||"");
@@ -44,7 +49,11 @@ export function validateBills(raw){
     const leadDays=Number(b.leadDays??0);
     if(!Number.isInteger(leadDays)||leadDays<0||leadDays>30)throw Error("Reminder lead days must be 0–30.");
     const occurrences=b.occurrences??[];
-    if(!Array.isArray(occurrences)||occurrences.length>160)throw Error("Too many bill confirmations. Archive in a future revision.");
+    if(!Array.isArray(occurrences)||occurrences.length>MAX_HISTORY_PER_BILL)
+      throw Error("Recurring bill history exceeds 5,000 entries; all existing confirmations retained. Export and review before proceeding.");
+    totalHistory+=occurrences.length;
+    if(totalHistory>MAX_TOTAL_HISTORY)
+      throw Error("Total recurring bill history exceeds safe cloud-settings size; no saved confirmations were removed.");
     const saved=occurrences.map(x=>{
       const due=iso(x?.due),status=x?.status;
       if(!["paid","skipped","snoozed"].includes(status))throw Error("Invalid bill occurrence status.");
@@ -62,6 +71,10 @@ export function billOccurrences(bills,asOfDate,records=[],history=35,horizon=35,
   iso(asOfDate);
   if(!Array.isArray(records))throw Error("Verified Expense records are unavailable.");
   const first=shiftCalendarDay(asOfDate,-history),last=shiftCalendarDay(asOfDate,horizon),items=[];
+  // With longer immutable confirmation histories, never scan all Expenses for
+  // EACH paid occurrence; one equivalent lookup set retains the old behavior.
+  const activeExpenseIds=new Set(records.filter(r=>r.type==="expense"&&!r.deleted_at)
+    .map(r=>String(r.id)));
   for(const b of validateBills(bills)){
     if(!b.active)continue;
     let oldestUnresolved=null;
@@ -74,8 +87,7 @@ export function billOccurrences(bills,asOfDate,records=[],history=35,horizon=35,
       const due=b.cycle==="weekly"?shiftCalendarDay(b.anchorDate,n*offset):addMonth(b.anchorDate,n*offset);
       if(due>last)break;
       const status=statusByDate.get(due);
-      const linked=status?.status==="paid"
-        ?records.some(r=>String(r.id)===status.recordId&&r.type==="expense"&&!r.deleted_at):false;
+      const linked=status?.status==="paid" ? activeExpenseIds.has(status.recordId) : false;
       const dismissed=status?.status==="skipped"||status?.status==="paid"&&linked;
       const noticeDate=status?.status==="snoozed"?status.remindOn:shiftCalendarDay(due,-b.leadDays);
       const item={id:b.id+":"+due,billId:b.id,title:b.title,category:b.category,method:b.method,

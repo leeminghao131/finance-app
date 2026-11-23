@@ -54,9 +54,24 @@ export function answerFinanceQuestion(question,ctx,zh=true){
     }catch(e){return {answer:t("预算数据暂无法验证：","Budget could not be verified: ")+e.message};}
   }
   if(/分类|类别|最多|category|top spend|biggest spend/.test(q)){
-    const totals={};for(const r of expenses)totals[r.category]=(totals[r.category]||0)+Number(r.amount);
-    const top=Object.entries(totals).sort((a,b)=>b[1]-a[1])[0];
+    // Map prevents '__proto__' / 'constructor' custom categories corrupting totals.
+    const totals=new Map();
+    for(const r of expenses)totals.set(r.category,(totals.get(r.category)||0)+Number(r.amount));
+    const top=[...totals].sort((a,b)=>b[1]-a[1])[0];
     return {answer:top?t("本月最大支出分类：","Top spending category this month: ")+top[0]+" "+money(top[1]):t("本月尚无支出。","No expenses this month.")};
+  }
+  if(/预测|月底|预估|未来.{0,8}余额|forecast|predict|projection/.test(q)){
+    try{
+      const f=calculateCashForecast(records,{asOfDate:ctx.asOfDate||localDateMY(),
+        selectedMonth:ctx.forecastMonth||localMonthMY(),
+        horizon:"monthEnd",trailingDays:30,plannedIncomes:ctx.forecastPlans||[],
+        openingBalanceTotal:ctx.openingBalanceTotal||0,
+        claimMovements:ctx.claimMovements||[]});
+      return {answer:t("沿用 Cash Flow Forecast 的本月底预测：","Month-end estimate from Cash Flow Forecast: ")
+        +money(f.predictedBalance)+t("；预计未来支出 ","; forecast expenses ")+money(f.expectedExpense)
+        +t("，预计收入 ","; planned income ")+money(f.expectedIncome)
+        +t("。只是账本预测，不代表银行实际余额。",". Ledger estimate only, not a verified bank balance.")};
+    }catch(e){return {answer:t("预测数据暂无法验证：","Forecast could not be verified: ")+e.message};}
   }
   if(/付款方式|账户|method|tng|bank|cash/.test(q)){
     return {answer:(ctx.methods||[]).map(m=>m.method+" "+money(m.balance)).join("；")||t("暂时没有可用账户余额。","No method balances available."),action:"accounts"};
@@ -89,19 +104,6 @@ export function answerFinanceQuestion(question,ctx,zh=true){
       });
       return {answer:t("储蓄目标进度（仅计划，不代表真实转账）：","Savings goal progress (plans, not actual transfers): ")+details.join("；")};
     }catch(e){return {answer:t("储蓄目标数据暂无法验证：","Savings goals could not be verified: ")+e.message};}
-  }
-  if(/预测|月底|forecast|predict/.test(q)){
-    try{
-      const f=calculateCashForecast(records,{asOfDate:ctx.asOfDate||localDateMY(),
-        selectedMonth:ctx.forecastMonth||localMonthMY(),
-        horizon:"monthEnd",trailingDays:30,plannedIncomes:ctx.forecastPlans||[],
-        openingBalanceTotal:ctx.openingBalanceTotal||0,
-        claimMovements:ctx.claimMovements||[]});
-      return {answer:t("沿用 Cash Flow Forecast 的本月底预测：","Month-end estimate from Cash Flow Forecast: ")
-        +money(f.predictedBalance)+t("；预计未来支出 ","; forecast expenses ")+money(f.expectedExpense)
-        +t("，预计收入 ","; planned income ")+money(f.expectedIncome)
-        +t("。只是账本预测，不代表银行实际余额。",". Ledger estimate only, not a verified bank balance.")};
-    }catch(e){return {answer:t("预测数据暂无法验证：","Forecast could not be verified: ")+e.message};}
   }
   return {answer:t("我只支持只读财务问题，例如本月收支、余额、最大消费分类、预算、账单、异常记录、活动、转账、外汇及预测入口。","I answer read-only questions about income, expenses, balance, categories, budgets, bills, review, activities, transfers, FX and forecast guidance.")};
 }

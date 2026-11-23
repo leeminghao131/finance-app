@@ -160,12 +160,13 @@ function sumType(records, type) {
 }
 
 function group(records, keyFn) {
-  const out = {};
-  records.forEach((r) => {
-    const key = keyFn(r);
-    out[key] = (out[key] || 0) + Number(r.amount || 0);
+  // Map handles arbitrary user-provided category/method keys safely.
+  const totals=new Map();
+  records.forEach(r=>{
+    const key=keyFn(r);
+    totals.set(key,(totals.get(key)||0)+Number(r.amount||0));
   });
-  return Object.entries(out).map(([name, value]) => ({ name, value }));
+  return [...totals].map(([name,value])=>({name,value}));
 }
 function parseMoneyInput(value) {
   const raw = String(value ?? "").trim();
@@ -1670,11 +1671,11 @@ const methodBalances = useMemo(() => withClaimMethodBalances(calculateMethodBala
     catch (error) { return { error: error.message || "Savings calculation unavailable." }; }
   }, [totalBalance, savingsBudgetCategories, currentMonthExpenses]);
   const spentMap = useMemo(() => {
-  const map = Object.fromEntries(expenseCategoryOptions.map((c) => [c, 0]));
-  expenseRecords.forEach((r) => {
-    map[r.category] = (map[r.category] || 0) + Number(r.amount || 0);
+  const totals=new Map(expenseCategoryOptions.map(c=>[c,0]));
+  expenseRecords.forEach(r=>{
+    totals.set(r.category,(totals.get(r.category)||0)+Number(r.amount||0));
   });
-  return map;
+  return Object.fromEntries(totals);
 }, [expenseRecords, expenseCategoryOptions]);
   const activeExpenseCategory = selectedCategoryFilter?.type === "expense" ? selectedCategoryFilter.category : null;
   const selectedCategoryRecords = useMemo(() => selectedPieCategory ? expenseRecords.filter((r) => r.category === selectedPieCategory).sort((a, b) => new Date(a.date) - new Date(b.date)) : [], [expenseRecords, selectedPieCategory]);
@@ -1771,13 +1772,12 @@ const methodBalances = useMemo(() => withClaimMethodBalances(calculateMethodBala
   const todayRecords = records.filter((record) => record.date === localToday);
   const todayExpenseRecords = todayRecords.filter((record) => record.type === "expense");
 
-  const categoryTotals = {};
-  todayExpenseRecords.forEach((record) => {
-    categoryTotals[record.category] = (categoryTotals[record.category] || 0) + Number(record.amount || 0);
+  const categoryTotals=new Map();
+  todayExpenseRecords.forEach(record=>{
+    categoryTotals.set(record.category,(categoryTotals.get(record.category)||0)+Number(record.amount||0));
   });
-
-  const topCategory = Object.entries(categoryTotals)
-    .sort((a, b) => b[1] - a[1])[0]?.[0] || "";
+  const topCategory=[...categoryTotals]
+    .sort((a,b)=>b[1]-a[1])[0]?.[0] || "";
 
   return {
     income: sumType(todayRecords, "income"),
@@ -2395,11 +2395,11 @@ const addRecordTheme =
 return (
   <div onClickCapture={(e) => e.target.closest("button,select") && playSound()} className="mh-ui mh-cosmic-pilot min-h-screen bg-slate-50 p-3 text-slate-900 sm:p-4 md:p-6">
 <CoinRainEffect trigger={coinRainTrigger} />
-<FinanceStage2Hub toolRequest={stage2ToolRequest}
+<FinanceStage2Hub toolRequest={stage2ToolRequest} asOfDate={localToday}
    claims={claimOverview.open}
    onOpenClaim={(claimId,source)=>setClaimOpenRequest({claimId,source,nonce:makeId()})}
   bills={recurringBills} reviewState={reviewState} checks={accountChecks}
-  records={records} transfers={transfers} balances={methodBalances}
+  records={records} transfers={transfers} claimMovements={claimMovements} balances={methodBalances}
   categories={expenseCategoryOptions} methods={expenseMethodOptions}
   onSaveBills={(next,baseline)=>saveStage2Field("recurring_bills",next,baseline)}
   onConfirmBillPayment={confirmStage2BillPayment}

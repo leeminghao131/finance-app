@@ -18,17 +18,28 @@ export default function FinanceFxRecordEditor({record,onSave,onClose,triggerRef}
   const [loading,setLoading]=useState(false),[saving,setSaving]=useState(false);
   const [error,setError]=useState("");
   const openedVersionRef=useRef(null);
+  const originalQuoteRef=useRef(null);
   useEffect(()=>{
     if(!record)return;
     openedVersionRef.current=record.version;
     setCurrency(record.fx_currency);setForeignAmount(String(record.fx_amount));
-    setDate(record.date);setQuote({currency:record.fx_currency,requestedDate:record.date,
-      date:record.fx_rate_date,rate:String(record.fx_rate),source:FX_SOURCE});
+    const originalQuote={currency:record.fx_currency,requestedDate:record.date,
+      date:record.fx_rate_date,rate:String(record.fx_rate),source:FX_SOURCE};
+    originalQuoteRef.current=originalQuote;
+    setDate(record.date);setQuote(originalQuote);setLoading(false);
     setError("");
   },[record?.id]); // Realtime version changes must NOT erase an in-progress FX draft.
   useEffect(()=>{
     if(!record||!date||!currency)return;
-    if(date===record.date&&currency===record.fx_currency)return;
+    if(date===record.date&&currency===record.fx_currency){
+      // When the user reverts a changed date, restore the saved original
+      // locked rate without another network request. Previous fetch effect
+      // cleanup aborts its outdated result; no stale quote may reappear.
+      setQuote(originalQuoteRef.current);
+      setLoading(false);
+      setError("");
+      return;
+    }
     const ctrl=new AbortController();
     setQuote(null);setLoading(true);setError("");
     getReferenceFxRate(currency,date,fetch,ctrl.signal)
