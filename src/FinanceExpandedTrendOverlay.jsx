@@ -168,6 +168,13 @@ export default function FinanceExpandedTrendOverlay({
                         {" · "}{limitLabel}
                       </p>
                     </div>
+                    {balance == null ? (
+                      <p role="status" className="rounded-xl bg-slate-100 p-3 text-sm text-slate-700">
+                        {language==="zh"
+                          ? "未来日期尚未发生。已保存的未来记录不代表实际到账或付款，也不会触发余额警报。"
+                          : "This date is in the future. Saved future-dated entries are not actual cash movements and do not trigger balance alerts."}
+                      </p>
+                    ) : (
                     <div className="space-y-2 rounded-xl bg-slate-50 p-3 text-sm">
                       <div className="flex items-center justify-between gap-3">
                         <span className="text-slate-600">Daily income</span>
@@ -186,6 +193,7 @@ export default function FinanceExpandedTrendOverlay({
                         <strong className="tabular-nums text-slate-800">{rm(selected.dailyBalance)}</strong>
                       </div>
                     </div>
+                    )}
                     <p className="text-xs leading-relaxed text-slate-500">
                       This is the cumulative balance within the current record filter,
                       not a verified bank balance. Claims affect cash only, not personal Income or Expense. Planned income is excluded.
