@@ -55,6 +55,8 @@ test("P2 #09: reconciliation details include cash claim advance and repayment, n
   assert.match(src("FinanceAccountReconciliation.jsx"),/reconciliationRecentActivity/);
   assert.match(src("FinanceStage2Hub.jsx"),/claimMovements=\{claimMovements\}/);
   assert.match(src("App.jsx"),/transfers=\{transfers\} claimMovements=\{claimMovements\}/);
+  assert.match(src("App.jsx"),/asOfDate=\{localToday\}/);
+  assert.match(src("FinanceAccountReconciliation.jsx"),/claimMovements,asOfDate\]/);
 });
 
 test("P2 #12: explicit forecast words win over balance/account/cash, normal balance remains unchanged",()=>{
