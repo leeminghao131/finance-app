@@ -59,6 +59,7 @@ import { fetchFinanceSnapshot } from "./financeCloudService.js";
 import { getRecordRequestId, confirmRecordRequest, getTransferRequestId, confirmTransferRequest, assertRecoveredRecordMatchesPayload, assertRecoveredTransferMatchesPayload } from "./financeSaveIdempotency.js";
 import {isCurrentFinanceOwner,matchesOpenedVersion,removeRowById,upsertUniqueVersionedRow,replaceExistingVersionedRow,hasNewerVersion} from "./financeMutationSafety.js";
 import {DEFAULT_FINANCE_BALANCE_ALERT,readFinanceBalanceAlert,saveFinanceBalanceAlert,normalizedFinanceBalanceAlert} from "./financeBalanceAlertPreference.js";
+import {heatmapScopeMonths,heatmapPageMonth,heatmapShiftMonth,heatmapMonthCalendarDays,heatmapMonthIndex} from "./financeHeatmapScope.js";
 import { CoinRainEffect, IncomeCoinSpinEffect } from "./FinanceVisualEffects.jsx";
 import { FinanceLanguageProvider, FinanceLanguageButton, useFinanceLanguage, localizedFinanceAlert, localizedFinanceConfirm } from "./FinanceLanguageLayer.jsx";
 // Chart data remains unchanged; drawing now uses bounded native SVG components.
@@ -345,42 +346,91 @@ function DateInput({ value, onChange }) {
   return <input type="date" value={value} onChange={(e) => onChange(e.target.value)} className="w-full cursor-pointer rounded-2xl border border-slate-200 bg-white px-4 py-3 outline-none" />;
 }
 
-function HeatmapCard({ days, label, records = [] }) {
-  const [selectedDate, setSelectedDate] = useState(null);
-  const heatmapTriggerRef = useRef(null);
-  const max = Math.max(1, ...days.map((d) => d.amount));
-  const selectedDay = days.find(day => day.date === selectedDate) || null;
+function HeatmapCard({
+  days,label,records=[],filterMode="month",selectedMonth="",selectedYear="",
+  asOfDate="",ownerKey=null,
+}) {
+  const [selectedDate,setSelectedDate]=useState(null);
+  const [requestedPage,setRequestedPage]=useState("");
+  const heatmapTriggerRef=useRef(null);
+  const paged=filterMode==="year"||filterMode==="all";
+  const scope=useMemo(()=>paged?heatmapScopeMonths(filterMode,records,selectedYear):null,
+    [paged,filterMode,records,selectedYear]);
+  const page=paged?heatmapPageMonth(scope,requestedPage,asOfDate):null;
+  const visibleDays=useMemo(()=>paged
+    ?page?heatmapMonthCalendarDays(page,days):[]
+    :days,[paged,page,days]);
+  const max=visibleDays.reduce((largest,day)=>Math.max(largest,day.amount||0),1);
+  const selectedDay=visibleDays.find(day=>day.date===selectedDate)||null;
+  useEffect(()=>{
+    // A new filter/account never keeps the previous account's open day popup.
+    setSelectedDate(null);
+    setRequestedPage("");
+  },[filterMode,selectedMonth,selectedYear,ownerKey]);
+  const changePage=next=>{
+    if(!scope||!next||next<scope.first||next>scope.last)return;
+    setSelectedDate(null);
+    setRequestedPage(next);
+  };
+  const currentPageNumber=page&&scope
+    ?heatmapMonthIndex(page)-heatmapMonthIndex(scope.first)+1:0;
+  const pageCount=scope
+    ?heatmapMonthIndex(scope.last)-heatmapMonthIndex(scope.first)+1:0;
   return (
     <Card className="mh-cosmic-panel mh-cosmic-heatmap">
       <h2 className="text-xl font-bold">Spending Heatmap / 消费热力图</h2>
-      <div className="mt-4 grid gap-2" style={{ gridTemplateColumns: "repeat(auto-fit, minmax(80px, 1fr))" }}>
-        {days.map((d) => {
-          const intensity = d.amount > 0 ? 0.18 + (d.amount / max) * 0.72 : 0.06;
-          return <button key={d.date} type="button" title={d.date + ": " + money(d.amount)}
-            aria-label={d.date + " · Spending " + money(d.amount) + " · Open daily details"}
-            aria-haspopup="dialog" aria-expanded={selectedDate === d.date}
-            onClick={event => { heatmapTriggerRef.current = event.currentTarget; setSelectedDate(d.date); }}
-            className={"mh-cosmic-heat__day text-center text-xs font-bold " + (d.amount > 0 ? "is-active" : "is-empty")}
-            style={{ "--mh-day-intensity": intensity }}>
+      {paged&&scope&&<div className="mt-3 flex flex-wrap items-center gap-2"
+        aria-label="Complete spending heatmap month navigation">
+        <button type="button" onClick={()=>changePage(heatmapShiftMonth(page,-1,scope))}
+          disabled={page===scope.first} aria-label="Previous heatmap month"
+          className="min-h-10 rounded-lg border border-slate-500 px-3 py-2 text-sm font-semibold disabled:opacity-40">
+          <span aria-hidden="true">‹</span>
+        </button>
+        <label className="text-sm font-semibold">
+          <span className="sr-only">Heatmap month</span>
+          <input type="month" value={page} min={scope.first} max={scope.last}
+            onChange={event=>changePage(event.target.value)}
+            className="min-h-10 max-w-[170px] rounded-lg border border-slate-400 bg-white px-2 text-slate-900"/>
+        </label>
+        <button type="button" onClick={()=>changePage(heatmapShiftMonth(page,1,scope))}
+          disabled={page===scope.last} aria-label="Next heatmap month"
+          className="min-h-10 rounded-lg border border-slate-500 px-3 py-2 text-sm font-semibold disabled:opacity-40">
+          <span aria-hidden="true">›</span>
+        </button>
+        <span className="text-xs font-medium opacity-80" role="status">
+          {currentPageNumber} / {pageCount} months · {scope.first} — {scope.last}
+        </span>
+      </div>}
+      {paged&&!scope?<p role="status" className="mt-4 text-sm opacity-75">
+        No dated records in the selected range.
+      </p>:<div className="mt-4 grid gap-2"
+        style={{gridTemplateColumns:"repeat(auto-fit, minmax(80px, 1fr))"}}>
+        {visibleDays.map(d=>{
+          const intensity=d.amount>0?0.18+(d.amount/max)*0.72:0.06;
+          return <button key={d.date} type="button" title={d.date+": "+money(d.amount)}
+            aria-label={d.date+" · Spending "+money(d.amount)+" · Open daily details"}
+            aria-haspopup="dialog" aria-expanded={selectedDate===d.date}
+            onClick={event=>{heatmapTriggerRef.current=event.currentTarget;setSelectedDate(d.date);}}
+            className={"mh-cosmic-heat__day text-center text-xs font-bold "+(d.amount>0?"is-active":"is-empty")}
+            style={{"--mh-day-intensity":intensity}}>
             <span className="block">{d.date.slice(8)}</span>
             <span className="mt-1 block break-words text-[11px] font-bold leading-tight tabular-nums"
-              style={{ overflowWrap: "anywhere" }}>{d.amount > 0 ? money(d.amount).replace("MYR", "RM") : "-"}</span>
+              style={{overflowWrap:"anywhere"}}>{d.amount>0?money(d.amount).replace("MYR","RM"):"-"}</span>
           </button>;
         })}
-      </div>
+      </div>}
       <FinanceHeatmapDayDetails
         open={Boolean(selectedDay)}
         date={selectedDate}
         records={records}
-        heatmapSpending={selectedDay?.amount ?? 0}
+        heatmapSpending={selectedDay?.amount??0}
         scopeLabel={label}
         triggerRef={heatmapTriggerRef}
-        onClose={() => setSelectedDate(null)}
+        onClose={()=>setSelectedDate(null)}
       />
     </Card>
   );
 }
-
 
 function TopExpensesCard({ records, label, category, setCategory, expenseCategoryOptions, lockedCategory = false }) {
   return (
@@ -1767,7 +1817,7 @@ const methodBalances = useMemo(() => withClaimMethodBalances(calculateMethodBala
     else if (filterMode === "recent30") dates = dateRange(recentStart(30,localToday), 30);
     else if (filterMode === "recent7") dates = dateRange(recentStart(7,localToday), 7);
     else if (filterMode === "recent3") dates = dateRange(recentStart(3,localToday), 3);
-    else dates = Array.from(new Set(periodRecords.map((r) => r.date))).sort((a, b) => new Date(a) - new Date(b)).slice(-35);
+    else dates = Array.from(new Set(periodRecords.map((r) => r.date))).sort((a, b) => a.localeCompare(b));
     return dates.map((date) => ({ date, amount: Number(amounts[date] || 0) }));
   }, [expenseRecords, periodRecords, filterMode, selectedMonth, localToday]);
 
@@ -2924,7 +2974,9 @@ return (
                 claimMovements={claimMovements}
                  onSavePlans={saveExpectedIncomePlans}
               />
-              <HeatmapCard days={heatmapDays} label={filterLabel} records={periodRecords} />
+              <HeatmapCard days={heatmapDays} label={filterLabel} records={periodRecords}
+                 filterMode={filterMode} selectedMonth={selectedMonth} selectedYear={selectedYear}
+                 asOfDate={localToday} ownerKey={user?.id}/>
               <div className="min-w-0">
                 <TopExpensesCard
                   records={topExpenses} label={filterLabel}
