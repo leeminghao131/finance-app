@@ -2186,16 +2186,19 @@ async function addRecord(e) {
   }
 
   async function deleteRecord(recordId) {
+    const owner=user?.id;
     const current = records.find((row) => row.id === recordId);
-    if (!current || !user || pendingRecordsRef.current.has(recordId)) return;
+    if (!current || !owner || !isCurrentFinanceOwner(liveUserIdRef,owner) ||
+      pendingRecordsRef.current.has(recordId)) return false;
     pendingRecordsRef.current.add(recordId);
     try {
       const { data, error } = await supabase.from("records")
         .update({ deleted_at: new Date().toISOString() })
-        .eq("id", recordId).eq("user_id", user.id)
+        .eq("id", recordId).eq("user_id", owner)
         .eq("version", current.version).is("deleted_at", null)
         .select("id,type,amount,category,method,note,date,created_at,updated_at,version,deleted_at,fx_currency,fx_amount,fx_rate,fx_rate_date,fx_provider")
         .maybeSingle();
+      if(!isCurrentFinanceOwner(liveUserIdRef,owner))return false;
       if (error) throw error;
       if (!data) {
         await loadCloudData({ background: true });
@@ -2203,32 +2206,39 @@ async function addRecord(e) {
         return;
       }
       const removed = normalizeRecord(data);
-      setRecords((previous) => previous.filter((row) => row.id !== recordId));
-      setDeletedRecords((previous) => [removed, ...previous]);
+      setRecords((previous) => removeRowById(previous,recordId));
+      setDeletedRecords((previous) => upsertUniqueVersionedRow(previous,removed));
       setDeleteConfirm(null);
       setUndoDeleted(removed);
       clearTimeout(undoTimeoutRef.current);
       undoTimeoutRef.current = setTimeout(() => setUndoDeleted(null), 10000);
       setSyncStatus("Record moved to Recycle Bin — can be restored anytime.");
+      return true;
     } catch (error) {
-      setSyncStatus("Delete failed: " + error.message);
-      localizedFinanceAlert(error.message);
+      if(isCurrentFinanceOwner(liveUserIdRef,owner)){
+        setSyncStatus("Delete failed: " + error.message);
+        localizedFinanceAlert(error.message);
+      }
+      return false;
     } finally {
       pendingRecordsRef.current.delete(recordId);
     }
   }
 
   async function restoreRecord(recordId) {
+    const owner=user?.id;
     const current = deletedRecords.find((row) => row.id === recordId);
-    if (!current || !user || pendingRecordsRef.current.has(recordId)) return;
+    if (!current || !owner || !isCurrentFinanceOwner(liveUserIdRef,owner) ||
+      pendingRecordsRef.current.has(recordId)) return false;
     pendingRecordsRef.current.add(recordId);
     try {
       const { data, error } = await supabase.from("records")
         .update({ deleted_at: null })
-        .eq("id", recordId).eq("user_id", user.id)
+        .eq("id", recordId).eq("user_id", owner)
         .eq("version", current.version).not("deleted_at", "is", null)
         .select("id,type,amount,category,method,note,date,created_at,updated_at,version,deleted_at,fx_currency,fx_amount,fx_rate,fx_rate_date,fx_provider")
         .maybeSingle();
+      if(!isCurrentFinanceOwner(liveUserIdRef,owner))return false;
       if (error) throw error;
       if (!data) {
         await loadCloudData({ background: true });
@@ -2236,13 +2246,17 @@ async function addRecord(e) {
         return;
       }
       const restored = normalizeRecord(data);
-      setDeletedRecords((previous) => previous.filter((row) => row.id !== recordId));
-      setRecords((previous) => [restored, ...previous]);
+      setDeletedRecords((previous) => removeRowById(previous,recordId));
+      setRecords((previous) => upsertUniqueVersionedRow(previous,restored));
       if (undoDeleted?.id === recordId) setUndoDeleted(null);
       setSyncStatus("Record restored from Recycle Bin");
+      return true;
     } catch (error) {
-      setSyncStatus("Restore failed: " + error.message);
-      localizedFinanceAlert(error.message);
+      if(isCurrentFinanceOwner(liveUserIdRef,owner)){
+        setSyncStatus("Restore failed: " + error.message);
+        localizedFinanceAlert(error.message);
+      }
+      return false;
     } finally {
       pendingRecordsRef.current.delete(recordId);
     }
