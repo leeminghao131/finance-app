@@ -85,7 +85,7 @@ test("Category button and keyword magnifier preserve all previous filter modes a
 });
 
 test("Category charts and transaction views remain distinct from protected period balances and forecast",()=>{
-  assert.match(app,/const periodRecords = useMemo\(\(\) => filterRecords\(records, filterMode, selectedMonth, selectedYear, ""\)/);
+  assert.match(app,/const periodRecords = useMemo\(\(\) => filterRecords\(records, filterMode, selectedMonth, selectedYear, "", localToday\)/);
   assert.match(app,/const filteredRecords = useMemo\(\(\) => categoryOnlyRows\(searchPeriodRecords, selectedCategoryFilter\)/);
   assert.match(app,/const chartRecords = useMemo\(\(\) => categoryComparisonRows\(searchPeriodRecords, selectedCategoryFilter, periodRecords\)/);
   assert.match(app,/const expenseRecords = chartRecords\.filter\(\(r\) => r\.type === "expense"\)/);

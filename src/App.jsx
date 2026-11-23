@@ -1755,7 +1755,7 @@ const methodBalances = useMemo(() => withClaimMethodBalances(calculateMethodBala
     else if (filterMode === "recent3") dates = dateRange(recentStart(3,localToday), 3);
     else dates = Array.from(new Set(periodRecords.map((r) => r.date))).sort((a, b) => new Date(a) - new Date(b)).slice(-35);
     return dates.map((date) => ({ date, amount: Number(amounts[date] || 0) }));
-  }, [expenseRecords, periodRecords, filterMode, selectedMonth]);
+  }, [expenseRecords, periodRecords, filterMode, selectedMonth, localToday]);
 
   const topExpenses = useMemo(() => {
   const source = selectedCategoryFilter?.type === "expense" || topExpenseCategory === "all"

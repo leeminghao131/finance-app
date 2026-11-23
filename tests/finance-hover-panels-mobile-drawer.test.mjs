@@ -67,7 +67,7 @@ test("Hover/drawer UI code does not affect money writers, Supabase or notificati
   for(const source of [assistant,dock,css]){
     assert.doesNotMatch(source,/\baddRecord\b|\bupdateRecord\b|\bdeleteRecord\b|\bimportCsv\b|\bsaveBudgets\b|\bloadCloudData\b|\.from\("records"\)/);
   }
-  assert.match(notifications,/billOccurrences\(bills,today,records,70,35\)/);
+  assert.match(notifications,/billOccurrences\(bills,today,records,70,35,true\)/);
   assert.match(notifications,/findReviewCandidates\(records,reviewState,today\)/);
   assert.match(dock,/onOpenStage2Tool\("accounts",e\.currentTarget\)/);
   assert.match(dock,/onOpenStage2Tool\("review",e\.currentTarget\)/);
