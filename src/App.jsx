@@ -58,6 +58,7 @@ import { normalizeRecord, normalizeTransfer, toRecordPayload } from "./financeRe
 import { fetchFinanceSnapshot } from "./financeCloudService.js";
 import { getRecordRequestId, confirmRecordRequest, getTransferRequestId, confirmTransferRequest, assertRecoveredRecordMatchesPayload, assertRecoveredTransferMatchesPayload } from "./financeSaveIdempotency.js";
 import {isCurrentFinanceOwner,matchesOpenedVersion,removeRowById,upsertUniqueVersionedRow,replaceExistingVersionedRow,hasNewerVersion} from "./financeMutationSafety.js";
+import {DEFAULT_FINANCE_BALANCE_ALERT,readFinanceBalanceAlert,saveFinanceBalanceAlert,normalizedFinanceBalanceAlert} from "./financeBalanceAlertPreference.js";
 import { CoinRainEffect, IncomeCoinSpinEffect } from "./FinanceVisualEffects.jsx";
 import { FinanceLanguageProvider, FinanceLanguageButton, useFinanceLanguage, localizedFinanceAlert, localizedFinanceConfirm } from "./FinanceLanguageLayer.jsx";
 // Chart data remains unchanged; drawing now uses bounded native SVG components.
@@ -65,7 +66,7 @@ import { FinanceLanguageProvider, FinanceLanguageButton, useFinanceLanguage, loc
 const RECORDS_KEY = "finance-records-v3";
 const BUDGET_KEY = "finance-category-budget-v3";
 const SOUND_KEY = "finance-sound-v3";
-const BALANCE_LIMIT_KEY = "finance-balance-limit-v3";
+// Legacy shared finance-balance-limit-v3 remains in localStorage, never read, deleted or reassigned.
 const CUSTOM_CARD_TEXT_KEY = "finance-custom-card-text-v3";
 const CUSTOM_CARD_IMAGE_KEY = "finance-custom-card-image-v3";
 
@@ -767,10 +768,19 @@ function FinanceVisualizerAppContent() {
     text: previous.owner === user?.id ? previous.text : "",
     image: typeof value === "function" ? value(previous.owner === user?.id ? previous.image : "") : value,
   }));
-  const [balanceLimit, setBalanceLimit] = useState(() => {
-  const saved = localStorage.getItem(BALANCE_LIMIT_KEY);
-  return saved || "1500";
-});
+  const [balanceLimitPreference,setBalanceLimitPreference]=useState({
+    owner:null,value:DEFAULT_FINANCE_BALANCE_ALERT,
+  });
+  const balanceLimit=balanceLimitPreference.owner===user?.id
+    ?balanceLimitPreference.value:DEFAULT_FINANCE_BALANCE_ALERT;
+  const setBalanceLimit=value=>setBalanceLimitPreference({
+    owner:user?.id||null,value:typeof value==="function"?value(balanceLimit):value,
+  });
+  useEffect(()=>{
+    const owner=user?.id||null;
+    setBalanceLimitPreference({owner,
+      value:readFinanceBalanceAlert(owner,typeof localStorage==="undefined"?null:localStorage)});
+  },[user?.id]);
 
   useEffect(() => {
     // Refresh date-sensitive views at local midnight even if the tab stays open.
@@ -917,9 +927,12 @@ function FinanceVisualizerAppContent() {
   }, [user?.id]);
 
   useEffect(() => localStorage.setItem(SOUND_KEY, String(soundEnabled)), [soundEnabled]);
-  useEffect(() => {
-  localStorage.setItem(BALANCE_LIMIT_KEY, String(balanceLimit || "1500"));
-}, [balanceLimit]);
+  // Save only current signed-in account. An old user's stale state cannot
+  // overwrite a new user's alert level during auth transitions.
+  useEffect(()=>{
+    if(!user?.id||balanceLimitPreference.owner!==user.id)return;
+    saveFinanceBalanceAlert(user.id,balanceLimitPreference.value,localStorage);
+  },[user?.id,balanceLimitPreference]);
   useEffect(() => {
     if (!user?.id) {
       setPersonalCard({owner:null,text:"",image:""});
@@ -2525,6 +2538,8 @@ return (
       step="100"
       value={balanceLimit}
       onChange={(e) => setBalanceLimit(e.target.value)}
+      onBlur={()=>{if(normalizedFinanceBalanceAlert(balanceLimit)===null)
+        setBalanceLimit(readFinanceBalanceAlert(user?.id,localStorage));}}
       className="w-36 rounded-xl border border-slate-200 px-3 py-2 text-right font-bold outline-none"
     />
   </div>
