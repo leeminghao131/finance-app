@@ -56,6 +56,7 @@ const FinanceCsvImportPanel = React.lazy(() => import("./FinanceCsvImportPanel.j
 const FinanceExcelExportPanel = React.lazy(() => import("./FinanceExcelExportPanel.jsx"));
 import { normalizeRecord, normalizeTransfer, toRecordPayload } from "./financeRecords.js";
 import { fetchFinanceSnapshot } from "./financeCloudService.js";
+import {loadSnapshotAfterWriteStability} from "./financeSnapshotReadGuard.js";
 import { getRecordRequestId, confirmRecordRequest, getTransferRequestId, confirmTransferRequest, assertRecoveredRecordMatchesPayload, assertRecoveredTransferMatchesPayload } from "./financeSaveIdempotency.js";
 import {isCurrentFinanceOwner,matchesOpenedVersion,removeRowById,upsertUniqueVersionedRow,replaceExistingVersionedRow,hasNewerVersion} from "./financeMutationSafety.js";
 import {DEFAULT_FINANCE_BALANCE_ALERT,readFinanceBalanceAlert,saveFinanceBalanceAlert,normalizedFinanceBalanceAlert} from "./financeBalanceAlertPreference.js";
@@ -1060,17 +1061,13 @@ useEffect(() => {
     setDataLoading(true);setSyncProgress("");
     setSyncStatus(background?"Refreshing finance data...":"Loading complete cloud data...");
     try {
-      let snapshot=null;
-      for(let attempt=0;attempt<3;attempt++){
-        const startingEpoch=ledgerMutationEpochRef.current;
-        const next=await fetchFinanceSnapshot(supabase,accountId,(loaded,total,table)=>{
+      const snapshot=await loadSnapshotAfterWriteStability(
+        ()=>fetchFinanceSnapshot(supabase,accountId,(loaded,total,table)=>{
           if(isCurrent())setSyncProgress(table+": "+loaded+" / "+total);
-        });
-        if(!isCurrent())return;
-        if(startingEpoch===ledgerMutationEpochRef.current){snapshot=next;break;}
-      }
-      if(!snapshot)throw Error("Finance writes overlapped refresh. Old snapshot rejected; retry after writes settle.");
-      if(!isCurrent())return;
+        }),
+        ()=>ledgerMutationEpochRef.current,isCurrent
+      );
+      if(!snapshot||!isCurrent())return;
       setRecords(snapshot.records);
       setDeletedRecords(snapshot.deletedRecords);
       setTransfers(snapshot.transfers);
