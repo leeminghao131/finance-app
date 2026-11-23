@@ -40,7 +40,7 @@ export function answerFinanceQuestion(question,ctx,zh=true){
     return {answer:t("目前有 ","There are ")+n+t(" 笔待复查异常交易。可从提醒铃铛或 Review Inbox 打开。"," transactions awaiting review. Open Alerts or Review Inbox."),action:"review"};
   }
   if(/到期|账单|bill|due/.test(q)){
-    const due=billOccurrences(ctx.bills||[],localDateMY(),records,70,35).filter(x=>x.visible);
+    const due=billOccurrences(ctx.bills||[],ctx.asOfDate||localDateMY(),records,70,35,true).filter(x=>x.visible);
     return {answer:t("当前有 ","There are ")+due.length+t(" 个可见的账单提醒。"," due bill reminders.")+(due.length?" "+due.slice(0,3).map(x=>x.title+" "+x.due).join("；"):""),action:"bill"};
   }
   if(/预算|budget/.test(q)){

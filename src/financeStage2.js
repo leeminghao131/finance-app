@@ -58,30 +58,40 @@ export function validateBills(raw){
   });
   uniqueIds(bills);return bills;
 }
-export function billOccurrences(bills,asOfDate,records=[],history=35,horizon=35){
+export function billOccurrences(bills,asOfDate,records=[],history=35,horizon=35,includeOldestOverdue=false){
   iso(asOfDate);
   if(!Array.isArray(records))throw Error("Verified Expense records are unavailable.");
   const first=shiftCalendarDay(asOfDate,-history),last=shiftCalendarDay(asOfDate,horizon),items=[];
   for(const b of validateBills(bills)){
     if(!b.active)continue;
-    let cursor=0;
+    let oldestUnresolved=null;
+    const statusByDate=new Map(b.occurrences.map(o=>[o.due,o]));
     const offset=b.cycle==="weekly"?7:b.cycle==="monthly"?1:b.cycle==="quarterly"?3:12;
-    for(let n=0;n<520;n++){
+    // 520 weekly occurrences is only ten years. Keep older unpaid bills
+    // reachable, but expose at most ONE old overdue per bill, to avoid an
+    // unbounded notification backlog that would overwhelm the phone.
+    for(let n=0;n<10000;n++){
       const due=b.cycle==="weekly"?shiftCalendarDay(b.anchorDate,n*offset):addMonth(b.anchorDate,n*offset);
       if(due>last)break;
-      if(due<first)continue;
-      const status=b.occurrences.find(o=>o.due===due);
+      const status=statusByDate.get(due);
       const linked=status?.status==="paid"
         ?records.some(r=>String(r.id)===status.recordId&&r.type==="expense"&&!r.deleted_at):false;
       const dismissed=status?.status==="skipped"||status?.status==="paid"&&linked;
       const noticeDate=status?.status==="snoozed"?status.remindOn:shiftCalendarDay(due,-b.leadDays);
-      items.push({id:b.id+":"+due,billId:b.id,title:b.title,category:b.category,method:b.method,
+      const item={id:b.id+":"+due,billId:b.id,title:b.title,category:b.category,method:b.method,
         amount:b.amount,due,noticeDate,phase:due<asOfDate?"overdue":due===asOfDate?"today":"upcoming",
         status:status?.status==="paid"&&!linked?"unlinked":status?.status||"pending",
         linkedRecordId:linked?status.recordId:null,
         visible:!dismissed&&noticeDate<=asOfDate,
-        snoozed:status?.status==="snoozed"&&noticeDate>asOfDate});
+        snoozed:status?.status==="snoozed"&&noticeDate>asOfDate};
+      if(due<first){
+        if(includeOldestOverdue&&!oldestUnresolved&&item.visible)
+          oldestUnresolved=item;
+        continue;
+      }
+      items.push(item);
     }
+    if(oldestUnresolved)items.push(oldestUnresolved);
   }
   return items.sort((a,b)=>a.due.localeCompare(b.due)||a.title.localeCompare(b.title));
 }
