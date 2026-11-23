@@ -15,7 +15,7 @@ export default function FinanceStage2Hub({
   records=[],transfers=[],claimMovements=[],balances=[],categories=[],methods=[],
   onSaveBills,onConfirmBillPayment,onSaveReview,onUpdateRecord,onDeleteRecord,onEditFx,onOpenAccountCheck,
   onSaveChecks,onExecuteTransfers,onPrefillRecord,
-  optionsFor,disabled=false,toolRequest=null,
+  optionsFor,disabled=false,toolRequest=null,asOfDate=localDateMY(),
 }){
   const {language}=useFinanceLanguage(),zh=language==="zh",t=(cn,en)=>zh?cn:en;
   const [mode,setMode]=useState(""),[selectedBillId,setSelectedBillId]=useState(null);
@@ -177,7 +177,7 @@ export default function FinanceStage2Hub({
         records={records} transfers={transfers} claimMovements={claimMovements} balances={balances} checks={checks}
         onSave={onSaveChecks} onExecuteTransfers={onExecuteTransfers}
         onPrefillRecord={prefillAndClose}
-        selectedMethod={selectedAccountMethod} disabled={disabled}/>}
+        selectedMethod={selectedAccountMethod} asOfDate={asOfDate} disabled={disabled}/>}
       </React.Suspense>
 
     </FinanceOverlay>

@@ -10,7 +10,7 @@ const money=n=>new Intl.NumberFormat("en-MY",{style:"currency",currency:"MYR"}).
 const field="w-full min-w-0 rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm";
 export default function FinanceAccountReconciliation({
   balances=[],records=[],transfers=[],claimMovements=[],checks=[],onSave,onPrefillRecord,onExecuteTransfers,
-  disabled=false,selectedMethod=null,
+  disabled=false,selectedMethod=null,asOfDate=localDateMY(),
 }){
   const {language}=useFinanceLanguage(),zh=language==="zh",t=(cn,en)=>zh?cn:en;
   const [actualByMethod,setActualByMethod]=useState({}),[note,setNote]=useState("");
@@ -29,8 +29,8 @@ export default function FinanceAccountReconciliation({
   const normalizedMethod=m=>canonicalFinanceMethod(m);
   const recent=useMemo(()=>reconciliationRecentActivity(
     records,transfers,claimMovements,focusMethod||normalizedBalances[0]?.method,
-    localDateMY(),12
-  ),[focusMethod,normalizedBalances,records,transfers,claimMovements]);
+    asOfDate,12
+  ),[focusMethod,normalizedBalances,records,transfers,claimMovements,asOfDate]);
   const relevant=checks.filter(c=>normalizedMethod(c.method)===focusMethod)
     .slice().sort((a,b)=>b.date.localeCompare(a.date));
 

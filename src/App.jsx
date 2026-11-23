@@ -2395,7 +2395,7 @@ const addRecordTheme =
 return (
   <div onClickCapture={(e) => e.target.closest("button,select") && playSound()} className="mh-ui mh-cosmic-pilot min-h-screen bg-slate-50 p-3 text-slate-900 sm:p-4 md:p-6">
 <CoinRainEffect trigger={coinRainTrigger} />
-<FinanceStage2Hub toolRequest={stage2ToolRequest}
+<FinanceStage2Hub toolRequest={stage2ToolRequest} asOfDate={localToday}
    claims={claimOverview.open}
    onOpenClaim={(claimId,source)=>setClaimOpenRequest({claimId,source,nonce:makeId()})}
   bills={recurringBills} reviewState={reviewState} checks={accountChecks}
