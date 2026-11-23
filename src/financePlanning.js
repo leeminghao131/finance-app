@@ -11,7 +11,7 @@ export function compareFinanceMonths(records, firstMonth, secondMonth) {
   if (!Array.isArray(records)) throw new Error("Finance records not ready.");
   const summarize = month => {
     let income = 0, expense = 0, count = 0;
-    const categories = {};
+    const categories = Object.create(null); // reserved custom keys must never affect Object.prototype
     for (const record of records) {
       if (record.deleted_at || !String(record.date || "").startsWith(month)) continue;
       if (!["income","expense"].includes(record.type)) continue;
@@ -25,7 +25,8 @@ export function compareFinanceMonths(records, firstMonth, secondMonth) {
       }
       if (!Number.isSafeInteger(income) || !Number.isSafeInteger(expense)) throw new Error("Totals exceed supported precision.");
     }
-    return {month, income:rm(income), expense:rm(expense), net:rm(income-expense),count,categories};
+    return {month, income:rm(income), expense:rm(expense), net:rm(income-expense),count,
+      categories:Object.fromEntries(Object.entries(categories))};
   };
   const a=summarize(firstMonth), b=summarize(secondMonth);
   const keys=[...new Set([...Object.keys(a.categories),...Object.keys(b.categories)])]
