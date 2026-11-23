@@ -121,7 +121,7 @@ test("Stage2 UI has top-right bounce, review mini-popup, account manual prefill,
  assert.match(bills,/Confirm paid & add Expense/);
  assert.match(bills,/withBillOccurrence/);
  assert.match(review,/onUpdateRecord\(c.record.id,fieldName,editValue,editVersion\)/);
- assert.match(review,/confirmReview\(reviewState,c.record,localDateMY\(\)\)/);
+ assert.match(review,/confirmReview\(reviewState,c.record,asOfDate\)/);
  assert.match(account,/onPrefillRecord/);
  assert.match(account,/reconcileMethod/);
  assert.match(app,/setAmountEntryMode\("rm"\)/);
