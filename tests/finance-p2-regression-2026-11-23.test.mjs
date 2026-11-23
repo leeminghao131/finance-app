@@ -10,6 +10,8 @@ import {FX_SOURCE} from "../src/financeFx.js";
 import {validateBills,withBillOccurrence} from "../src/financeStage2.js";
 import {shiftCalendarDay} from "../src/financeCalendar.js";
 import {buildFinanceWorkbook,verifyFinanceWorkbook} from "../src/financeExcel.js";
+import {compareFinanceMonths} from "../src/financePlanning.js";
+import {normalizeBudgetsInput,summarizeMonthlyBudget} from "../src/financeInsights.js";
 const src=name=>readFileSync(new URL("../src/"+name,import.meta.url),"utf8");
 
 test("P2 #07: monthly Excel summary clearly labels balance vs period cash and does not modify amounts",()=>{
@@ -146,4 +148,31 @@ test("P2 #20: original locked FX quote restored after date/currency revert; edit
   assert.match(source,/return \(\)=>ctrl\.abort\(\)/);
   assert.match(source,/expectedVersion:openedVersionRef\.current/);
   assert.match(source,/if\(!ctrl\.signal\.aborted\)setQuote\(result\)/);
+});
+
+
+test("P2 reserved custom categories survive monthly comparisons and budget JSON roundtrip",()=>{
+  const list=[
+    {id:"a",date:"2026-10-05",type:"expense",amount:10,category:"__proto__",method:"BANK"},
+    {id:"b",date:"2026-11-05",type:"expense",amount:35,category:"constructor",method:"BANK"},
+    {id:"c",date:"2026-11-05",type:"expense",amount:7,category:"toString",method:"BANK"},
+    {id:"d",date:"2026-11-06",type:"expense",amount:12,category:"__proto__",method:"TNG"}
+  ];
+  const raw=JSON.parse('{"__proto__":"20","constructor":"100","toString":"15"}');
+  const before=JSON.stringify(raw);
+  const normalized=normalizeBudgetsInput(raw);
+  assert.equal(Object.getPrototypeOf(normalized),Object.prototype);
+  assert.equal(Object.hasOwn(normalized,"__proto__"),true);
+  assert.deepEqual(normalized,JSON.parse('{"__proto__":"20.00","constructor":"100.00","toString":"15.00"}'));
+  assert.equal(JSON.stringify(raw),before);
+  const compared=compareFinanceMonths(list,"2026-10","2026-11");
+  assert.equal(compared.first.expense,10);
+  assert.equal(compared.second.expense,54);
+  assert.equal(compared.first.categories["__proto__"],10);
+  assert.equal(compared.second.categories.constructor,35);
+  assert.equal(compared.second.categories.toString,7);
+  const budget=summarizeMonthlyBudget(list,normalized,"2026-11");
+  assert.equal(budget.rows.find(row=>row.category==="__proto__").spent,12);
+  assert.equal(budget.rows.find(row=>row.category==="constructor").spent,35);
+  assert.equal(budget.rows.find(row=>row.category==="toString").spent,7);
 });
