@@ -34,3 +34,24 @@ export function upsertUniqueVersionedRow(rows,incoming){
     return [candidate];
   });
 }
+
+
+// An out-of-order server edit response may arrive AFTER a newer Realtime
+// snapshot. Keep the newer version; never insert a row absent from active state.
+export function replaceExistingVersionedRow(rows,incoming){
+  if(!Array.isArray(rows)||!incoming?.id)
+    throw new Error("Cannot reconcile invalid finance edit.");
+  return rows.map(row=>{
+    if(row.id!==incoming.id)return row;
+    const newer=Number(row.version)>Number(incoming.version);
+    return newer?row:incoming;
+  });
+}
+
+// A delete/restore response is obsolete if ANY current active/trash snapshot
+// contains the same UUID with a strictly newer version. Pure, read-only.
+export function hasNewerVersion(incoming,...groups){
+  if(!incoming?.id)return false;
+  return groups.some(rows=>Array.isArray(rows)&&rows.some(row=>
+    row.id===incoming.id && Number(row.version)>Number(incoming.version)));
+}
