@@ -2,6 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import vm from "node:vm";
+import {cents as financeCents} from "../src/financeStage1Analytics.js";
 import { normalizeRecord, normalizeTransfer, toRecordPayload } from "../src/financeRecords.js";
 import { calculateMethodBalances } from "../src/financeOpeningBalance.js";
 
@@ -15,7 +16,7 @@ function loadPureFunction(name) {
   const remaining = source.slice(start);
   const match = remaining.match(/^function [\s\S]*?^\}/m);
   assert.ok(match, name + " body missing");
-  return vm.runInNewContext(match[0] + "\n" + name, Object.create(null), { timeout: 1000 });
+  return vm.runInNewContext(match[0] + "\n" + name, {financeCents}, { timeout: 1000 });
 }
 
 test("income/expense totals ignore transfers and unknown record types", () => {
@@ -29,6 +30,7 @@ test("income/expense totals ignore transfers and unknown record types", () => {
   assert.equal(sumType(records, "income"), 101);
   assert.equal(sumType(records, "expense"), 37.5);
   assert.equal(sumType([], "income"), 0);
+  assert.equal(sumType([{type:"income",amount:.1},{type:"income",amount:.2}], "income"), .3);
 });
 
 test("money parser preserves cents from keypad input and decimals", () => {
