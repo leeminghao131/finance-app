@@ -23,7 +23,7 @@ test("Wrapped stays on the existing verified monthly/quarterly/yearly/activity c
 });
 
 test("Cinematic mode offers ten visual scenes and no connection or mutation API", () => {
-  assert.match(story, /import FinanceWrappedStage from "\.\/FinanceWrappedStage\.jsx"/);
+  assert.match(story, /import FinanceWrappedSceneDeck from "\.\/FinanceWrappedSceneDeck\.jsx"/);
   assert.match(story, /import "\.\/financeWrappedCinematic\.css"/);
   assert.match(stage, /function OrbitalCrest/);
   assert.match(stage, /function CategoryGalaxy/);

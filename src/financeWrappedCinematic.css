@@ -383,3 +383,343 @@
     animation:none!important;transition:none!important;scroll-behavior:auto!important;
   }
 }
+
+
+/* PR #76: Finance Wrapped ONE-SCREEN THEATER.
+ * :has() scopes every modal-shell override to Wrapped only. All other
+ * FinanceOverlay dialogs retain their original scroll behavior unchanged. */
+.mh-cosmic-modal-sheet:has(.mh-wrap) {
+  height:min(860px, calc(100dvh - 12px)) !important;
+  max-height:calc(100dvh - 12px) !important;
+  display:flex;
+  flex-direction:column;
+  overflow:hidden !important;
+  overscroll-behavior:contain;
+}
+.mh-cosmic-modal-sheet:has(.mh-wrap) > div:first-child {
+  flex:0 0 auto;
+  min-height:0;
+  padding:7px 12px;
+}
+.mh-cosmic-modal-sheet:has(.mh-wrap) > div:last-child {
+  flex:1 1 0;
+  min-height:0;
+  overflow:hidden;
+  padding:7px 11px;
+}
+.mh-cosmic-modal-sheet .mh-wrap {
+  display:flex;
+  flex-direction:column;
+  position:relative;
+  min-height:0;
+  height:100%;
+  overflow:hidden;
+}
+.mh-cosmic-modal-sheet .mh-wrap-controls {
+  flex:0 0 auto;
+  padding:6px 8px;
+  margin:0 0 6px;
+  gap:6px 9px;
+}
+.mh-cosmic-modal-sheet .mh-wrap .mh-wrap-mode {
+  min-height:36px;
+  padding:6px 10px;
+}
+.mh-cosmic-modal-sheet .mh-wrap-selectors :is(input:not([type="checkbox"]),select) {
+  min-height:36px;
+  padding:6px 9px;
+}
+.mh-cosmic-modal-sheet .mh-wrap-shell {
+  flex:1 1 0;
+  min-height:0;
+  display:flex;
+  flex-direction:column;
+  overflow:hidden;
+}
+.mh-cosmic-modal-sheet .mh-wrap-hero {
+  flex:0 0 auto;
+  padding:8px 13px;
+}
+.mh-cosmic-modal-sheet .mh-wrap-stage {
+  flex:1 1 0;
+  display:block;
+  min-height:0;
+  overflow:hidden;
+  padding:7px 12px 3px;
+  container-type:size;
+  container-name:wrapped-stage;
+}
+.mh-wrap-deck {
+  position:relative;
+  height:100%;
+  min-height:0;
+  overflow:hidden;
+  isolation:isolate;
+}
+.mh-wrap-deck__page {
+  position:absolute;
+  inset:0;
+  min-height:0;
+  overflow:hidden;
+  backface-visibility:hidden;
+  will-change:transform,opacity;
+}
+.mh-wrap-deck__page--in-forward {
+  animation:mh-wrap-theater-in-next .52s cubic-bezier(.22,1,.36,1) both;
+}
+.mh-wrap-deck__page--out-forward {
+  animation:mh-wrap-theater-out-next .52s cubic-bezier(.4,0,.2,1) both;
+  pointer-events:none;
+}
+.mh-wrap-deck__page--in-back {
+  animation:mh-wrap-theater-in-back .52s cubic-bezier(.22,1,.36,1) both;
+}
+.mh-wrap-deck__page--out-back {
+  animation:mh-wrap-theater-out-back .52s cubic-bezier(.4,0,.2,1) both;
+  pointer-events:none;
+}
+@keyframes mh-wrap-theater-in-next {
+  from{opacity:0;transform:translate3d(32px,0,0) scale(.984)}
+  to{opacity:1;transform:translate3d(0,0,0) scale(1)}
+}
+@keyframes mh-wrap-theater-out-next {
+  from{opacity:1;transform:translate3d(0,0,0) scale(1)}
+  to{opacity:0;transform:translate3d(-30px,0,0) scale(.984)}
+}
+@keyframes mh-wrap-theater-in-back {
+  from{opacity:0;transform:translate3d(-32px,0,0) scale(.984)}
+  to{opacity:1;transform:translate3d(0,0,0) scale(1)}
+}
+@keyframes mh-wrap-theater-out-back {
+  from{opacity:1;transform:translate3d(0,0,0) scale(1)}
+  to{opacity:0;transform:translate3d(30px,0,0) scale(.984)}
+}
+/* The stage is height-driven instead of the old 300-380px minimums, allowing
+ * the whole theater (controls, artwork, chapter rail and export) to fit 100dvh. */
+.mh-wrap-deck .mh-wrap-scene {
+  display:flex;
+  flex-direction:column;
+  height:100%;
+  min-height:0;
+  animation:none !important;
+}
+.mh-wrap-deck .mh-wrap-scene__heading {
+  flex:0 0 auto;
+  min-height:0;
+  margin:0 0 3px;
+}
+.mh-wrap-deck .mh-wrap-scene__index {
+  flex-basis:38px;
+  width:38px;
+  height:38px;
+}
+.mh-wrap-deck .mh-wrap-scene__art {
+  flex:1 1 0;
+  min-height:0;
+  width:100%;
+  overflow:hidden;
+  padding:0 3px;
+}
+.mh-wrap-deck .mh-wrap-crest {
+  height:100%;
+  min-height:0;
+}
+.mh-wrap-deck .mh-wrap-crest__orbit--a {
+  width:min(250px, 72cqh);
+  height:min(250px, 72cqh);
+}
+.mh-wrap-deck .mh-wrap-crest__orbit--b {
+  width:min(215px, 63cqh);
+  height:min(215px, 63cqh);
+}
+.mh-wrap-deck .mh-wrap-crest__orbit--c {
+  width:min(170px, 54cqh);
+  height:min(170px, 54cqh);
+}
+.mh-wrap-deck .mh-wrap-crest__core {
+  width:min(166px, 54cqh);
+  height:min(166px, 54cqh);
+}
+.mh-wrap-deck .mh-wrap-crest__caption {margin-top:9px}
+.mh-wrap-deck .mh-wrap-cash {height:100%;display:flex;flex-direction:column;justify-content:center}
+.mh-wrap-deck .mh-wrap-cash__tiles {padding:5px 0;gap:7px}
+.mh-wrap-deck .mh-wrap-stat {min-height:65px;padding:8px 10px}
+.mh-wrap-deck .mh-wrap-stat__value {margin-top:4px}
+.mh-wrap-deck .mh-wrap-flow-bars {padding:6px 6px;gap:7px}
+.mh-wrap-deck .mh-wrap-galaxy {height:100%;min-height:0}
+.mh-wrap-deck .mh-wrap-galaxy__dial {
+  width:min(100%, 245px, 76cqh);
+  height:min(100%, 245px, 76cqh);
+}
+.mh-wrap-deck .mh-wrap-galaxy__legend {gap:5px}
+.mh-wrap-deck .mh-wrap-galaxy__item {min-height:31px;padding:6px 8px}
+.mh-wrap-deck .mh-wrap-payments {height:100%;min-height:0}
+.mh-wrap-deck .mh-wrap-payments__field {height:calc(100% - 16px);min-height:0}
+.mh-wrap-deck .mh-wrap-payments__ring--outer {height:70%}
+.mh-wrap-deck .mh-wrap-payments__ring--inner {height:46%}
+.mh-wrap-deck .mh-wrap-payments__satellite {
+  min-height:32px;
+  padding:5px 7px;
+}
+.mh-wrap-deck .mh-wrap-podium {height:100%;min-height:0;display:flex;flex-direction:column;justify-content:center}
+.mh-wrap-deck .mh-wrap-podium__row {min-height:0;height:63%;max-height:220px}
+.mh-wrap-deck .mh-wrap-podium__place {min-height:0!important;padding:6px 7px;gap:6px}
+.mh-wrap-deck .mh-wrap-podium__place--0 {height:95%}
+.mh-wrap-deck .mh-wrap-podium__place--1 {height:78%}
+.mh-wrap-deck .mh-wrap-podium__place--2 {height:66%}
+.mh-wrap-deck .mh-wrap-podium__footer {margin-top:4px;padding:7px 0}
+.mh-wrap-deck .mh-wrap-notes {height:100%;min-height:0;display:flex;flex-direction:column;justify-content:center}
+.mh-wrap-deck .mh-wrap-notes__cloud {flex:1 1 0;min-height:0;gap:7px}
+.mh-wrap-deck .mh-wrap-notes__chip {padding:7px 9px;font-size:12px}
+.mh-wrap-deck .mh-wrap-notes__selection {flex:0 0 auto;margin-top:3px;padding:6px}
+.mh-wrap-deck .mh-wrap-timeline {height:100%;display:flex;flex-direction:column}
+.mh-wrap-deck .mh-wrap-timeline__highlight {flex:0 0 auto;padding:7px 10px}
+.mh-wrap-deck .mh-wrap-timeline__bars {flex:1 1 0;min-height:0;padding-top:8px}
+.mh-wrap-deck .mh-wrap-timeline__column {min-height:0}
+.mh-wrap-deck .mh-wrap-budget {height:100%;min-height:0;grid-template-columns:minmax(110px, .9fr) minmax(0,1.1fr);gap:10px}
+.mh-wrap-deck .mh-wrap-budget__gauge {
+  width:min(200px, 60cqh);
+  height:min(200px, 60cqh);
+}
+.mh-wrap-deck .mh-wrap-budget__gauge-core {
+  width:80%;
+  height:80%;
+}
+.mh-wrap-deck .mh-wrap-budget__stats {gap:4px}
+.mh-wrap-deck .mh-wrap-budget__stats .mh-wrap-stat {min-height:48px;padding:6px 9px}
+.mh-wrap-deck .mh-wrap-budget__stats .mh-wrap-stat__value {font-size:clamp(11px, 2.1vw, 16px)}
+.mh-wrap-deck .mh-wrap-changes {gap:7px}
+.mh-wrap-deck .mh-wrap-changes__item {padding:8px 11px}
+.mh-wrap-deck .mh-wrap-changes__item strong {margin-top:1px}
+.mh-wrap-deck .mh-wrap-changes__track {margin-top:6px}
+.mh-wrap-deck .mh-wrap-empty {min-height:0;height:100%}
+.mh-cosmic-modal-sheet .mh-wrap-footer {
+  flex:0 0 auto;
+  padding:5px 12px;
+  gap:7px;
+}
+.mh-cosmic-modal-sheet .mh-wrap-below {
+  flex:0 0 auto;
+  margin-top:4px;
+  gap:7px;
+}
+.mh-cosmic-modal-sheet .mh-wrap-save {
+  min-height:36px;
+  padding:7px 11px;
+}
+.mh-cosmic-modal-sheet .mh-wrap-details {flex:0 0 auto}
+.mh-cosmic-modal-sheet .mh-wrap-details summary {
+  min-height:36px;
+  padding:7px 10px;
+  display:flex;
+  align-items:center;
+}
+.mh-cosmic-modal-sheet .mh-wrap-details[open] {
+  position:absolute;
+  inset:0;
+  z-index:20;
+  display:flex;
+  flex-direction:column;
+  margin:0;
+  min-width:0;
+  max-width:none;
+  overflow:hidden;
+  border:1px solid #caa16e;
+  border-radius:16px;
+  background:linear-gradient(160deg,#253f50,#0b1c2d);
+  box-shadow:0 9px 22px #000b;
+}
+.mh-cosmic-modal-sheet .mh-wrap-details[open] summary {
+  flex:0 0 auto;
+  padding:12px 16px;
+  border:0;
+  border-bottom:1px solid #c49a64;
+  border-radius:0;
+  font-weight:700;
+  color:#ffe8c2;
+  background:#182e40;
+}
+.mh-cosmic-modal-sheet .mh-wrap-details[open] .mh-wrap-details__body {
+  flex:1 1 0;
+  min-height:0;
+  overflow-y:auto;
+  overscroll-behavior:contain;
+  padding:14px;
+  border:0;
+  background:transparent;
+  scrollbar-width:thin;
+}
+.mh-cosmic-modal-sheet .mh-wrap-disclaimer {
+  flex:0 0 auto;
+  margin:3px 1px 0;
+  font-size:10px;
+  line-height:1.15;
+  max-height:2.3em;
+  overflow:hidden;
+}
+/* Shorter screens reduce decoration before reducing content readability. */
+@media (max-height:720px) {
+  .mh-cosmic-modal-sheet:has(.mh-wrap) > div:first-child {padding:4px 10px}
+  .mh-cosmic-modal-sheet:has(.mh-wrap) > div:last-child {padding:4px 7px}
+  .mh-cosmic-modal-sheet .mh-wrap-controls {margin-bottom:3px;padding:4px 6px}
+  .mh-cosmic-modal-sheet .mh-wrap-mode {min-height:33px;padding:5px 7px}
+  .mh-cosmic-modal-sheet .mh-wrap-stage {padding:3px 8px 0}
+  .mh-cosmic-modal-sheet .mh-wrap-hero {padding:5px 10px}
+  .mh-cosmic-modal-sheet .mh-wrap-footer {padding:2px 8px}
+  .mh-cosmic-modal-sheet .mh-wrap-save,
+  .mh-cosmic-modal-sheet .mh-wrap-details summary {min-height:32px;padding:5px 9px}
+  .mh-wrap-deck .mh-wrap-scene__heading h3 {font-size:17px}
+  .mh-wrap-deck .mh-wrap-stat {min-height:53px}
+}
+@media (max-width:640px) {
+  .mh-cosmic-modal-sheet:has(.mh-wrap) {height:calc(100dvh - 8px)!important;max-height:calc(100dvh - 8px)!important}
+  .mh-cosmic-modal-sheet .mh-wrap-controls {gap:4px}
+  .mh-cosmic-modal-sheet .mh-wrap-mode {flex:1 1 0;font-size:10px!important;white-space:normal;padding:5px 4px!important}
+  .mh-cosmic-modal-sheet .mh-wrap-selectors {gap:5px}
+  .mh-cosmic-modal-sheet .mh-wrap-selectors label {font-size:11px}
+  .mh-cosmic-modal-sheet .mh-wrap-selectors :is(input:not([type="checkbox"]),select) {min-height:32px;padding:5px 7px}
+  .mh-wrap-deck .mh-wrap-scene__index {width:31px;height:31px;flex-basis:31px}
+  .mh-wrap-deck .mh-wrap-scene__heading {gap:7px}
+  .mh-wrap-deck .mh-wrap-scene__heading > div > span {font-size:9px}
+  .mh-wrap-deck .mh-wrap-scene__heading h3 {font-size:17px}
+  .mh-wrap-deck .mh-wrap-scene__seal {font-size:17px}
+  .mh-wrap-deck .mh-wrap-galaxy {
+    display:grid;
+    grid-template-columns:minmax(0, .9fr) minmax(0, 1.1fr);
+    gap:4px;
+  }
+  .mh-wrap-deck .mh-wrap-galaxy__dial {width:min(100%, 150px, 66cqh);height:min(100%, 150px, 66cqh)}
+  .mh-wrap-deck .mh-wrap-galaxy__legend {grid-template-columns:1fr;gap:2px}
+  .mh-wrap-deck .mh-wrap-galaxy__item {min-height:25px;padding:4px 5px!important;font-size:10px!important}
+  .mh-wrap-deck .mh-wrap-galaxy__center strong {font-size:18px}
+  .mh-wrap-deck .mh-wrap-galaxy__center small {font-size:9px}
+  .mh-wrap-deck .mh-wrap-payments__field {min-height:0}
+  .mh-wrap-deck .mh-wrap-payments__satellite {min-height:30px!important;max-width:75px!important;font-size:10px!important}
+  .mh-wrap-deck .mh-wrap-podium__place strong {font-size:11px}
+  .mh-wrap-deck .mh-wrap-notes__cloud {gap:5px}
+  .mh-wrap-deck .mh-wrap-notes__chip {padding:5px 7px!important;font-size:11px}
+  .mh-wrap-deck .mh-wrap-budget {
+    grid-template-columns:minmax(90px, .8fr) minmax(0,1.2fr);
+    gap:5px;
+  }
+  .mh-wrap-deck .mh-wrap-budget__gauge {width:min(122px, 62cqh);height:min(122px, 62cqh)}
+  .mh-wrap-deck .mh-wrap-budget__gauge-core strong {font-size:23px}
+  .mh-wrap-deck .mh-wrap-budget__stats {grid-template-columns:1fr;gap:3px}
+  .mh-wrap-deck .mh-wrap-budget__stats .mh-wrap-stat {min-height:39px}
+  .mh-wrap-deck .mh-wrap-budget__stats .mh-wrap-stat__value {font-size:11px}
+  .mh-wrap-deck .mh-wrap-stat {min-height:57px}
+  .mh-cosmic-modal-sheet .mh-wrap-footer {flex-wrap:wrap;gap:2px}
+  .mh-cosmic-modal-sheet .mh-wrap-progress {flex:1 1 100%;min-width:100%;max-width:none}
+  .mh-cosmic-modal-sheet .mh-wrap-actions {gap:4px}
+  .mh-cosmic-modal-sheet .mh-wrap-action {min-height:35px;padding:5px 7px;font-size:11px}
+  .mh-cosmic-modal-sheet .mh-wrap-below {margin-top:3px}
+}
+@media (prefers-reduced-motion:reduce) {
+  .mh-wrap-deck__page {will-change:auto}
+  .mh-wrap-deck__page--in-forward,
+  .mh-wrap-deck__page--in-back,
+  .mh-wrap-deck__page--out-forward,
+  .mh-wrap-deck__page--out-back {animation:none!important}
+  .mh-wrap-deck__page--out-forward,
+  .mh-wrap-deck__page--out-back {display:none}
+}

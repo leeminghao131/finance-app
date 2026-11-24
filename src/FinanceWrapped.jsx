@@ -1,5 +1,6 @@
 import React,{useEffect,useMemo,useRef,useState} from "react";
-import FinanceWrappedStage from "./FinanceWrappedStage.jsx";
+import FinanceWrappedSceneDeck from "./FinanceWrappedSceneDeck.jsx";
+import FinanceWrappedWheelPager from "./FinanceWrappedWheelPager.jsx";
 import "./financeWrappedCinematic.css";
 import FinanceOverlay from "./FinanceOverlay.jsx";
 import {localDateMY} from "./financeCalendar.js";
@@ -197,7 +198,11 @@ export default function FinanceWrapped({records=[],monthRows=[],budgetTemplate={
     </button>
     <FinanceOverlay open={open} onClose={()=>{setPlaying(false);setOpen(false);}}
       title={zh?"财务回顾 · Finance Wrapped":"Finance Wrapped"} triggerRef={triggerRef} widthClass="max-w-5xl">
-      <div className="mh-wrap">
+      <FinanceWrappedWheelPager enabled={!report.error}
+        onNavigate={direction=>{
+          setPlaying(false);
+          setSlide(index=>Math.max(0,Math.min(slides.length-1,index+direction)));
+        }}>
         <div className="mh-wrap-controls">
           <div className="mh-wrap-modes" role="group" aria-label={zh?"回顾类型":"Wrapped period"}>
             {[["monthly",zh?"月度":"Monthly"],["quarterly",zh?"自选三个月":"Three Months"],
@@ -256,7 +261,7 @@ export default function FinanceWrapped({records=[],monthRows=[],budgetTemplate={
                     setSlide(index=>Math.max(0,Math.min(slides.length-1,index+(dx<0?1:-1))));
                   }
                 }}>
-                <FinanceWrappedStage key={mode+"-"+slide} report={w} mode={mode}
+                <FinanceWrappedSceneDeck report={w} mode={mode}
                   chapter={slide} zh={zh} hideNotes={hideNotes} display={display}/>
               </div>
               <div className="mh-wrap-footer">
@@ -297,7 +302,7 @@ export default function FinanceWrapped({records=[],monthRows=[],budgetTemplate={
           </>}
         {error&&<p role="alert" className="mt-3 text-sm text-red-200">{error}</p>}
         <p className="mh-wrap-disclaimer">{w?.disclaimer||(zh?"仅统计已验证的有效记录。":"Only verified records are included.")}</p>
-      </div>
+      </FinanceWrappedWheelPager>
     </FinanceOverlay>
   </>;
 }
