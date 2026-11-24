@@ -707,10 +707,9 @@
   .mh-wrap-deck .mh-wrap-budget__stats {grid-template-columns:1fr;gap:3px}
   .mh-wrap-deck .mh-wrap-budget__stats .mh-wrap-stat {min-height:39px}
   .mh-wrap-deck .mh-wrap-budget__stats .mh-wrap-stat__value {font-size:11px}
-  .mh-wrap-deck .mh-wrap-footer {flex-wrap:nowrap}
   .mh-wrap-deck .mh-wrap-stat {min-height:57px}
-  .mh-cosmic-modal-sheet .mh-wrap-footer {gap:3px}
-  .mh-cosmic-modal-sheet .mh-wrap-progress {min-width:0;max-width:none}
+  .mh-cosmic-modal-sheet .mh-wrap-footer {flex-wrap:wrap;gap:2px}
+  .mh-cosmic-modal-sheet .mh-wrap-progress {flex:1 1 100%;min-width:100%;max-width:none}
   .mh-cosmic-modal-sheet .mh-wrap-actions {gap:4px}
   .mh-cosmic-modal-sheet .mh-wrap-action {min-height:35px;padding:5px 7px;font-size:11px}
   .mh-cosmic-modal-sheet .mh-wrap-below {margin-top:3px}
