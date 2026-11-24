@@ -32,8 +32,8 @@ function openerRect(triggerRef) {
 function modalFrames(source, modalRect) {
   if (!source) {
     return [
-      { transform: "translate(0, 10px) scale(0.97)", opacity: 0.5, borderRadius: "12px" },
-      { transform: "translate(0, 0) scale(1)", opacity: 1, borderRadius: "16px" },
+      { transform: "translate3d(0, 10px, 0) scale(0.97)", opacity: 0.5 },
+      { transform: "translate3d(0, 0, 0) scale(1)", opacity: 1 },
     ];
   }
   const dx = source.left - modalRect.left;
@@ -43,10 +43,10 @@ function modalFrames(source, modalRect) {
   // From the exact button rectangle to the normal dialog rectangle: no 100%-viewport overshoot.
   return [
     {
-      transform: `translate(${dx}px, ${dy}px) scale(${sx}, ${sy})`,
-      opacity: 0.76, borderRadius: "10px",
+      transform: `translate3d(${dx}px, ${dy}px, 0) scale(${sx}, ${sy})`,
+      opacity: 0.76,
     },
-    { transform: "translate(0, 0) scale(1, 1)", opacity: 1, borderRadius: "16px" },
+    { transform: "translate3d(0, 0, 0) scale(1, 1)", opacity: 1 },
   ];
 }
 
@@ -58,6 +58,7 @@ export default function FinanceOverlay({
   const [mounted, setMounted] = useState(Boolean(open));
   const dialogRef = useRef(null);
   const backdropRef = useRef(null);
+  const veilRef = useRef(null);
   const onCloseRef = useRef(onClose);
   const openRef = useRef(open);
   const triggerRefRef = useRef(triggerRef);
@@ -78,8 +79,8 @@ export default function FinanceOverlay({
 
   useLayoutEffect(() => {
     if (!mounted || typeof window === "undefined") return undefined;
-    const dialog = dialogRef.current, backdrop = backdropRef.current;
-    if (!dialog || !backdrop) return undefined;
+    const dialog = dialogRef.current, backdrop = backdropRef.current, veil = veilRef.current;
+    if (!dialog || !backdrop || !veil) return undefined;
     if (open && phaseRef.current === "open") return undefined;
     if (!open && phaseRef.current === "closing") return undefined;
 
@@ -98,6 +99,11 @@ export default function FinanceOverlay({
       return undefined;
     }
 
+    // Promote only these two surfaces during animation, not the entire dashboard.
+    // Preserve the original trigger-origin path while avoiding paint-bound
+    // border-radius and full-viewport background-color animation.
+    dialog.style.willChange = "transform, opacity";
+    veil.style.willChange = "opacity";
     const frames = modalFrames(originRectRef.current, dialog.getBoundingClientRect());
     const options = {
       duration: FINANCE_MODAL_MOTION_MS,
@@ -108,9 +114,9 @@ export default function FinanceOverlay({
     // Independent backdrop and sheet animations let the sheet appear to emerge
     // from the clicked button instead of scaling the entire application.
     const sheetMotion = dialog.animate(frames, options);
-    const backdropMotion = backdrop.animate([
-      { backgroundColor: "rgba(2, 6, 23, 0)" },
-      { backgroundColor: "rgba(2, 6, 23, 0.55)" },
+    const backdropMotion = veil.animate([
+      { opacity: 0 },
+      { opacity: 1 },
     ], options);
     motionRef.current = [sheetMotion, backdropMotion];
     sheetMotion.onfinish = () => {
@@ -118,6 +124,8 @@ export default function FinanceOverlay({
         // Discard the animation's fill; the original static modal styling takes over.
         sheetMotion.cancel();
         backdropMotion.cancel();
+        dialog.style.willChange = "";
+        veil.style.willChange = "";
       } else {
         phaseRef.current = "idle";
         setMounted(false);
@@ -175,10 +183,11 @@ export default function FinanceOverlay({
   if (!mounted || typeof document === "undefined") return null;
   return createPortal(
     <div ref={backdropRef}
-      className="mh-cosmic-modal-backdrop fixed inset-0 z-[100] flex items-center justify-center bg-slate-950/55 p-3 sm:p-5"
+      className="mh-cosmic-modal-backdrop fixed inset-0 z-[100] flex items-center justify-center bg-slate-950/55 p-3 sm:p-5 mh-cosmic-modal-backdrop--composited"
       onMouseDown={event => {
         if (open && event.target === event.currentTarget) onCloseRef.current?.();
       }}>
+      <div ref={veilRef} className="mh-cosmic-modal-backdrop__veil" aria-hidden="true" />
       <section ref={dialogRef} role="dialog" aria-modal="true" aria-label={shownTitle} tabIndex={-1}
         className={`mh-cosmic-modal-sheet w-full ${widthClass} min-w-0 overflow-y-auto rounded-2xl bg-white shadow-2xl outline-none`}
         style={{ maxHeight: "calc(100dvh - 1.5rem)", transformOrigin: "top left", pointerEvents: open ? "auto" : "none" }}>

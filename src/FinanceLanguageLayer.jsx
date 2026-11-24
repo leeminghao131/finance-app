@@ -82,14 +82,43 @@ function FinanceLanguageObserver({ language }) {
   useLayoutEffect(() => {
     const observer = new MutationObserver((mutations) => {
       const languageNow = currentLanguage.current;
+      // React can emit overlapping mutations for the same new subtree.
+      // Translate each added root once, then skip descendant text/attributes
+      // already covered by that root. Keep the exact synchronous translation
+      // semantics and leave all user content/input values untouched.
+      const addedRoots = new Set();
+      const changedText = new Set();
+      const changedAttributes = new Map();
       for (const change of mutations) {
-        if (change.type === "characterData") {
-          updateTextNode(change.target, languageNow);
+        if (change.type === "childList") {
+          for (const added of change.addedNodes) addedRoots.add(added);
+        } else if (change.type === "characterData") {
+          changedText.add(change.target);
         } else if (change.type === "attributes") {
-          updateAttribute(change.target, change.attributeName, languageNow);
-        } else if (change.type === "childList") {
-          for (const added of change.addedNodes) localizeNode(added, languageNow);
+          let attributes = changedAttributes.get(change.target);
+          if (!attributes) {
+            attributes = new Set();
+            changedAttributes.set(change.target, attributes);
+          }
+          attributes.add(change.attributeName);
         }
+      }
+      const coveredByAddedAncestor = node => {
+        for (let parent = node.parentNode; parent; parent = parent.parentNode) {
+          if (addedRoots.has(parent)) return true;
+        }
+        return false;
+      };
+      for (const root of addedRoots) {
+        if (root.isConnected && !coveredByAddedAncestor(root)) localizeNode(root, languageNow);
+      }
+      for (const node of changedText) {
+        if (node.isConnected && !addedRoots.has(node) && !coveredByAddedAncestor(node))
+          updateTextNode(node, languageNow);
+      }
+      for (const [element, attributes] of changedAttributes) {
+        if (!element.isConnected || addedRoots.has(element) || coveredByAddedAncestor(element)) continue;
+        for (const attribute of attributes) updateAttribute(element, attribute, languageNow);
       }
     });
     observer.observe(document.body, {

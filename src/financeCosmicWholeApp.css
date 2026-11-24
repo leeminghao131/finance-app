@@ -223,3 +223,19 @@
   background-color:#473725;
   border:1px solid #a28353;
 }
+
+/* PR #78: Defer painting only long, below-the-fold dashboard showcases and
+ * repeated mobile ledger cards. The DOM, layouts, decorations and data remain
+ * present; browser paints the original exact content as it nears the viewport.
+ * Never apply this to chart containers that rely on live size measurement,
+ * forms, focused inputs, modal shells or sticky navigation. */
+@supports (content-visibility: auto) {
+  .mh-ui.mh-cosmic-pilot :is(.mh-cosmic-top5,.mh-cosmic-heatmap) {
+    content-visibility: auto;
+    contain-intrinsic-size: auto 500px;
+  }
+  .mh-cosmic-modal-sheet .mh-record-card {
+    content-visibility: auto;
+    contain-intrinsic-size: auto 144px;
+  }
+}

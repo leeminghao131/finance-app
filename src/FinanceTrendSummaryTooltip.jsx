@@ -2,10 +2,11 @@ import React from "react";
 
 // Compact, display-only tooltip for dashboard previews.
 // Detailed per-record tooltips stay separate for a future expanded chart overlay.
-const currency = amount => "RM " + new Intl.NumberFormat("en-MY", {
+const tooltipCurrencyFormatter = new Intl.NumberFormat("en-MY", {
   minimumFractionDigits: 2,
   maximumFractionDigits: 2,
-}).format(Number(amount));
+});
+const currency = amount => "RM " + tooltipCurrencyFormatter.format(Number(amount));
 
 export default function FinanceTrendSummaryTooltip({ active, payload, kind }) {
   if (!active || !payload?.length) return null;
