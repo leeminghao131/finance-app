@@ -47,12 +47,11 @@ export default function FinanceNativeChart({
     if(!element)return undefined;
     let frame=0;
     const update=()=>{
-      const rect=element.getBoundingClientRect();
       const parent=element.parentElement;
       // Use a safe fallback during initial hidden/zero-size render. ResizeObserver
       // will replace it with the real bounds when this card or popup becomes visible.
-      const measuredWidth=rect.width||element.clientWidth||parent?.clientWidth||560;
-      const measuredHeight=rect.height||element.clientHeight||parent?.clientHeight||(compact?160:260);
+      const measuredWidth=element.clientWidth||parent?.clientWidth||560;
+      const measuredHeight=element.clientHeight||parent?.clientHeight||(compact?160:260);
       const width=Math.max(190,Math.round(measuredWidth));
       const height=Math.max(116,Math.round(measuredHeight));
       setSize(prev=>prev.width===width&&prev.height===height?prev:{width,height});
