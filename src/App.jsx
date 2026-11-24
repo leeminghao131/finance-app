@@ -1728,7 +1728,7 @@ const methodOptionsFor = () => expenseMethodOptions;
     try { return {rows:filterFinanceRecordsAdvanced(records.map(row=>({...row,method:recordMethod(row)})),advancedFilter),error:""}; }
     catch (error) { return {rows:[],error:error.message}; }
   },[records,advancedFilter]);
-  const expenseRecords = chartRecords.filter((r) => r.type === "expense");
+  const expenseRecords = useMemo(() => chartRecords.filter((r) => r.type === "expense"), [chartRecords]);
   const income = sumType(records.filter(row => row.date <= localToday), "income");
   const expense = sumType(records.filter(row => row.date <= localToday), "expense");
   const filteredIncome = sumType(chartRecords, "income");
