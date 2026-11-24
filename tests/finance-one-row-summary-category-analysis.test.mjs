@@ -88,7 +88,8 @@ test("Category charts and transaction views remain distinct from protected perio
   assert.match(app,/const periodRecords = useMemo\(\(\) => filterRecords\(records, filterMode, selectedMonth, selectedYear, "", localToday\)/);
   assert.match(app,/const filteredRecords = useMemo\(\(\) => categoryOnlyRows\(searchPeriodRecords, selectedCategoryFilter\)/);
   assert.match(app,/const chartRecords = useMemo\(\(\) => categoryComparisonRows\(searchPeriodRecords, selectedCategoryFilter, periodRecords\)/);
-  assert.match(app,/const expenseRecords = chartRecords\.filter\(\(r\) => r\.type === "expense"\)/);
+  // PR #74 memoizes this same expense-only chart projection; both syntaxes are valid.
+  assert.match(app,/const expenseRecords = (?:chartRecords\.filter\(\(r\) => r\.type === "expense"\)|useMemo\(\(\) => chartRecords\.filter\(\(r\) => r\.type === "expense"\), \[chartRecords\]\))/);
   assert.match(app,/const categoryData = useMemo\(\(\) => group\(expenseRecords/);
   assert.match(app,/const methodData = useMemo\(\(\) => group\(expenseRecords/);
   assert.match(app,/const totalBalanceSen=Math\.round\(openingBalanceTotal\*100\)\+/);
