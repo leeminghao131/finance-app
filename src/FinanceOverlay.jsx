@@ -183,7 +183,7 @@ export default function FinanceOverlay({
   if (!mounted || typeof document === "undefined") return null;
   return createPortal(
     <div ref={backdropRef}
-      className="mh-cosmic-modal-backdrop mh-cosmic-modal-backdrop--composited fixed inset-0 z-[100] flex items-center justify-center bg-slate-950/55 p-3 sm:p-5"
+      className="mh-cosmic-modal-backdrop fixed inset-0 z-[100] flex items-center justify-center bg-slate-950/55 p-3 sm:p-5 mh-cosmic-modal-backdrop--composited"
       onMouseDown={event => {
         if (open && event.target === event.currentTarget) onCloseRef.current?.();
       }}>
