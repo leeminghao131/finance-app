@@ -28,7 +28,7 @@
 }
 .mh-wrap-modes {display:flex;flex-wrap:wrap;gap:6px;align-items:center}
 .mh-cosmic-modal-sheet .mh-wrap .mh-wrap-mode {
-  min-height:39px;padding:8px 12px;
+  min-height:44px;padding:9px 12px;
   border-radius:9px;border:1px solid rgba(185,147,101,.3);
   color:#c5d2d9;background:#182f41;
   font-weight:700;font-size:12px;letter-spacing:.012em;
@@ -296,16 +296,23 @@
 .mh-wrap-footer {display:flex;align-items:center;justify-content:space-between;gap:12px;padding:11px 20px 14px;border-top:1px solid #a88a6044;background:#0b1e2fbd}
 .mh-wrap-progress {display:flex;gap:4px;align-items:center;flex:1;max-width:440px}
 .mh-cosmic-modal-sheet .mh-wrap-progress__step {
-  flex:1;height:15px;min-width:8px;border:0;border-radius:6px;background:#34495a;
-  padding:0;position:relative;overflow:hidden;transition:background .2s ease,transform .2s ease;
+  flex:1;height:42px;min-width:19px;border:0;border-radius:6px;background:transparent;
+  padding:0;position:relative;overflow:hidden;transition:transform .2s ease;
 }
-.mh-cosmic-modal-sheet .mh-wrap-progress__step.is-done{background:#977a57}
-.mh-cosmic-modal-sheet .mh-wrap-progress__step.is-active{
-  background:#f0c892;box-shadow:0 0 10px #edc48a8c;transform:scaleY(1.25)
+.mh-cosmic-modal-sheet .mh-wrap-progress__step::before{
+  content:"";position:absolute;left:1px;right:1px;top:17px;height:8px;
+  border-radius:5px;background:#34495a;transition:background-color .2s ease;
+}
+.mh-cosmic-modal-sheet .mh-wrap-progress__step.is-done::before{background:#977a57}
+.mh-cosmic-modal-sheet .mh-wrap-progress__step.is-active::before{
+  background:#f0c892;box-shadow:0 0 10px #edc48a8c;
+}
+.mh-cosmic-modal-sheet .mh-wrap-progress__step:focus-visible::before{
+  box-shadow:0 0 0 3px #f4d19c87;
 }
 .mh-wrap-actions{display:flex;gap:7px;align-items:center;flex-wrap:wrap}
 .mh-cosmic-modal-sheet .mh-wrap-action{
-  min-height:39px;padding:8px 11px;border:1px solid #957b55;border-radius:9px;
+  min-height:44px;padding:9px 11px;border:1px solid #957b55;border-radius:9px;
   background:#213a4c;color:#f7e8d2;font-size:12px;font-weight:700;
   transition:background .2s ease,transform .2s ease;
 }
@@ -339,12 +346,12 @@
   .mh-wrap-galaxy{grid-template-columns:1fr}
   .mh-wrap-galaxy__dial{width:185px}
   .mh-wrap-galaxy__legend{grid-template-columns:repeat(2,minmax(0,1fr));gap:5px}
-  .mh-wrap-galaxy__item{padding:7px!important;font-size:10px!important}
+  .mh-wrap-galaxy__item{padding:7px!important;font-size:10px!important;min-height:42px}
   .mh-wrap-galaxy__center strong{font-size:23px}
   .mh-wrap-payments__field{min-height:290px}
   .mh-wrap-payments__core{width:37%;min-height:100px}
   .mh-wrap-payments__core strong,.mh-wrap-payments__core b{font-size:11px}
-  .mh-wrap-payments__satellite{font-size:10px!important;min-width:68px!important;max-width:91px!important;padding:5px!important}
+  .mh-wrap-payments__satellite{font-size:10px!important;min-width:68px!important;max-width:91px!important;min-height:42px!important;padding:5px!important}
   .mh-wrap-podium__row{gap:6px;min-height:195px}
   .mh-wrap-podium__place{padding:8px 5px!important;gap:7px!important}
   .mh-wrap-podium__place--0{min-height:192px}
