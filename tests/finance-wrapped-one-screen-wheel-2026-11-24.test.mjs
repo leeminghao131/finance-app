@@ -67,3 +67,21 @@ test("Money calculations, privacy and exports stay in their original component",
   assert.match(story,/ArrowLeft/);
   assert.match(story,/setPlaying\(value=>!value\)/);
 });
+
+test("Wrapped removes continuous multi-orbit and note repaint without sacrificing the visual identity",()=>{
+  assert.match(css,/animation:mh-wrap-spin-reverse 32s linear infinite/);
+  assert.doesNotMatch(css,/animation:mh-wrap-spin [0-9]+s linear infinite/);
+  assert.doesNotMatch(css,/animation:mh-wrap-float [0-9]+s ease-in-out infinite/);
+  assert.doesNotMatch(css,/filter:drop-shadow/);
+  assert.match(css,/\.mh-wrap-deck__page \{[\s\S]*?contain:layout paint;/);
+  assert.match(css,/\.mh-wrap-crest__orbit \{box-shadow:none\}/);
+  assert.match(css,/\.mh-wrap-deck \.mh-wrap-stat,[\s\S]*?animation:none;/);
+  assert.match(css,/@media \(prefers-reduced-motion:reduce\)/);
+});
+
+test("Autoplay does not rerender unchanged heavy Wrapped SVG content",()=>{
+  assert.match(story,/const display=useCallback\(n=>hideAmounts/);
+  assert.match(deck,/export default memo\(FinanceWrappedSceneDeck\)/);
+  assert.match(story,/window\.setTimeout\(\(\)=>setSlide/);
+  assert.match(story,/setPlaying\(value=>!value\)/);
+});
