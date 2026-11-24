@@ -1,4 +1,4 @@
-import React,{useEffect,useMemo,useRef,useState} from "react";
+import React,{useCallback,useEffect,useMemo,useRef,useState} from "react";
 import FinanceWrappedSceneDeck from "./FinanceWrappedSceneDeck.jsx";
 import FinanceWrappedWheelPager from "./FinanceWrappedWheelPager.jsx";
 import "./financeWrappedCinematic.css";
@@ -81,7 +81,7 @@ export default function FinanceWrapped({records=[],monthRows=[],budgetTemplate={
     }catch(e){return {error:e.message};}
   },[records,mode,month,quarterStart,year,monthRows,budgetTemplate,activities,activityLinks,selectedActivityId]);
   const w=report.value,cur=w?.current;
-  const display=n=>hideAmounts?"RM ••••":money(n);
+  const display=useCallback(n=>hideAmounts?"RM ••••":money(n),[hideAmounts]);
   const a=w?.activitySummary;
   const activitySlides=a?[
     {title:zh?"这趟活动的故事":"Your activity story",body:<div className="text-center">
