@@ -27,26 +27,24 @@ test("Wheel navigation is local to the modal, non-passive and prevents unwanted 
   assert.match(wheel,/event\.preventDefault\(\)/);
   assert.match(wheel,/event\.ctrlKey \|\| event\.metaKey/);
   assert.match(wheel,/\.mh-wrap-details\[open\], select, input, textarea/);
-  assert.match(wheel,/now - lastNavigationTime < 760/);
-  assert.match(wheel,/Math\.abs\(accumulated\) < 55/);
+  assert.match(wheel,/now - lastNavigationTime < 440/);
+  assert.match(wheel,/Math\.abs\(accumulated\) < 40/);
   assert.match(story,/setSlide\(index=>Math\.max\(0,Math\.min\(slides.length-1,index\+direction\)\)\)/);
   assert.doesNotMatch(wheel,/document\.addEventListener|window\.addEventListener|supabase|\.insert\(|\.update\(|\.delete\(/);
 });
 
-test("Two-layer transitions are directional, smooth, cancellable and reduced-motion safe",()=>{
-  assert.match(deck,/useLayoutEffect/);
-  assert.match(deck,/setDeparture\(previous\)/);
-  assert.match(deck,/chapter < previous\.chapter \? -1 : 1/);
-  assert.match(deck,/window\.setTimeout\(\(\) => setDeparture\(null\), 520\)/);
-  assert.match(deck,/window\.clearTimeout\(timeout\)/);
-  assert.match(deck,/aria-hidden="true" inert=""/);
-  for(const phase of ["in-forward","out-forward","in-back","out-back"]){
-    assert.match(css,new RegExp("mh-wrap-deck__page--"+phase));
-  }
+test("Wrapped navigates with one rendered scene and a lightweight directional transition",()=>{
+  assert.match(deck,/import React, \{ memo, useRef \}/);
+  assert.match(deck,/chapter < previousRef\.current\.chapter \? "back" : "forward"/);
+  assert.match(deck,/export default memo\(FinanceWrappedSceneDeck\)/);
+  assert.equal((deck.match(/<FinanceWrappedStage /g)||[]).length,1);
+  assert.doesNotMatch(deck,/departure|setDeparture|useLayoutEffect|setTimeout|out-forward|out-back/);
+  assert.match(css,/mh-wrap-deck__page--in-forward/);
+  assert.match(css,/mh-wrap-deck__page--in-back/);
   assert.match(css,/@keyframes mh-wrap-theater-in-next/);
-  assert.match(css,/@keyframes mh-wrap-theater-out-back/);
+  assert.match(css,/@keyframes mh-wrap-theater-in-back/);
+  assert.doesNotMatch(css,/@keyframes mh-wrap-theater-out/);
   assert.match(css,/prefers-reduced-motion:reduce/);
-  assert.match(css,/mh-wrap-deck__page--out-forward,\s*\.mh-wrap-deck__page--out-back \{display:none\}/);
   assert.doesNotMatch(deck,/supabase|localStorage|sessionStorage|fetch\(|\.insert\(|\.delete\(/);
 });
 
@@ -61,11 +59,31 @@ test("Money calculations, privacy and exports stay in their original component",
   assert.match(story,/financeWrapped\(records,\{mode,month,quarterStart,year,monthRows,budgetTemplate\}\)/);
   assert.match(story,/activitySummary\(selected,records,activityLinks\)/);
   assert.match(story,/exportStoryImage\(w,hideAmounts\)/);
-  assert.match(story,/const display=n=>hideAmounts\?"RM ••••":money\(n\)/);
+  assert.match(story,/const display=useCallback\(n=>hideAmounts\?"RM ••••":money\(n\),\[hideAmounts\]\)/);
   assert.match(story,/hideNotes=\{hideNotes\}/);
   assert.match(story,/onTouchStart=/);
   assert.match(story,/onTouchEnd=/);
   assert.match(story,/ArrowRight/);
   assert.match(story,/ArrowLeft/);
+  assert.match(story,/setPlaying\(value=>!value\)/);
+});
+
+test("Wrapped removes continuous multi-orbit and note repaint without sacrificing the visual identity",()=>{
+  assert.match(css,/animation:mh-wrap-spin-reverse 32s linear infinite/);
+  assert.doesNotMatch(css,/animation:mh-wrap-spin [0-9]+s linear infinite/);
+  assert.doesNotMatch(css,/animation:mh-wrap-float [0-9]+s ease-in-out infinite/);
+  assert.doesNotMatch(css,/filter:drop-shadow/);
+  assert.match(css,/\.mh-wrap-deck__page \{[\s\S]*?contain:layout paint;/);
+  assert.match(css,/\.mh-wrap-crest__orbit \{box-shadow:none\}/);
+  assert.match(css,/\.mh-wrap-deck \.mh-wrap-stat,[\s\S]*?animation:none;/);
+  assert.match(css,/@media \(prefers-reduced-motion:reduce\)/);
+});
+
+test("Autoplay does not rerender unchanged heavy Wrapped SVG content",()=>{
+  assert.match(story,/const display=useCallback\(n=>hideAmounts/);
+  assert.match(story,/const activitySlides=useMemo\(\(\)=>a\?\[/);
+  assert.match(story,/const slides=useMemo\(\(\)=>cur&&/);
+  assert.match(deck,/export default memo\(FinanceWrappedSceneDeck\)/);
+  assert.match(story,/window\.setTimeout\(\(\)=>setSlide/);
   assert.match(story,/setPlaying\(value=>!value\)/);
 });

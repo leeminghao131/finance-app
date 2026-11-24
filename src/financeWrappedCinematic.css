@@ -79,7 +79,7 @@
   background:linear-gradient(90deg,#edc48a0b,transparent 60%,#74c4d40b);
 }
 .mh-wrap-hero__brand{display:flex;align-items:center;gap:9px;color:#f9ddad;font:700 11px Georgia,serif;letter-spacing:.16em}
-.mh-wrap-hero__brand::before{content:"✦";font-size:20px;color:#f5c78b;filter:drop-shadow(0 0 6px #dbac7a8a)}
+.mh-wrap-hero__brand::before{content:"✦";font-size:20px;color:#f5c78b;text-shadow:0 0 8px #dbac7a8a}
 .mh-wrap-hero__period{min-width:0;font-size:12px;color:#c0d4dd;overflow-wrap:anywhere;text-align:right}
 .mh-wrap-stage {padding:14px 20px 10px}
 .mh-wrap-scene {
@@ -117,17 +117,17 @@
 .mh-wrap-crest__orbit--a {
   width:270px;height:270px;
   border-style:dashed;
-  animation:mh-wrap-spin 34s linear infinite;
+  /* Keep dashed copper orbit static: only the inner ring rotates. */
 }
 .mh-wrap-crest__orbit--b {
   width:230px;height:230px;border-width:2px;
   border-top-color:#f5dbad;border-bottom-color:#7edac7;
-  animation:mh-wrap-spin-reverse 23s linear infinite;
+  animation:mh-wrap-spin-reverse 32s linear infinite;
 }
 .mh-wrap-crest__orbit--c {
   width:187px;height:187px;
   border-style:dotted;border-width:3px;
-  animation:mh-wrap-spin 43s linear infinite;
+  /* Static dotted ring avoids a second continuously repainted border. */
 }
 .mh-wrap-crest__core{
   position:relative;z-index:1;display:flex;align-items:center;
@@ -172,9 +172,9 @@
 .mh-wrap-flow-bars__fill--rose{background:linear-gradient(90deg,#7e3c57,#f4b4a3);box-shadow:0 0 14px #e989ab70}
 .mh-wrap-galaxy{display:grid;grid-template-columns:1fr 1fr;align-items:center;width:100%;max-width:760px;gap:10px}
 .mh-wrap-galaxy__dial{position:relative;width:min(100%,300px);margin:auto;aspect-ratio:1;display:grid;place-items:center}
-.mh-wrap-galaxy__dial svg{width:100%;filter:drop-shadow(0 0 8px #cfa56927)}
-.mh-wrap-galaxy__arc{cursor:pointer;stroke-linecap:round;transition:stroke-width .24s ease,filter .24s ease;outline:none}
-.mh-wrap-galaxy__arc.is-active,.mh-wrap-galaxy__arc:hover,.mh-wrap-galaxy__arc:focus-visible{stroke-width:30;filter:drop-shadow(0 0 5px #fff5bc80)}
+.mh-wrap-galaxy__dial svg{width:100%}
+.mh-wrap-galaxy__arc{cursor:pointer;stroke-linecap:round;transition:stroke-width .2s ease;outline:none}
+.mh-wrap-galaxy__arc.is-active,.mh-wrap-galaxy__arc:hover,.mh-wrap-galaxy__arc:focus-visible{stroke-width:30}
 .mh-wrap-galaxy__center{position:absolute;inset:30%;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;gap:2px;pointer-events:none}
 .mh-wrap-galaxy__label{font-weight:700;color:#ddded6;font-size:12px;overflow-wrap:anywhere}
 .mh-wrap-galaxy__center strong{font:700 clamp(20px,3.5vw,31px) Georgia,serif;color:#f9d39b}
@@ -242,7 +242,7 @@
 .mh-cosmic-modal-sheet .mh-wrap-notes__chip{display:flex;align-items:center;gap:10px;max-width:95%;padding:11px 15px;
   border-radius:100px;border:1px solid #806f75;background:linear-gradient(100deg,#233f53,#152c3e);
   color:#f5e6d8;box-shadow:inset 0 1px #fff1,0 6px 12px #0005;
-  animation:mh-wrap-float 5s ease-in-out infinite;animation-delay:calc(var(--chip-order,0)*-.47s);
+  animation:mh-wrap-enter .28s ease-out both;animation-delay:calc(var(--chip-order,0)*.035s);
   transition:border-color .2s ease,background .2s ease;
 }
 .mh-cosmic-modal-sheet .mh-wrap-notes__chip.is-active{border-color:#eabe80;background:#594738}
@@ -385,6 +385,15 @@
 }
 
 
+/* PR #77 perf: one continuously rotating ring with no animated shadow
+ * and no nested full-screen transition. Short detail animations remain. */
+.mh-wrap-crest__orbit {box-shadow:none}
+.mh-wrap-deck .mh-wrap-stat,
+.mh-wrap-deck .mh-wrap-payments__satellite,
+.mh-wrap-deck .mh-wrap-podium__place {
+  animation:none;
+}
+
 /* PR #76: Finance Wrapped ONE-SCREEN THEATER.
  * :has() scopes every modal-shell override to Wrapped only. All other
  * FinanceOverlay dialogs retain their original scroll behavior unchanged. */
@@ -462,37 +471,21 @@
   min-height:0;
   overflow:hidden;
   backface-visibility:hidden;
-  will-change:transform,opacity;
+  contain:layout paint;
 }
 .mh-wrap-deck__page--in-forward {
-  animation:mh-wrap-theater-in-next .52s cubic-bezier(.22,1,.36,1) both;
-}
-.mh-wrap-deck__page--out-forward {
-  animation:mh-wrap-theater-out-next .52s cubic-bezier(.4,0,.2,1) both;
-  pointer-events:none;
+  animation:mh-wrap-theater-in-next .35s cubic-bezier(.2,.8,.2,1) both;
 }
 .mh-wrap-deck__page--in-back {
-  animation:mh-wrap-theater-in-back .52s cubic-bezier(.22,1,.36,1) both;
-}
-.mh-wrap-deck__page--out-back {
-  animation:mh-wrap-theater-out-back .52s cubic-bezier(.4,0,.2,1) both;
-  pointer-events:none;
+  animation:mh-wrap-theater-in-back .35s cubic-bezier(.2,.8,.2,1) both;
 }
 @keyframes mh-wrap-theater-in-next {
-  from{opacity:0;transform:translate3d(32px,0,0) scale(.984)}
-  to{opacity:1;transform:translate3d(0,0,0) scale(1)}
-}
-@keyframes mh-wrap-theater-out-next {
-  from{opacity:1;transform:translate3d(0,0,0) scale(1)}
-  to{opacity:0;transform:translate3d(-30px,0,0) scale(.984)}
+  from{opacity:.05;transform:translate3d(16px,0,0)}
+  to{opacity:1;transform:translate3d(0,0,0)}
 }
 @keyframes mh-wrap-theater-in-back {
-  from{opacity:0;transform:translate3d(-32px,0,0) scale(.984)}
-  to{opacity:1;transform:translate3d(0,0,0) scale(1)}
-}
-@keyframes mh-wrap-theater-out-back {
-  from{opacity:1;transform:translate3d(0,0,0) scale(1)}
-  to{opacity:0;transform:translate3d(30px,0,0) scale(.984)}
+  from{opacity:.05;transform:translate3d(-16px,0,0)}
+  to{opacity:1;transform:translate3d(0,0,0)}
 }
 /* The stage is height-driven instead of the old 300-380px minimums, allowing
  * the whole theater (controls, artwork, chapter rail and export) to fit 100dvh. */
@@ -717,9 +710,5 @@
 @media (prefers-reduced-motion:reduce) {
   .mh-wrap-deck__page {will-change:auto}
   .mh-wrap-deck__page--in-forward,
-  .mh-wrap-deck__page--in-back,
-  .mh-wrap-deck__page--out-forward,
-  .mh-wrap-deck__page--out-back {animation:none!important}
-  .mh-wrap-deck__page--out-forward,
-  .mh-wrap-deck__page--out-back {display:none}
+  .mh-wrap-deck__page--in-back {animation:none!important}
 }

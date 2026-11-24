@@ -1,4 +1,4 @@
-import React,{useEffect,useMemo,useRef,useState} from "react";
+import React,{useCallback,useEffect,useMemo,useRef,useState} from "react";
 import FinanceWrappedSceneDeck from "./FinanceWrappedSceneDeck.jsx";
 import FinanceWrappedWheelPager from "./FinanceWrappedWheelPager.jsx";
 import "./financeWrappedCinematic.css";
@@ -81,9 +81,9 @@ export default function FinanceWrapped({records=[],monthRows=[],budgetTemplate={
     }catch(e){return {error:e.message};}
   },[records,mode,month,quarterStart,year,monthRows,budgetTemplate,activities,activityLinks,selectedActivityId]);
   const w=report.value,cur=w?.current;
-  const display=n=>hideAmounts?"RM ••••":money(n);
+  const display=useCallback(n=>hideAmounts?"RM ••••":money(n),[hideAmounts]);
   const a=w?.activitySummary;
-  const activitySlides=a?[
+  const activitySlides=useMemo(()=>a?[
     {title:zh?"这趟活动的故事":"Your activity story",body:<div className="text-center">
       <p className="text-5xl">🎒</p><p data-i18n-ignore className="mt-3 break-words text-2xl font-bold text-amber-200">{w.label}</p>
       <p className="mt-3 text-sm text-slate-300">{w.first} — {w.last}</p>
@@ -135,8 +135,8 @@ export default function FinanceWrapped({records=[],monthRows=[],budgetTemplate={
       <p className="text-5xl">✨</p><p className="mt-4 text-xl font-bold">{a.count} {zh?"笔支出":"Expenses"}</p>
       
     </div>},
-  ]:[];
-  const slides=cur&&(mode==="activity"?activitySlides:[
+  ]:[],[a,w,zh,hideNotes,display]);
+  const slides=useMemo(()=>cur&&(mode==="activity"?activitySlides:[
     {title:zh?"你的财务故事":"Your finance story",body:<div className="text-center"><p className="text-sm text-slate-300">MH Finance Wrapped</p><p className="mt-4 text-3xl font-bold text-amber-200">{w.label}</p></div>},
     {title:zh?"收支总览":"Income & Expense",body:<div className="grid gap-3 sm:grid-cols-2">
       <div className={card}><p>{zh?"总收入":"Income"}</p><p className="mt-1 text-xl font-bold text-emerald-300">{display(cur.income)}</p></div>
@@ -165,7 +165,7 @@ export default function FinanceWrapped({records=[],monthRows=[],budgetTemplate={
     </div>},
     {title:zh?"与上一期间相比":"Compared with prior period",body:<div className="space-y-3">{[["Income",w.changes.income],["Expense",w.changes.expense],["Net",w.changes.net]].map(([name,change])=><div key={name} className="flex justify-between gap-3 rounded-xl bg-white/10 p-3"><span>{name}</span><b>{hideAmounts?"RM ••••":(change>0?"+":"")+money(change)}</b></div>)}<p className="text-xs text-slate-400">Compared with the immediately preceding period of equal length.</p></div>},
     {title:zh?"下一个目标":"Your next chapter",body:<div className="text-center"><p className="text-3xl">✨</p><p className="mt-4 text-xl font-bold">{cur.count} {zh?"笔收支记录":"recorded transactions"}</p></div>},
-  ]);
+  ]),[activitySlides,cur,mode,w,zh,hideNotes,hideAmounts,display]);
   // All playback and navigation state belongs solely to this display component.
   // No saving, chart calculations, or database service is involved.
   useEffect(()=>{
