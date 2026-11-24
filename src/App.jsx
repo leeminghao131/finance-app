@@ -95,7 +95,9 @@ const monthNow = localMonthMY;
 const yearNow = localYearMY;
 const makeId = () => (crypto?.randomUUID ? crypto.randomUUID() : `${Date.now()}-${Math.random()}`);
 const pad = (n) => String(n).padStart(2, "0");
-const money = (v) => new Intl.NumberFormat("en-MY", { style: "currency", currency: "MYR" }).format(Number(v || 0));
+// Display-only formatter: reuse one identical MYR formatter across cards and rerenders.
+const myrCurrencyFormatter = new Intl.NumberFormat("en-MY", { style: "currency", currency: "MYR" });
+const money = (v) => myrCurrencyFormatter.format(Number(v || 0));
 const categoriesFor = (t) => (t === "expense" ? EXPENSE_CATEGORIES : INCOME_CATEGORIES);
 const methodsFor = (t) => (t === "expense" ? EXPENSE_METHODS : INCOME_METHODS);
 const recordMethod = (r) => r.method || methodsFor(r.type)[0];
