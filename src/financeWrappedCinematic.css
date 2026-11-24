@@ -79,7 +79,7 @@
   background:linear-gradient(90deg,#edc48a0b,transparent 60%,#74c4d40b);
 }
 .mh-wrap-hero__brand{display:flex;align-items:center;gap:9px;color:#f9ddad;font:700 11px Georgia,serif;letter-spacing:.16em}
-.mh-wrap-hero__brand::before{content:"✦";font-size:20px;color:#f5c78b;filter:drop-shadow(0 0 6px #dbac7a8a)}
+.mh-wrap-hero__brand::before{content:"✦";font-size:20px;color:#f5c78b;text-shadow:0 0 8px #dbac7a8a}
 .mh-wrap-hero__period{min-width:0;font-size:12px;color:#c0d4dd;overflow-wrap:anywhere;text-align:right}
 .mh-wrap-stage {padding:14px 20px 10px}
 .mh-wrap-scene {
@@ -393,7 +393,6 @@
 .mh-wrap-deck .mh-wrap-podium__place {
   animation:none;
 }
-.mh-wrap-hero__brand::before {filter:none;text-shadow:0 0 8px #dbac7a8a}
 
 /* PR #76: Finance Wrapped ONE-SCREEN THEATER.
  * :has() scopes every modal-shell override to Wrapped only. All other
