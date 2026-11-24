@@ -1,4 +1,6 @@
-import React,{useMemo,useRef,useState} from "react";
+import React,{useEffect,useMemo,useRef,useState} from "react";
+import FinanceWrappedStage from "./FinanceWrappedStage.jsx";
+import "./financeWrappedCinematic.css";
 import FinanceOverlay from "./FinanceOverlay.jsx";
 import {localDateMY} from "./financeCalendar.js";
 import {financeWrapped,money} from "./financeStage1Analytics.js";
@@ -53,6 +55,8 @@ export default function FinanceWrapped({records=[],monthRows=[],budgetTemplate={
   const [selectedActivityId,setSelectedActivityId]=useState("");
   const [hideNotes,setHideNotes]=useState(false);
   const [slide,setSlide]=useState(0),[hideAmounts,setHideAmounts]=useState(false),[error,setError]=useState("");
+  const [playing,setPlaying]=useState(false);
+  const swipeOrigin=useRef(null);
   const triggerRef=useRef(null);
   const report=useMemo(()=>{
     try{
@@ -161,6 +165,28 @@ export default function FinanceWrapped({records=[],monthRows=[],budgetTemplate={
     {title:zh?"与上一期间相比":"Compared with prior period",body:<div className="space-y-3">{[["Income",w.changes.income],["Expense",w.changes.expense],["Net",w.changes.net]].map(([name,change])=><div key={name} className="flex justify-between gap-3 rounded-xl bg-white/10 p-3"><span>{name}</span><b>{hideAmounts?"RM ••••":(change>0?"+":"")+money(change)}</b></div>)}<p className="text-xs text-slate-400">Compared with the immediately preceding period of equal length.</p></div>},
     {title:zh?"下一个目标":"Your next chapter",body:<div className="text-center"><p className="text-3xl">✨</p><p className="mt-4 text-xl font-bold">{cur.count} {zh?"笔收支记录":"recorded transactions"}</p></div>},
   ]);
+  // All playback and navigation state belongs solely to this display component.
+  // No saving, chart calculations, or database service is involved.
+  useEffect(()=>{
+    if(!open||!playing||report.error||slide>=slides.length-1)return undefined;
+    const timer=window.setTimeout(()=>setSlide(index=>Math.min(index+1,slides.length-1)),7600);
+    return ()=>window.clearTimeout(timer);
+  },[open,playing,report.error,slide,slides.length]);
+  useEffect(()=>{
+    if(playing&&slide>=slides.length-1)setPlaying(false);
+  },[playing,slide,slides.length]);
+  useEffect(()=>{
+    if(!open||report.error)return undefined;
+    const onKey=event=>{
+      if(event.altKey||event.ctrlKey||event.metaKey||["INPUT","SELECT","TEXTAREA"].includes(event.target?.tagName))return;
+      if(event.key==="ArrowRight"||event.key==="ArrowLeft"){
+        event.preventDefault();setPlaying(false);
+        setSlide(index=>Math.max(0,Math.min(slides.length-1,index+(event.key==="ArrowRight"?1:-1))));
+      }
+    };
+    window.addEventListener("keydown",onKey);
+    return ()=>window.removeEventListener("keydown",onKey);
+  },[open,report.error,slides.length]);
   return <>
     <button ref={triggerRef} type="button" disabled={disabled} aria-haspopup="dialog" aria-expanded={open} onClick={()=>{setSlide(0);setOpen(true);}}
       className={dockButton
@@ -169,51 +195,109 @@ export default function FinanceWrapped({records=[],monthRows=[],budgetTemplate={
       <span className={dockButton?"mh-insights-dock__label":""}>{zh?"财务回顾":"Finance Wrapped"}</span>
       <span className={dockButton?"mh-insights-dock__icon":""} aria-hidden="true">✨</span>
     </button>
-    <FinanceOverlay open={open} onClose={()=>setOpen(false)} title="Finance Wrapped" triggerRef={triggerRef} widthClass="max-w-4xl">
-      <div className="flex flex-wrap gap-2">
-        {[["monthly",zh?"月度":"Monthly"],["quarterly",zh?"自定义季度":"Custom Quarter"],["yearly",zh?"年度":"Yearly"],["activity",zh?"活动／旅行":"Activity / Travel"]].map(([id,name])=><button key={id}
-          type="button" aria-pressed={mode===id} onClick={()=>{setMode(id);setSlide(0);}}
-          className={"rounded-xl px-3 py-2 text-sm font-bold "+(mode===id?"bg-slate-900 text-white":"bg-slate-100 text-slate-700")}>{name}</button>)}
-      </div>
-      <div className="mt-3 flex flex-wrap items-end gap-3">
-        {mode==="monthly"&&<label className="text-sm">Month <input type="month" className="ml-2 rounded-xl border px-3 py-2" value={month} onChange={e=>{setMonth(e.target.value);setSlide(0);}}/></label>}
-        {mode==="quarterly"&&<label className="text-sm">First month of any 3 consecutive months <input type="month" className="ml-2 rounded-xl border px-3 py-2" value={quarterStart} onChange={e=>{setQuarterStart(e.target.value);setSlide(0);}}/></label>}
-        {mode==="yearly"&&<label className="text-sm">Year <input type="number" min={1900} max={9998} className="ml-2 w-28 rounded-xl border px-3 py-2" value={year} onChange={e=>{setYear(e.target.value);setSlide(0);}}/></label>}
-        {mode==="activity"&&<label className="text-sm">{zh?"选择活动":"Choose Activity"}
-          <select className="ml-2 min-h-10 rounded-xl border px-3 py-2" value={selectedActivityId||activities[0]?.id||""}
-            onChange={e=>{setSelectedActivityId(e.target.value);setSlide(0);}}>
-            {!activities.length&&<option value="">{zh?"暂无活动":"No activities yet"}</option>}
-            {activities.map(a=><option key={a.id} value={a.id}>{a.title}</option>)}
-          </select></label>}
-        {mode==="activity"&&<label className="flex items-center gap-2 text-sm">
-          <input type="checkbox" checked={hideNotes} onChange={e=>setHideNotes(e.target.checked)}/>
-          {zh?"隐藏敏感备注":"Hide private notes"}
-        </label>}
-        <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={hideAmounts} onChange={e=>setHideAmounts(e.target.checked)}/> Hide RM amounts</label>
-      </div>
-      {report.error?<p role="alert" className="mt-3 text-sm text-red-700">{report.error}</p>:
-        <div className="mt-4 overflow-hidden rounded-2xl bg-gradient-to-br from-slate-950 to-slate-800 p-5 text-white sm:p-7">
-          <div className="flex flex-wrap justify-between gap-2 text-xs text-amber-200">
-            <span>MH FINANCE · {w.label}</span><span>{slide+1} / {slides.length}</span>
+    <FinanceOverlay open={open} onClose={()=>{setPlaying(false);setOpen(false);}}
+      title={zh?"财务回顾 · Finance Wrapped":"Finance Wrapped"} triggerRef={triggerRef} widthClass="max-w-5xl">
+      <div className="mh-wrap">
+        <div className="mh-wrap-controls">
+          <div className="mh-wrap-modes" role="group" aria-label={zh?"回顾类型":"Wrapped period"}>
+            {[["monthly",zh?"月度":"Monthly"],["quarterly",zh?"自选三个月":"Three Months"],
+              ["yearly",zh?"年度":"Yearly"],["activity",zh?"活动／旅行":"Activity / Travel"]]
+              .map(([id,name])=><button key={id} type="button" className="mh-wrap-mode"
+                aria-pressed={mode===id} onClick={()=>{setMode(id);setSlide(0);setPlaying(false);}}>{name}</button>)}
           </div>
-          <div className="mt-3 h-1.5 rounded-full bg-white/20"><div className="h-full rounded-full bg-amber-300" style={{width:((slide+1)/slides.length*100)+"%"}}/></div>
-          <div className="mt-6 min-h-[310px]">
-            <h3 className="mb-5 text-2xl font-bold">{slides[slide].title}</h3>{slides[slide].body}
+          <div className="mh-wrap-selectors">
+            {mode==="monthly"&&<label>{zh?"月份":"Month"}
+              <input type="month" value={month} onChange={e=>{setMonth(e.target.value);setSlide(0);setPlaying(false);}}/>
+            </label>}
+            {mode==="quarterly"&&<label title={zh?"连续三个月的首月":"Start month of three consecutive months"}>
+              {zh?"首月":"First month"}
+              <input type="month" value={quarterStart} onChange={e=>{setQuarterStart(e.target.value);setSlide(0);setPlaying(false);}}/>
+            </label>}
+            {mode==="yearly"&&<label>{zh?"年份":"Year"}
+              <input type="number" min={1900} max={9998} value={year}
+                onChange={e=>{setYear(e.target.value);setSlide(0);setPlaying(false);}}/>
+            </label>}
+            {mode==="activity"&&<label>{zh?"活动":"Activity"}
+              <select value={selectedActivityId||activities[0]?.id||""}
+                onChange={e=>{setSelectedActivityId(e.target.value);setSlide(0);setPlaying(false);}}>
+                {!activities.length&&<option value="">{zh?"暂无活动":"No activities"}</option>}
+                {activities.map(a=><option key={a.id} value={a.id} data-i18n-ignore>{a.title}</option>)}
+              </select>
+            </label>}
+            {mode==="activity"&&<label><input type="checkbox" checked={hideNotes}
+              onChange={e=>setHideNotes(e.target.checked)}/>
+              {zh?"隐藏私人备注":"Hide private notes"}
+            </label>}
+            <label><input type="checkbox" checked={hideAmounts}
+              onChange={e=>setHideAmounts(e.target.checked)}/>
+              {zh?"隐藏 RM 金额":"Hide RM amounts"}
+            </label>
           </div>
-          <div className="mt-4 flex items-center justify-between gap-3">
-            <button type="button" disabled={slide===0} onClick={()=>setSlide(n=>n-1)}
-              className="rounded-xl bg-white/10 px-4 py-2 text-sm font-bold disabled:opacity-40">← Previous</button>
-            <button type="button" disabled={slide===slides.length-1} onClick={()=>setSlide(n=>n+1)}
-              className="rounded-xl bg-white/10 px-4 py-2 text-sm font-bold disabled:opacity-40">Next →</button>
-          </div>
-        </div>}
-      <div className="mt-3 flex flex-wrap items-center gap-3">
-        <button type="button" disabled={!w} onClick={()=>{try{exportStoryImage(w,hideAmounts);setError("");}catch(e){setError(e.message);}}}
-          className="rounded-xl bg-slate-900 px-4 py-3 text-sm font-semibold text-white disabled:opacity-50">Save summary as PNG</button>
-        
+        </div>
+        {report.error?<p role="alert" className="rounded-xl border border-red-600 bg-red-950/50 p-3 text-sm text-red-100">{report.error}</p>:
+          <>
+            <div className="mh-wrap-shell">
+              <div className="mh-wrap-hero">
+                <span className="mh-wrap-hero__brand">MH FINANCE · WRAPPED</span>
+                <span className="mh-wrap-hero__period" data-i18n-ignore>{w.label}</span>
+              </div>
+              <div className="mh-wrap-stage"
+                onTouchStart={event=>{
+                  const point=event.touches[0];
+                  if(point)swipeOrigin.current={x:point.clientX,y:point.clientY};
+                }}
+                onTouchEnd={event=>{
+                  const first=swipeOrigin.current,point=event.changedTouches[0];
+                  swipeOrigin.current=null;
+                  if(!first||!point)return;
+                  const dx=point.clientX-first.x,dy=point.clientY-first.y;
+                  if(Math.abs(dx)>70&&Math.abs(dy)<45){
+                    setPlaying(false);
+                    setSlide(index=>Math.max(0,Math.min(slides.length-1,index+(dx<0?1:-1))));
+                  }
+                }}>
+                <FinanceWrappedStage key={mode+"-"+slide} report={w} mode={mode}
+                  chapter={slide} zh={zh} hideNotes={hideNotes} display={display}/>
+              </div>
+              <div className="mh-wrap-footer">
+                <nav className="mh-wrap-progress" aria-label={zh?"回顾章节":"Wrapped chapters"}>
+                  {slides.map((item,index)=><button key={index} type="button"
+                    className={"mh-wrap-progress__step"+(index===slide?" is-active":index<slide?" is-done":"")}
+                    aria-current={index===slide?"step":undefined}
+                    aria-label={(zh?"跳到第 ":"Go to chapter ")+(index+1)+(zh?" 章：":": ")+item.title}
+                    title={item.title} onClick={()=>{setPlaying(false);setSlide(index);}}/>)}
+                </nav>
+                <div className="mh-wrap-actions">
+                  <button type="button" className="mh-wrap-action" disabled={slide===0}
+                    onClick={()=>{setPlaying(false);setSlide(index=>Math.max(0,index-1));}}
+                    aria-label={zh?"上一章":"Previous chapter"}>←</button>
+                  <button type="button" className="mh-wrap-action"
+                    aria-pressed={playing} onClick={()=>{
+                      if(slide>=slides.length-1)setSlide(0);
+                      setPlaying(value=>!value);
+                    }}>
+                    {playing?(zh?"Ⅱ 暂停":"Ⅱ Pause"):(zh?"▶ 自动播放":"▶ Auto play")}
+                  </button>
+                  <button type="button" className="mh-wrap-action mh-wrap-action--primary"
+                    onClick={()=>{setPlaying(false);setSlide(index=>index>=slides.length-1?0:index+1);}}>
+                    {slide===slides.length-1?(zh?"↻ 重播":"↻ Replay"):(zh?"下一章 →":"Next →")}
+                  </button>
+                </div>
+              </div>
+            </div>
+            <div className="mh-wrap-below">
+              <button type="button" className="mh-wrap-save" onClick={()=>{
+                try{exportStoryImage(w,hideAmounts);setError("");}catch(e){setError(e.message);}
+              }}>{zh?"⇩ 保存回顾 PNG":"⇩ Save Wrapped PNG"}</button>
+              <details className="mh-wrap-details">
+                <summary>{zh?"查看原始统计明细":"View detailed statistics"}</summary>
+                <div className="mh-wrap-details__body">{slides[slide].body}</div>
+              </details>
+            </div>
+          </>}
+        {error&&<p role="alert" className="mt-3 text-sm text-red-200">{error}</p>}
+        <p className="mh-wrap-disclaimer">{w?.disclaimer||(zh?"仅统计已验证的有效记录。":"Only verified records are included.")}</p>
       </div>
-      {error&&<p role="alert" className="mt-2 text-sm text-red-700">{error}</p>}
-      <p className="mt-3 text-xs text-slate-500">{w?.disclaimer||"Only verified records are included."}</p>
     </FinanceOverlay>
   </>;
 }
