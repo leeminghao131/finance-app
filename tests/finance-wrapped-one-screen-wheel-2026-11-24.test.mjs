@@ -81,6 +81,8 @@ test("Wrapped removes continuous multi-orbit and note repaint without sacrificin
 
 test("Autoplay does not rerender unchanged heavy Wrapped SVG content",()=>{
   assert.match(story,/const display=useCallback\(n=>hideAmounts/);
+  assert.match(story,/const activitySlides=useMemo\(\(\)=>a\?\[/);
+  assert.match(story,/const slides=useMemo\(\(\)=>cur&&/);
   assert.match(deck,/export default memo\(FinanceWrappedSceneDeck\)/);
   assert.match(story,/window\.setTimeout\(\(\)=>setSlide/);
   assert.match(story,/setPlaying\(value=>!value\)/);
