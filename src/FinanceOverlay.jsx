@@ -72,7 +72,7 @@ export default function FinanceOverlay({
   openRef.current = open;
   triggerRefRef.current = triggerRef;
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     if (open) setMounted(true);
   }, [open]);
 
@@ -136,7 +136,7 @@ export default function FinanceOverlay({
     acquireBodyScrollLock();
     const currentDialog = dialogRef.current;
     openDialogStack.push(currentDialog);
-    currentDialog?.focus();
+    currentDialog?.focus({preventScroll:true});
 
     const onKeyDown = event => {
       if (openDialogStack[openDialogStack.length - 1] !== currentDialog) return;
@@ -166,8 +166,8 @@ export default function FinanceOverlay({
       releaseBodyScrollLock();
       if(wasTop){
         const nextTop=openDialogStack[openDialogStack.length-1];
-        if(nextTop?.focus)nextTop.focus();
-        else if(activeBeforeOpen?.focus)activeBeforeOpen.focus();
+        if(nextTop?.focus)nextTop.focus({preventScroll:true});
+        else if(activeBeforeOpen?.focus)activeBeforeOpen.focus({preventScroll:true});
       }
     };
   }, [mounted]);
