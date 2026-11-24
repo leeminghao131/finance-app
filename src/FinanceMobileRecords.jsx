@@ -10,7 +10,8 @@ const FIELDS = [
   ["amount", "Amount (RM)"],
   ["note", "Note"],
 ];
-const currency = (amount) => new Intl.NumberFormat("en-MY", { style: "currency", currency: "MYR" }).format(Number(amount || 0));
+const recordCurrencyFormatter = new Intl.NumberFormat("en-MY", { style: "currency", currency: "MYR" });
+const currency = (amount) => recordCurrencyFormatter.format(Number(amount || 0));
 const methodOf = (record) => record.method || "TNG";
 const builtInCategories = new Set(["饮食", "教育", "住房", "日用", "交通", "娱乐", "运动", "医疗", "美容", "Salary", "Allowance", "Part-time", "Gift", "Others"]);
 const builtInMethods = new Set(["BANK", "CASH", "TNG", "GRAB PAY", "BANK IN", "DEBIT CARD", "ONLINE BANK IN"]);
