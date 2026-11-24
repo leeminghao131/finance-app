@@ -14,7 +14,10 @@ export default function FinanceWrappedSceneDeck({ report, mode, chapter, zh, hid
 
   useLayoutEffect(() => {
     const previous = previousRef.current;
-    if (previous.key === sceneKey) return undefined;
+    if (previous.key === sceneKey) {
+      previousRef.current = { key: sceneKey, chapter, mode, report };
+      return undefined;
+    }
     setDeparture(previous);
     setDirection(chapter < previous.chapter ? -1 : 1);
     previousRef.current = { key: sceneKey, chapter, mode, report };
