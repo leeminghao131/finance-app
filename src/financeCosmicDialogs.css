@@ -301,3 +301,22 @@
 @media(prefers-reduced-motion:reduce){
   .mh-cosmic-modal-sheet :is(button,a){transition-duration:.01ms!important}
 }
+
+/* Dialog compositor optimization: identical cosmic dimming and 300ms flight,
+ * but the full-viewport backdrop changes opacity on a dedicated layer,
+ * rather than repainting background-color across every frame. */
+.mh-cosmic-modal-backdrop.mh-cosmic-modal-backdrop--composited {
+  background: transparent;
+  isolation: isolate;
+}
+.mh-cosmic-modal-backdrop__veil {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  background: rgba(2,7,15,.72);
+}
+.mh-cosmic-modal-backdrop--composited > .mh-cosmic-modal-sheet {
+  position: relative;
+  z-index: 1;
+}
