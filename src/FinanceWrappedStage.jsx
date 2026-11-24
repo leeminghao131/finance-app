@@ -81,7 +81,7 @@ function CategoryGalaxy({ items, total, display, zh }) {
     <div className="mh-wrap-galaxy__dial">
       <svg viewBox="0 0 220 220" role="img" aria-label={zh ? "支出类别占比图" : "Spending category ratio"}>
         <circle cx="110" cy="110" r="70" stroke="#31475b" strokeWidth="24" fill="none"/>
-        {rings.map(row => <circle key={row.name} cx="110" cy="110" r="70"
+        {rings.map(row => <circle key={row.name + "-" + row.index} cx="110" cy="110" r="70"
           className={"mh-wrap-galaxy__arc" + (chosen === row.index ? " is-active" : "")}
           stroke={row.color} strokeWidth="24" fill="none"
           strokeDasharray={Math.max(0, row.length - 1.5) + " " + (Math.PI * 2 * 70)}
@@ -101,7 +101,7 @@ function CategoryGalaxy({ items, total, display, zh }) {
       </div>
     </div>
     <div className="mh-wrap-galaxy__legend" role="group" aria-label={zh ? "选择支出分类" : "Select spending category"}>
-      {rings.map(row => <button type="button" key={row.name} aria-pressed={chosen === row.index}
+      {rings.map(row => <button type="button" key={row.name + "-" + row.index} aria-pressed={chosen === row.index}
         className={"mh-wrap-galaxy__item" + (chosen === row.index ? " is-active" : "")}
         onMouseEnter={() => setChosen(row.index)} onClick={() => setChosen(row.index)}>
         <span className="mh-wrap-galaxy__color" style={{ background: row.color }} aria-hidden="true" />
@@ -130,7 +130,7 @@ function PaymentOrbit({ items, display, zh }) {
         const radian = -Math.PI / 2 + index * Math.PI * 2 / top.length;
         return <button type="button" key={row.name}
           className={"mh-wrap-payments__satellite" + (chosen === index ? " is-active" : "")}
-          style={{ left: (50 + Math.cos(radian) * 40) + "%", top: (50 + Math.sin(radian) * 36) + "%", "--sat-order": index }}
+          style={{ left: (50 + Math.cos(radian) * 34) + "%", top: (50 + Math.sin(radian) * 36) + "%", "--sat-order": index }}
           aria-pressed={chosen === index} onMouseEnter={() => setChosen(index)} onClick={() => setChosen(index)}>
           <span className="mh-wrap-payments__star" aria-hidden="true">✧</span>
           <span data-i18n-ignore>{row.name}</span>
