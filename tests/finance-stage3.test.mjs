@@ -113,7 +113,7 @@ test("Stage3 Activity mode UI has create, pause, resume, finish, budget and soft
 test("Stage3 Activity Wrapped keeps monthly/quarterly/yearly and adds private 10-slide Activity story and PNG",()=>{
  const s=source("FinanceWrapped.jsx");
  for(const mode of ['"monthly"','"quarterly"','"yearly"','"activity"'])assert.ok(s.includes(mode),mode);
- assert.ok(s.includes('const activitySlides=a?['));
+ assert.ok(s.includes('const activitySlides=useMemo(()=>a?['));
  assert.ok(s.includes('hideNotes'));
  assert.ok(s.includes('hideAmounts'));
  assert.ok(s.includes('a.categories.slice(0,6)'));
