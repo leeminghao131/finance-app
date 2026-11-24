@@ -24,7 +24,9 @@ function updateTextNode(node, language) {
     // React has changed this text node: rebase the original source copy.
     cached.original = actual;
   }
+  if (cached.language === language && actual === cached.rendered) return;
   const translated = translateFinanceText(cached.original, language);
+  cached.language = language;
   cached.rendered = translated;
   if (actual !== translated) node.nodeValue = translated;
 }
@@ -41,7 +43,9 @@ function updateAttribute(element, attribute, language) {
   } else if (actual !== state.original && actual !== state.rendered) {
     state.original = actual;
   }
+  if (state.language === language && actual === state.rendered) return;
   const translated = translateFinanceText(state.original, language);
+  state.language = language;
   state.rendered = translated;
   if (actual !== translated) element.setAttribute(attribute, translated);
 }
@@ -92,7 +96,6 @@ function FinanceLanguageObserver({ language }) {
       childList: true, characterData: true, attributes: true, subtree: true,
       attributeFilter: ATTRIBUTES,
     });
-    localizeNode(document.body, currentLanguage.current);
     return () => observer.disconnect();
   }, []);
   return null;

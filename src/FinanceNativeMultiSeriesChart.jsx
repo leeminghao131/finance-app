@@ -27,9 +27,9 @@ export default function FinanceNativeMultiSeriesChart({
     if(!root)return undefined;
     let frame=0;
     const measure=()=>{
-      const rect=root.getBoundingClientRect(),parent=root.parentElement;
-      const width=Math.max(190,Math.round(rect.width||root.clientWidth||parent?.clientWidth||560));
-      const height=Math.max(115,Math.round(rect.height||root.clientHeight||parent?.clientHeight||260));
+      const parent=root.parentElement;
+      const width=Math.max(190,Math.round(root.clientWidth||parent?.clientWidth||560));
+      const height=Math.max(115,Math.round(root.clientHeight||parent?.clientHeight||260));
       setBounds(prev=>prev.width===width&&prev.height===height?prev:{width,height});
     };
     const schedule=()=>{if(frame)cancelAnimationFrame(frame);frame=requestAnimationFrame(measure);};
@@ -49,7 +49,7 @@ export default function FinanceNativeMultiSeriesChart({
   const {width,height,margin,pw,ph,y,baseline}=view;
   const isMobile=width<540;
   const maxTicks=isMobile?maxTicksMobile:maxTicksDesktop;
-  const count=Math.max(2,Math.min(maxTicks,Math.floor(pw/(isMobile?77:86))+1));
+  const count=mode==="bars"&&data.length<=3?data.length:Math.max(2,Math.min(maxTicks,Math.floor(pw/(isMobile?77:86))+1));
   const ticks=new Set(chartTickIndices(data.length,count));
   const position=index=>mode==="bars"
     ?margin.left+pw*(index+.5)/Math.max(1,data.length)
