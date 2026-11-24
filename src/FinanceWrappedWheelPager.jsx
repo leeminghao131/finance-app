@@ -25,11 +25,11 @@ export default function FinanceWrappedWheelPager({ enabled, onNavigate, children
       if (direction !== lastDirection || now - lastInputTime > 250) accumulated = 0;
       lastDirection = direction;
       lastInputTime = now;
-      if (now - lastNavigationTime < 760) return; // Avoid trackpad inertia skipping pages.
+      if (now - lastNavigationTime < 440) return; // A short lockout stops inertial multi-page jumps without a sluggish delay.
       const amount = event.deltaMode === 1 ? event.deltaY * 16 :
         event.deltaMode === 2 ? event.deltaY * 700 : event.deltaY;
       accumulated += amount;
-      if (Math.abs(accumulated) < 55) return;
+      if (Math.abs(accumulated) < 40) return;
       accumulated = 0;
       lastNavigationTime = now;
       navigateRef.current(direction > 0 ? 1 : -1);
