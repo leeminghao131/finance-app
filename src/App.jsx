@@ -32,6 +32,7 @@ import {readFxCurrencyPreference,writeFxCurrencyPreference} from "./financeFxCur
 import { openingTotal, calculateMethodBalances } from "./financeOpeningBalance.js";
 import FinanceOverlay from "./FinanceOverlay.jsx";
 import FinanceHeatmapDayDetails from "./FinanceHeatmapDayDetails.jsx";
+import {financeCalendarDayGrid,financeCalendarEventsForRange} from "./financeCalendarEvents.js";
 import FinanceMobileRecords from "./FinanceMobileRecords.jsx";
 import FinanceTrendSummaryTooltip from "./FinanceTrendSummaryTooltip.jsx";
 import FinanceExpandedTrendOverlay from "./FinanceExpandedTrendOverlay.jsx";
@@ -49,6 +50,7 @@ import "./financeCosmicCharts.css";
 import "./financeNativeCharts.css";
 import "./financeClaimTracker.css";
 import "./financeHeatmapDetails.css";
+import "./financeHeatmapCalendar.css";
 import "./financeLegibilitySweep.css";
 import FinanceNativeChart from "./FinanceNativeChart.jsx";
 // Load import/export tools only when opened; keep spreadsheet parsing out of the dashboard bundle.
@@ -356,7 +358,8 @@ function DateInput({ value, onChange }) {
 }
 
 function HeatmapCard({
-  days,label,records=[],filterMode="month",selectedMonth="",selectedYear="",
+  days,label,records=[],allRecords=[],transfers=[],claims=[],claimRepayments=[],
+  recurringBills=[],forecastPlans=[],filterMode="month",selectedMonth="",selectedYear="",
   asOfDate="",ownerKey=null,
 }) {
   const [selectedDate,setSelectedDate]=useState(null);
@@ -370,6 +373,18 @@ function HeatmapCard({
   const visibleDays=useMemo(()=>paged
     ?page?heatmapMonthCalendarDays(page,days):[]
     :days,[paged,page,days]);
+  const {language}=useFinanceLanguage(),zh=language==="zh";
+  const calendarCells=useMemo(()=>financeCalendarDayGrid(visibleDays),[visibleDays]);
+  const calendarEvents=useMemo(()=>visibleDays.length?financeCalendarEventsForRange({
+    records:allRecords,transfers,claims,repayments:claimRepayments,
+    bills:recurringBills,plannedIncomes:forecastPlans,
+    first:visibleDays[0].date,last:visibleDays[visibleDays.length-1].date,asOfDate
+  }):[],[allRecords,transfers,claims,claimRepayments,recurringBills,forecastPlans,visibleDays,asOfDate]);
+  const eventByDay=useMemo(()=>{
+    const map=new Map();
+    calendarEvents.forEach(e=>{const day=map.get(e.date)||[];day.push(e);map.set(e.date,day);});
+    return map;
+  },[calendarEvents]);
   const max=visibleDays.reduce((largest,day)=>Math.max(largest,day.amount||0),1);
   const selectedDay=selectedOwner===ownerKey
     ?visibleDays.find(day=>day.date===selectedDate)||null:null;
@@ -390,7 +405,8 @@ function HeatmapCard({
     ?heatmapMonthIndex(scope.last)-heatmapMonthIndex(scope.first)+1:0;
   return (
     <Card className="mh-cosmic-panel mh-cosmic-heatmap">
-      <h2 className="text-xl font-bold">Spending Heatmap / 消费热力图</h2>
+      <h2 className="text-xl font-bold">{zh?"财务热力日历":"Finance Heatmap Calendar"}</h2>
+       <p className="mh-finance-calendar__hint">{zh?"底色代表当前筛选的消费；彩色圆点代表当日财务事件。点击日期查看详情。":"Heat color follows expense filters; colored dots represent financial events. Tap a day for details."}</p>
       {paged&&scope&&<div className="mt-3 flex flex-wrap items-center gap-2"
         aria-label="Complete spending heatmap month navigation">
         <button type="button" onClick={()=>changePage(heatmapShiftMonth(page,-1,scope))}
@@ -414,28 +430,44 @@ function HeatmapCard({
         </span>
       </div>}
       {paged&&!scope?<p role="status" className="mt-4 text-sm opacity-75">
-        No dated records in the selected range.
-      </p>:<div className="mt-4 grid gap-2"
-        style={{gridTemplateColumns:"repeat(auto-fit, minmax(80px, 1fr))"}}>
-        {visibleDays.map(d=>{
+        {zh?"所选范围内没有有效日期记录。":"No dated records in the selected range."}
+      </p>:<div className="mh-finance-calendar__grid" role="group"
+        aria-label={zh?"财务热力日历":"Integrated finance heatmap calendar"}>
+        {["sun","mon","tue","wed","thu","fri","sat"].map((day,index)=>
+          <div key={day} className="mh-finance-calendar__weekday" aria-hidden="true">
+            {(zh?["日","一","二","三","四","五","六"]:["S","M","T","W","T","F","S"])[index]}
+          </div>)}
+        {calendarCells.map((d,index)=>{
+          if(!d)return <div key={"blank-"+index} aria-hidden="true" className="mh-finance-calendar__blank"/>;
           const intensity=d.amount>0?0.18+(d.amount/max)*0.72:0.06;
-          return <button key={d.date} type="button" title={d.date+": "+money(d.amount)}
-            aria-label={d.date+" · Spending "+money(d.amount)+" · Open daily details"}
+          const events=eventByDay.get(d.date)||[];
+          const types=[...new Set(events.map(e=>e.kind))].slice(0,4);
+          return <button key={d.date} type="button"
+            title={d.date+": "+money(d.amount)+" · "+events.length+" events"}
+            aria-label={d.date+" · Spending "+money(d.amount)+" · "+events.length+" financial events · Open daily details"}
             aria-haspopup="dialog" aria-expanded={selectedDate===d.date}
             onClick={event=>{heatmapTriggerRef.current=event.currentTarget;
               setSelectedOwner(ownerKey);setSelectedDate(d.date);}}
-            className={"mh-cosmic-heat__day text-center text-xs font-bold "+(d.amount>0?"is-active":"is-empty")}
+            className={"mh-cosmic-heat__day mh-finance-calendar__day text-center text-xs font-bold "+(d.amount>0?"is-active":"is-empty")}
             style={{"--mh-day-intensity":intensity}}>
-            <span className="block">{d.date.slice(8)}</span>
-            <span className="mt-1 block break-words text-[11px] font-bold leading-tight tabular-nums"
-              style={{overflowWrap:"anywhere"}}>{d.amount>0?money(d.amount).replace("MYR","RM"):"-"}</span>
+            <span className="mh-finance-calendar__date">{d.date.slice(8)}</span>
+            <span className="mh-finance-calendar__markers" aria-hidden="true">
+              {types.map(type=><i key={type} className={"mh-finance-calendar__dot is-"+type}/>)}
+            </span>
+            <span className="mh-finance-calendar__amount">{d.amount>0?money(d.amount).replace("MYR","RM"):"–"}</span>
           </button>;
         })}
       </div>}
+      <div className="mh-finance-calendar__legend" aria-label={zh?"日历标记说明":"Calendar event legend"}>
+        {[["income",zh?"收入":"Income"],["claim-in",zh?"报销":"Claim received"],["claim-out",zh?"垫付":"Advance"],["transfer",zh?"转账":"Transfer"],["bill",zh?"待付账单":"Bill"],["expected",zh?"预计收入":"Expected"]].map(([type,caption])=>
+          <span key={type}><i className={"mh-finance-calendar__dot is-"+type} aria-hidden="true"/>{caption}</span>)}
+      </div>
       <FinanceHeatmapDayDetails
         open={Boolean(selectedDay)}
         date={selectedDate}
         records={records}
+        events={calendarEvents}
+        asOfDate={asOfDate}
         heatmapSpending={selectedDay?.amount??0}
         scopeLabel={label}
         triggerRef={heatmapTriggerRef}
@@ -3032,7 +3064,10 @@ return (
                  onSavePlans={saveExpectedIncomePlans}
               />
               <HeatmapCard days={heatmapDays} label={filterLabel} records={periodRecords}
-                 filterMode={filterMode} selectedMonth={selectedMonth} selectedYear={selectedYear}
+                 allRecords={records} transfers={transfers} claims={claims}
+                 claimRepayments={claimRepayments} recurringBills={recurringBills}
+                 forecastPlans={forecastPlans} filterMode={filterMode}
+                 selectedMonth={selectedMonth} selectedYear={selectedYear}
                  asOfDate={localToday} ownerKey={user?.id}/>
               <div className="min-w-0">
                 <TopExpensesCard
