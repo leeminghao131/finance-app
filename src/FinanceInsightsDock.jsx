@@ -8,6 +8,7 @@ import FinanceSavingsGoals from "./FinanceSavingsGoals.jsx";
 import FinanceOverlay from "./FinanceOverlay.jsx";
 import FinanceDataToolsLauncher from "./FinanceDataToolsLauncher.jsx";
 import FinanceClaimTracker from "./FinanceClaimTracker.jsx";
+const FinanceSpendingRadar = React.lazy(() => import("./FinanceSpendingRadar.jsx"));
 import {useFinanceLanguage} from "./FinanceLanguageLayer.jsx";
 import {readDockOrder,saveDockOrder,moveDockItem} from "./financeDockOrder.js";
 
@@ -146,6 +147,13 @@ export default function FinanceInsightsDock({
     {id:"comparison",label:zh?"月度财务对比":"Month Comparison",icon:"📊",node:
       <DockCardPopup title={zh?"月度财务对比":"Month Comparison"} icon="📊" disabled={disabled}>
         <FinanceMonthComparison records={records}/>
+      </DockCardPopup>},
+    {id:"radar",label:zh?"消费雷达":"Spending Radar",icon:"◉",node:
+      <DockCardPopup title={zh?"消费雷达":"Spending Radar"} icon="◉"
+        disabled={disabled} widthClass="max-w-5xl">
+        <React.Suspense fallback={<p role="status">{zh?"正在载入分析工具…":"Loading spending analysis…"}</p>}>
+          <FinanceSpendingRadar records={records} asOfDate={asOfDate} disabled={disabled}/>
+        </React.Suspense>
       </DockCardPopup>},
     {id:"savings",label:zh?"储蓄目标":"Savings Goals",icon:"🎯",node:
       <DockCardPopup title={zh?"储蓄目标":"Savings Goals"} icon="🎯" disabled={disabled}>
