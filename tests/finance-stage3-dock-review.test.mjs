@@ -4,8 +4,8 @@ import {readFileSync} from "node:fs";
 import {FINANCE_DOCK_IDS,normalizeDockOrder,moveDockItem,readDockOrder,saveDockOrder} from "../src/financeDockOrder.js";
 const src=name=>readFileSync(new URL("../src/"+name,import.meta.url),"utf8");
 
-test("drawer order retains all ten tools, ignores duplicates/obsolete IDs and reorders safely",()=>{
-  assert.equal(FINANCE_DOCK_IDS.length,10);
+test("drawer order retains all eleven tools, ignores duplicates/obsolete IDs and reorders safely",()=>{
+  assert.equal(FINANCE_DOCK_IDS.length,11);
   assert.deepEqual(normalizeDockOrder(["review","review","unknown","activity"]).slice(0,2),["review","activity"]);
   assert.equal(new Set(normalizeDockOrder(["review"])).size,10);
   assert.equal(moveDockItem(FINANCE_DOCK_IDS,"accounts","wrapped")[0],"accounts");
