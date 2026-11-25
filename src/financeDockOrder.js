@@ -1,6 +1,6 @@
 // UI-only order, private to this browser and signed-in account. Never touches Supabase.
 export const FINANCE_DOCK_IDS=Object.freeze([
-  "wrapped","activity","simulator","comparison","savings","bills","review","accounts","claims","data-tools"
+  "wrapped","activity","simulator","comparison","radar","savings","bills","review","accounts","claims","data-tools"
 ]);
 export function normalizeDockOrder(value){
   const seen=new Set();
