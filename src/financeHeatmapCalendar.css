@@ -1,0 +1,77 @@
+/* Integrated financial calendar: one card, NO heatmap/calendar mode switch.
+   Static surfaces and transform-free dots preserve PR #78 scroll performance. */
+.mh-ui.mh-cosmic-pilot .mh-finance-calendar__hint {
+  color:#c5d3dc;font-size:12px;line-height:1.55;margin-top:7px;
+}
+.mh-ui.mh-cosmic-pilot .mh-finance-calendar__grid {
+  display:grid;grid-template-columns:repeat(7,minmax(0,1fr));
+  gap:6px;margin-top:13px;min-width:0;
+}
+.mh-ui.mh-cosmic-pilot .mh-finance-calendar__weekday {
+  min-width:0;text-align:center;color:#d6c59e;
+  font-size:11px;font-weight:750;padding:5px 0;
+}
+.mh-ui.mh-cosmic-pilot .mh-finance-calendar__blank {
+  min-width:0;min-height:60px;
+}
+.mh-ui.mh-cosmic-pilot .mh-cosmic-heat__day.mh-finance-calendar__day {
+  display:flex;flex-direction:column;align-items:center;justify-content:space-around;
+  min-width:0;min-height:67px;gap:4px;padding:6px 2px;
+  overflow:hidden;touch-action:manipulation;
+}
+.mh-ui.mh-cosmic-pilot .mh-finance-calendar__date {
+  display:block;flex:none;font-size:12px;font-weight:800;line-height:1.1;
+}
+.mh-ui.mh-cosmic-pilot .mh-finance-calendar__markers {
+  display:flex;justify-content:center;align-items:center;flex-wrap:wrap;
+  min-height:8px;gap:3px;flex:none;max-width:100%;
+}
+.mh-ui.mh-cosmic-pilot .mh-finance-calendar__dot {
+  display:inline-block;width:7px;height:7px;min-width:7px;
+  border-radius:50%;background:#d1c1a6;box-shadow:0 0 0 1px #06152280;
+}
+.mh-ui.mh-cosmic-pilot .mh-finance-calendar__dot.is-income{background:#72d3b1}
+.mh-ui.mh-cosmic-pilot .mh-finance-calendar__dot.is-expense{background:#e99188}
+.mh-ui.mh-cosmic-pilot .mh-finance-calendar__dot.is-transfer{background:#96c8f1}
+.mh-ui.mh-cosmic-pilot .mh-finance-calendar__dot.is-claim-out{background:#efbc79}
+.mh-ui.mh-cosmic-pilot .mh-finance-calendar__dot.is-claim-in{background:#8ce3cb}
+.mh-ui.mh-cosmic-pilot .mh-finance-calendar__dot.is-bill{background:#cba2ed}
+.mh-ui.mh-cosmic-pilot .mh-finance-calendar__dot.is-expected{background:#76d9ed}
+.mh-ui.mh-cosmic-pilot .mh-finance-calendar__amount {
+  min-width:0;max-width:100%;display:block;
+  font-size:10px;font-weight:750;line-height:1.2;
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
+  font-variant-numeric:tabular-nums;
+}
+.mh-ui.mh-cosmic-pilot .mh-finance-calendar__legend {
+  display:flex;flex-wrap:wrap;gap:7px 13px;margin-top:13px;
+  font-size:11px;color:#d2dae0;
+}
+.mh-ui.mh-cosmic-pilot .mh-finance-calendar__legend>span {
+  display:inline-flex;align-items:center;gap:5px;
+}
+.mh-ui.mh-cosmic-pilot .mh-calendar-detail__extras {
+  display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px;margin-top:14px;
+}
+.mh-ui.mh-cosmic-pilot .mh-calendar-detail__extras .is-cash-out{color:#ffb5aa}
+.mh-ui.mh-cosmic-pilot .mh-calendar-detail__extras .is-cash-in{color:#8fe6c9}
+.mh-ui.mh-cosmic-pilot .mh-calendar-detail__extras .is-scheduled{color:#e4c897}
+.mh-heat-detail__summary:has(>div:nth-child(4)){
+  grid-template-columns:repeat(4,minmax(0,1fr));
+}
+@media(max-width:640px){
+  .mh-ui.mh-cosmic-pilot .mh-finance-calendar__grid{gap:3px}
+  .mh-ui.mh-cosmic-pilot .mh-cosmic-heat__day.mh-finance-calendar__day {
+    min-height:52px;padding:5px 1px;border-radius:8px;
+  }
+  .mh-ui.mh-cosmic-pilot .mh-finance-calendar__date{font-size:11px}
+  .mh-ui.mh-cosmic-pilot .mh-finance-calendar__amount{font-size:9px}
+  .mh-ui.mh-cosmic-pilot .mh-finance-calendar__dot{width:5px;height:5px;min-width:5px}
+  .mh-ui.mh-cosmic-pilot .mh-finance-calendar__blank{min-height:52px}
+  .mh-ui.mh-cosmic-pilot .mh-calendar-detail__extras{grid-template-columns:1fr}
+  .mh-heat-detail__summary:has(>div:nth-child(4)){grid-template-columns:repeat(2,minmax(0,1fr))}
+  .mh-heat-detail__summary:has(>div:nth-child(4))>div:last-child{grid-column:span 1}
+}
+@media(prefers-reduced-motion:reduce){
+  .mh-ui.mh-cosmic-pilot .mh-finance-calendar__day{transition:none!important}
+}
