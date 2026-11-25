@@ -44,11 +44,11 @@ test("UI: heatmap displays complete amount in responsive minimum-width date cell
   const start = app.indexOf("function HeatmapCard(");
   const end = app.indexOf("function TopExpensesCard(", start);
   const section = app.slice(start, end);
-  assert.match(section, /gridTemplateColumns:\s*"repeat\(auto-fit, minmax\(80px, 1fr\)\)"/);
-  assert.match(section, /overflowWrap:\s*"anywhere"/);
+  assert.match(section, /mh-finance-calendar__grid/);
+  assert.match(source("financeHeatmapCalendar.css"), /grid-template-columns:repeat\(7,minmax\(0,1fr\)\)/);
   assert.match(section, /money\(d\.amount\)/);
   assert.doesNotMatch(section, /className="mt-1 truncate"/);
-  assert.match(section, /visibleDays\.map\(d=>/);
+  assert.match(section, /calendarCells\.map\(\(d,index\)=>/);
 });
 
 test("UI: nested records mobile editor only responds to topmost modal keyboard handling", () => {
