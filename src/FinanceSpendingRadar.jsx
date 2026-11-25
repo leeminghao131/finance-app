@@ -1,7 +1,7 @@
 import React,{useMemo,useState} from "react";
 import {useFinanceLanguage} from "./FinanceLanguageLayer.jsx";
 import {builtInFinanceCategory} from "./financeLanguage.js";
-import {discoverSpendingPatterns,SPENDING_RADAR_KINDS} from "./financeSpendingPatterns.js";
+import {discoverSpendingPatterns} from "./financeSpendingPatterns.js";
 import "./financeSpendingRadar.css";
 
 const fmt=new Intl.NumberFormat("en-MY",{style:"currency",currency:"MYR"});
@@ -28,7 +28,7 @@ export default function FinanceSpendingRadar({records=[],asOfDate,disabled=false
     catch(error){return {status:"error",findings:[],explanation:String(error?.message||error)};}
   },[records,asOfDate,baselineMonths]);
   const availableCategories=useMemo(()=>[...new Set(result.findings.map(x=>x.category)
-    .filter(x=>SPENDING_RADAR_KINDS.includes(x)===false&&/[^0-9]/.test(x)))].sort((a,b)=>a.localeCompare(b)),
+    .filter(x=>!/^[0-9]+$/.test(x)))].sort((a,b)=>a.localeCompare(b)),
     [result]);
   const matches=result.findings.filter(f=>(kind==="all"||f.kind===kind)
     &&(category==="all"||f.category===category));
