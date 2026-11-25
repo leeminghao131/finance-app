@@ -74,7 +74,7 @@ test("Heatmap still uses real daily amounts and ranking still uses real records"
   assert.match(app, /const max=visibleDays\.reduce\(\(largest,day\)=>Math\.max\(largest,day\.amount\|\|0\),1\)/);
   assert.match(app, /const intensity=d\.amount>0\?0\.18\+\(d\.amount\/max\)\*0\.72:0\.06/);
   assert.match(app, /"--mh-day-intensity":intensity/);
-  assert.match(app, /d\.amount>0\?money\(d\.amount\)\.replace\("MYR","RM"\):"-"/);
+  assert.match(app, /d\.amount>0\?money\(d\.amount\)\.replace\("MYR","RM"\):"–"/);
   assert.match(app, /records\.map\(\(record, index\) =>/);
   assert.match(app, /formatCategoryLabel\(record\.category\)\}\s*· \{recordMethod\(record\)\}/);
   assert.match(app, /money\(record\.amount\)/);
