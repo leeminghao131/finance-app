@@ -169,9 +169,9 @@ test("TEST-only SQL enforces ownership, no deletes, version guards and serialize
 test("claim UI is a single drawer overlay with persistent claim bell; no protected CRUD alterations",()=>{
   const app=src("App.jsx"),dock=src("FinanceInsightsDock.jsx"),panel=src("FinanceClaimTracker.jsx");
   const hub=src("FinanceStage2Hub.jsx"),service=src("financeClaimService.js"),cloud=src("financeCloudService.js");
-  assert.equal(FINANCE_DOCK_IDS.length,10);
+  assert.equal(FINANCE_DOCK_IDS.length,11);
   assert.equal(FINANCE_DOCK_IDS.filter(v=>v==="claims").length,1);
-  assert.equal(normalizeDockOrder(["review","wrapped"]).length,10);
+  assert.equal(normalizeDockOrder(["review","wrapped"]).length,11);
   assert.match(dock,/<FinanceClaimTracker /);
   assert.match(panel,/Claim Tracker/);
   assert.match(panel,/<FinanceOverlay open=\{open\}/);
