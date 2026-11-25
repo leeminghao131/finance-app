@@ -16,7 +16,7 @@ const hist=(category="饮食",perMonth=4,amount=20)=>{
       rows.push(row(month+"-"+String(2+i*4).padStart(2,"0"),category,amount,month+"-"+i));
   return rows;
 };
-const base=()=>[...hist(),...Array.from({length:4},(_,i)=>row("2026-11-"+String(2+i*5).padStart(2,"0"),"饮食",25,"current"+i))];
+const base=()=>[...hist(),...Array.from({length:4},(_,i)=>row("2026-11-"+String(2+i*5).padStart(2,"0"),"饮食",32,"current"+i))];
 const result=rows=>discoverSpendingPatterns(rows,options);
 const src=name=>readFileSync(new URL("../src/"+name,import.meta.url),"utf8");
 
