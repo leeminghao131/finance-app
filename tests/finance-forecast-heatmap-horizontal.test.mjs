@@ -38,8 +38,8 @@ test("UI: forecast details remain left of a separate responsive graph on wide sc
 
 test("UI: wider heatmap retains full amounts and unchanged Top 5 item layout", () => {
   const heatmap = app.slice(app.indexOf("function HeatmapCard("),app.indexOf("function TopExpensesCard("));
-  assert.match(heatmap, /repeat\(auto-fit, minmax\(80px, 1fr\)\)/);
-  assert.match(heatmap, /overflowWrap:\s*"anywhere"/);
+  assert.match(heatmap, /mh-finance-calendar__grid/);
+  assert.match(heatmap, /financeCalendarDayGrid\(visibleDays\)/);
   assert.match(heatmap, /money\(d.amount\)/);
   const top = app.slice(app.indexOf("function TopExpensesCard("),app.indexOf("function TodaySummaryCard("));
   assert.match(top, /sm:grid-cols-2 xl:grid-cols-5/);
