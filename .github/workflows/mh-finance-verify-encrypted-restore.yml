@@ -78,6 +78,11 @@ jobs:
           mkdir -p "$RUNNER_TEMP/mh-finance-rehearsal-project"
           cd "$RUNNER_TEMP/mh-finance-rehearsal-project"
           supabase init --force >/dev/null 2>&1
+          # Supabase CLI 3.4+ defaults to config.jsonc; convert the LOCAL disposable project only.
+          if [[ -f supabase/config.jsonc && ! -f supabase/config.toml ]]; then
+            SUPABASE_YES=1 supabase config convert --to toml --yes >/dev/null 2>&1
+          fi
+          test -f supabase/config.toml || { echo '::error::Local CLI configuration not created.'; exit 1; }
           python3 - <<'PY'
           from pathlib import Path
           import re
