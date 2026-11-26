@@ -81,7 +81,7 @@ test("Stage 1.2: Month Comparison and Savings Goals are dock-only floating popup
   assert.match(app,/<FinanceInsightsDock/);
   assert.match(dock,/<DockCardPopup title=\{zh\?"月度财务对比":"Month Comparison"\}/);
   assert.match(dock,/<DockCardPopup title=\{zh\?"储蓄目标":"Savings Goals"\}/);
-  assert.match(dock,/<FinanceMonthComparison records=\{records\}\/>/);
+  assert.match(dock,/<FinanceMonthComparison records=\{records\} asOfDate=\{asOfDate\}\/>/);
   assert.match(dock,/<FinanceSavingsGoals goals=\{goals\} onSave=\{onSaveSavingsGoals\}/);
   assert.match(dock,/savingsAvailability=\{savingsAvailability\}/);
   assert.match(dock,/calculationError=\{calculationError\}/);
@@ -96,5 +96,5 @@ test("Stage 1.2: Month Comparison and Savings Goals are dock-only floating popup
   // Components are unchanged: goal editor and category overlay still available.
   assert.match(src("FinanceSavingsGoals.jsx"),/async function submit/);
   assert.match(src("FinanceSavingsGoals.jsx"),/validateSavingsGoals\(next\)/);
-  assert.match(src("FinanceMonthComparison.jsx"),/compareFinanceMonths\(records,firstMonth,secondMonth\)/);
+  assert.match(src("FinanceMonthComparison.jsx"),/compareFinanceMonths\(records,firstMonth,secondMonth,asOfDate\)/);
 });
