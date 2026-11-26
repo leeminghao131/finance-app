@@ -1,0 +1,173 @@
+name: MH Finance encrypted backup isolated restore rehearsal
+
+on:
+  push:
+    branches:
+      - backup/secure-prod-2026-11-26
+    paths:
+      - .github/workflows/mh-finance-verify-encrypted-restore.yml
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  restore:
+    name: Verify saved encrypted backup in disposable local PostgreSQL
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    environment: mh-finance-prod-backup
+    steps:
+      - name: Download exactly the existing encrypted backup artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: mh-finance-prod-aes256-encrypted-backup
+          run-id: 45831886534
+          github-token: ${{ github.token }}
+          path: ${{ runner.temp }}/mh-finance-restore-input
+
+      - name: Decrypt backup and verify archive checksums privately
+        shell: bash
+        env:
+          GPG_PASSPHRASE: ${{ secrets.MH_BACKUP_PASSPHRASE }}
+        run: |
+          set -euo pipefail
+          umask 077
+          work="$RUNNER_TEMP/mh-finance-isolated-restore"
+          mkdir -m 700 -p "$work"
+          shopt -s nullglob
+          archives=("$RUNNER_TEMP"/mh-finance-restore-input/*.gpg)
+          if [[ ${#archives[@]} -ne 1 || -z "${GPG_PASSPHRASE:-}" ]]; then
+            echo '::error::Expected exactly one encrypted archive and a protected encryption secret.'
+            exit 1
+          fi
+          printf '%s' "$GPG_PASSPHRASE" | gpg --batch --yes --quiet \
+            --pinentry-mode loopback --passphrase-fd 0 \
+            --output "$work/bundle.tar.gz" --decrypt "${archives[0]}"
+          WORK="$work" python3 - <<'PY'
+          import os, tarfile
+          path = os.path.join(os.environ["WORK"], "bundle.tar.gz")
+          expected = {'roles.sql','schema.sql','data.sql','manifest.sha256','metadata.txt'}
+          with tarfile.open(path,'r:gz') as t:
+              members=t.getmembers()
+              if {m.name for m in members} != expected:
+                  raise SystemExit('Archive contents do not match the five expected files.')
+              if any(not m.isfile() or m.size > 50_000_000 for m in members):
+                  raise SystemExit('Unsafe archive member type or size.')
+              t.extractall(os.environ['WORK'],filter='data')
+          PY
+          cd "$work"
+          sha256sum -c manifest.sha256 >/dev/null
+          grep -Fqx 'source_project=hlkciowyusbhwcwjzfsr' metadata.txt
+          grep -Fqx 'restoration_status=NOT_YET_VERIFIED' metadata.txt
+          for file in roles.sql schema.sql data.sql; do
+            test -s "$file"
+          done
+          echo '::notice::Encrypted backup decrypts and SQL checksums match. No transaction rows printed.'
+          rm -f "$work/bundle.tar.gz"
+
+      - name: Install Supabase CLI for disposable local database only
+        uses: supabase/setup-cli@v1
+        with:
+          version: latest
+
+      - name: Create isolated local PostgreSQL 17 (no remote database URL)
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/mh-finance-rehearsal-project"
+          cd "$RUNNER_TEMP/mh-finance-rehearsal-project"
+          supabase init --force >/dev/null 2>&1
+          python3 - <<'PY'
+          from pathlib import Path
+          import re
+          f=Path('supabase/config.toml')
+          txt=f.read_text()
+          if re.search(r'(?m)^[ \t]*major_version[ \t]*=[ \t]*\d+',txt):
+              txt=re.sub(r'(?m)^([ \t]*major_version[ \t]*=[ \t]*)\d+',r'\g<1>17',txt,count=1)
+          elif '[db]\n' in txt:
+              txt=txt.replace('[db]\n','[db]\nmajor_version = 17\n',1)
+          else:
+              raise SystemExit('No recognized Supabase db config; refusing restore.')
+          f.write_text(txt)
+          PY
+          if ! supabase db start > "$RUNNER_TEMP/mh-finance-local-db-start.log" 2>&1; then
+            echo '::error::Could not start disposable local Supabase DB. Production untouched.'
+            exit 1
+          fi
+          mapfile -t dbids < <(docker ps --filter 'name=supabase_db_' --format '{{.ID}}')
+          if [[ ${#dbids[@]} -ne 1 ]]; then
+            echo '::error::Expected exactly one disposable local Postgres container.'
+            exit 1
+          fi
+          echo "LOCAL_RESTORE_DB_CONTAINER=${dbids[0]}" >> "$GITHUB_ENV"
+          echo '::notice::Disposable local PostgreSQL 17 prepared; no shared Supabase project was contacted.'
+
+      - name: Transactional roles, schema and data restore (local container only)
+        shell: bash
+        run: |
+          set -euo pipefail
+          work="$RUNNER_TEMP/mh-finance-isolated-restore"
+          cd "$work"
+          # SQL flows only to localhost Docker. Never show rows or private SQL error text in public GitHub logs.
+          if {
+            printf 'BEGIN;\n'
+            cat roles.sql
+            printf '\n'
+            cat schema.sql
+            printf '\nSET session_replication_role = replica;\n'
+            cat data.sql
+            printf '\nCOMMIT;\n'
+          } | docker exec -i "$LOCAL_RESTORE_DB_CONTAINER" \
+              psql -X -q -v ON_ERROR_STOP=1 -U postgres -d postgres \
+              > "$work/private-restore.log" 2>&1; then
+            echo '::notice::Roles/schema/data restored transactionally to disposable local database.'
+          else
+            echo '::error::Isolated SQL restore failed. Private SQL diagnostics were NOT uploaded or printed.'
+            exit 1
+          fi
+
+      - name: Assert restored accounts, all ledger rows, RLS and account separation
+        shell: bash
+        run: |
+          set -euo pipefail
+          container="$LOCAL_RESTORE_DB_CONTAINER"
+          result=$(docker exec "$container" psql -X -qAt -v ON_ERROR_STOP=1 -U postgres -d postgres -c "
+            SELECT
+              (SELECT count(*) FROM public.records),
+              (SELECT count(*) FROM public.transfers),
+              (SELECT count(*) FROM public.user_settings),
+              (SELECT count(*) FROM auth.users),
+              (SELECT count(*) FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace WHERE n.nspname='public' AND c.relname IN ('records','transfers','user_settings') AND c.relrowsecurity),
+              (SELECT count(*) FROM pg_policies WHERE schemaname='public' AND tablename IN ('records','transfers','user_settings')),
+              (SELECT count(*) FROM public.records r WHERE r.user_id IS NULL OR NOT EXISTS (SELECT 1 FROM auth.users u WHERE u.id=r.user_id)),
+              (SELECT count(*) FROM public.transfers t WHERE NOT EXISTS (SELECT 1 FROM auth.users u WHERE u.id=t.user_id)),
+              (SELECT count(*) FROM public.records r WHERE r.amount IS NULL OR r.amount<=0);
+          " | tr -d '[:space:]')
+          IFS='|' read -r records transfers settings accounts rls policies ownerless orphan_transfers bad_amounts <<< "$result"
+          if [[ "$records" != "687" || "$transfers" != "58" || "$settings" != "2" || "$accounts" != "2" ]]; then
+            echo '::error::Restore row counts differ from backup-time expected counts.'
+            exit 1
+          fi
+          if [[ "$rls" != "3" || "$policies" -lt 9 || "$ownerless" != "0" || "$orphan_transfers" != "0" || "$bad_amounts" != "0" ]]; then
+            echo '::error::RLS/ownership/amount integrity check failed in isolated restore.'
+            exit 1
+          fi
+          no_owner=$(docker exec "$container" psql -X -qAt -v ON_ERROR_STOP=1 -U postgres -d postgres \
+            -c "SET ROLE authenticated; SELECT count(*) FROM public.records;" | tail -1 | tr -d '[:space:]')
+          if [[ "$no_owner" != "0" ]]; then
+            echo '::error::No-JWT authenticated role can see private ledgers.'
+            exit 1
+          fi
+          echo '::notice::Isolated restore passed counts, auth records, RLS, ownership and no-owner isolation, with no individual rows logged.'
+          echo '::notice::This does not verify external Auth/email settings, live sessions or Android/Windows sign-in.'
+
+      - name: Cleanup disposable unencrypted data
+        if: always()
+        shell: bash
+        run: |
+          rm -rf "$RUNNER_TEMP/mh-finance-isolated-restore" "$RUNNER_TEMP/mh-finance-restore-input"
+          if [[ -n "${LOCAL_RESTORE_DB_CONTAINER:-}" ]]; then
+            docker rm -f "$LOCAL_RESTORE_DB_CONTAINER" >/dev/null 2>&1 || true
+          fi
+          echo '::notice::Temporary plaintext and local container cleanup attempted; no restored database artifact uploaded.'
