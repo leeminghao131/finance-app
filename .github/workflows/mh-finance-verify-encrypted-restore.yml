@@ -113,46 +113,47 @@ jobs:
         run: |
           set -euo pipefail
           work="$RUNNER_TEMP/mh-finance-isolated-restore"
+          container="$LOCAL_RESTORE_DB_CONTAINER"
           cd "$work"
-          # SQL flows only to localhost Docker. Never show rows or private SQL error text in public GitHub logs.
-          if {
-            printf 'BEGIN;\n'
-            cat roles.sql
-            printf '\n'
-            cat schema.sql
-            printf '\nSET session_replication_role = replica;\n'
-            cat data.sql
-            printf '\nCOMMIT;\n'
-          } | docker exec -i "$LOCAL_RESTORE_DB_CONTAINER" \
-              psql -X -q -v ON_ERROR_STOP=1 -U postgres -d postgres \
+          # Use local loopback inside isolated Postgres Docker. This does not use any production DB connection.
+          if ! docker exec -e PGPASSWORD=postgres "$container" \
+            psql -h localhost -U postgres -d postgres -X -qAt -v ON_ERROR_STOP=1 -c 'SELECT 1' \
+              > /dev/null 2>&1; then
+            echo '::error::Disposable local PostgreSQL did not accept its own development credentials; no remote DB touched.'
+            exit 1
+          fi
+          for file in roles.sql schema.sql data.sql; do
+            docker cp "$work/$file" "$container:/tmp/mh-restore-$file" >/dev/null
+          done
+          if docker exec -e PGPASSWORD=postgres "$container" \
+            psql -h localhost -U postgres -d postgres -X -q -v ON_ERROR_STOP=1 -1 \
+              -f /tmp/mh-restore-roles.sql -f /tmp/mh-restore-schema.sql \
+              -c 'SET session_replication_role = replica' -f /tmp/mh-restore-data.sql \
               > "$work/private-restore.log" 2>&1; then
-            echo '::notice::Roles/schema/data restored transactionally to disposable local database.'
+            echo '::notice::All three SQL files restored transactionally to isolated local Postgres.'
           else
-            echo '::error::Isolated SQL restore failed. Full SQL errors remain private and are never uploaded.'
-            if grep -Fq 'already exists' "$work/private-restore.log"; then
-              echo '::notice::Sanitized SQL category: duplicate object'
-            elif grep -Fq 'does not exist' "$work/private-restore.log"; then
-              echo '::notice::Sanitized SQL category: missing object'
-            elif grep -Fq 'permission denied' "$work/private-restore.log"; then
-              echo '::notice::Sanitized SQL category: insufficient permission'
-            elif grep -Fq 'duplicate key' "$work/private-restore.log"; then
-              echo '::notice::Sanitized SQL category: duplicate key'
-            elif grep -Fq 'violates' "$work/private-restore.log"; then
-              echo '::notice::Sanitized SQL category: constraint violation'
+            echo '::error::Local SQL restore failed. No raw SQL errors or individual rows printed.'
+            if grep -Fq 'mh-restore-roles.sql:' "$work/private-restore.log"; then
+              echo '::notice::Sanitized failure stage: roles'
+            elif grep -Fq 'mh-restore-schema.sql:' "$work/private-restore.log"; then
+              echo '::notice::Sanitized failure stage: schema'
+            elif grep -Fq 'mh-restore-data.sql:' "$work/private-restore.log"; then
+              echo '::notice::Sanitized failure stage: data'
             else
-              echo '::notice::Sanitized SQL category: other (no private error text disclosed)'
+              echo '::notice::Sanitized failure stage: initial connection or command'
             fi
-            first_line=$(grep -Eom1 'psql:<stdin>:[0-9]+' "$work/private-restore.log" | sed 's/^.*://') || true
-            if [[ "$first_line" =~ ^[0-9]+$ ]]; then
-              roles_lines=$(wc -l < roles.sql)
-              schema_lines=$(wc -l < schema.sql)
-              if (( first_line <= 1 + roles_lines )); then
-                echo '::notice::Sanitized SQL stage: roles'
-              elif (( first_line <= 2 + roles_lines + schema_lines )); then
-                echo '::notice::Sanitized SQL stage: schema'
-              else
-                echo '::notice::Sanitized SQL stage: data'
-              fi
+            if grep -Fq 'already exists' "$work/private-restore.log"; then
+              echo '::notice::Sanitized failure category: duplicate object'
+            elif grep -Fq 'does not exist' "$work/private-restore.log"; then
+              echo '::notice::Sanitized failure category: missing object'
+            elif grep -Fq 'permission denied' "$work/private-restore.log"; then
+              echo '::notice::Sanitized failure category: permissions'
+            elif grep -Fq 'must be member' "$work/private-restore.log"; then
+              echo '::notice::Sanitized failure category: role membership'
+            elif grep -Fq 'unrecognized configuration' "$work/private-restore.log"; then
+              echo '::notice::Sanitized failure category: server version setting'
+            else
+              echo '::notice::Sanitized failure category: other'
             fi
             exit 1
           fi
