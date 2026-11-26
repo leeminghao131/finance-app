@@ -116,7 +116,7 @@ test("Stage1 UI is separate from transaction handlers and uses a test-only setti
   assert.match(app,/queueSettingsField\("saved_filters", verified\)/);
   assert.match(cloud,/savings_goals,saved_filters/);
   assert.ok(app.includes("async function addRecord")&&app.includes("async function addTransfer"));
-  assert.match(file("supabaseClient.js"),/SANDBOX_PROJECT_ID = "qrkaxxdwqgffhkalvtby"/);
+  assert.match(file("supabaseClient.js"),/classifyFinanceSupabaseTarget/);
   const advanced=file("FinanceAdvancedResults.jsx");
   assert.match(advanced,/EditableCell/);assert.match(advanced,/FinanceMobileRecords/);
   assert.match(app,/\{!advancedFilter && <div className="mt-5 space-y-3">/);

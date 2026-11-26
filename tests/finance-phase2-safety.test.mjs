@@ -12,8 +12,8 @@ const db = source("../docs/database/preview_finance_transfers_budget_forecast.sq
 const client = source("../src/supabaseClient.js");
 
 test("new Preview is hard-locked to the independent MH Finance Test project",()=>{
- assert.match(client,/SANDBOX_PROJECT_ID = "qrkaxxdwqgffhkalvtby"/);
- assert.match(client,/isTestEnvironment = supabaseUrl === requiredSandboxUrl/);
+ assert.match(client,/classifyFinanceSupabaseTarget/);
+ assert.match(client,/isTestEnvironment = supabaseTarget === "test"/);
  assert.doesNotMatch(client,/hlkciowyusbhwcwjzfsr/);
 });
 

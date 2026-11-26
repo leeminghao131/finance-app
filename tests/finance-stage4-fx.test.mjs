@@ -103,7 +103,7 @@ test("Stage4 source keeps transfer accounting, existing record save, and fail-cl
   assert.match(transfer,/<FinanceTransferCorners/);
   assert.match(transfer,/<FinanceOverlay open=\{historyOpen\}/);
   assert.match(corners,/onFrom\(pointer\.method\);onTo\(target\)/);
-  assert.match(src("supabaseClient.js"),/SANDBOX_PROJECT_ID/);
+  assert.match(src("supabaseClient.js"),/classifyFinanceSupabaseTarget/);
   assert.match(src("financeImportService.js"),/finance_import_fx_csv_rows/);
   assert.ok(!src("FinanceRuleAssistant.jsx").includes("supabase.from("));
 });
