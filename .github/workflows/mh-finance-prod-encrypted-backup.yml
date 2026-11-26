@@ -121,3 +121,4 @@ jobs:
           if-no-files-found: error
 
 # Owner confirmed all three scoped GitHub environment secrets and ARMING via screenshot on 2026-11-26.
+# Owner reports updated separate DB-password GitHub Environment Secret; one read-only encrypted backup retry approved 2026-11-26 MYT.
