@@ -1,12 +1,27 @@
 import { createClient } from "@supabase/supabase-js";
+import { classifyFinanceSupabaseTarget } from "./financeSupabaseTarget.js";
 
-// FEATURE-BRANCH FAIL-CLOSED GUARD.
-// Never connect this unapproved test build to the live finance database.
-// Remove/review this exact guard only during the owner's explicitly approved production release.
+// RELEASE-CANDIDATE FAIL-CLOSED ROUTING:
+// Vercel Production build + original Production hostname -> Production Supabase only.
+// Vercel Preview/local development -> independent TEST Supabase only.
+// Any mismatched URL/hostname/build tier -> no Supabase connection.
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
 const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
-const SANDBOX_PROJECT_ID = "qrkaxxdwqgffhkalvtby";
-const requiredSandboxUrl = "https://" + SANDBOX_PROJECT_ID + ".supabase.co";
-export const isTestEnvironment = supabaseUrl === requiredSandboxUrl;
-export const hasSupabaseEnv = Boolean(isTestEnvironment && supabaseAnonKey);
-export const supabase = hasSupabaseEnv ? createClient(supabaseUrl, supabaseAnonKey) : null;
+const deploymentTier =
+  typeof __MH_VERCEL_ENV__ === "string" ? __MH_VERCEL_ENV__ : "unknown";
+const browserHostname =
+  typeof window !== "undefined" ? window.location.hostname : "";
+
+export const supabaseTarget = classifyFinanceSupabaseTarget({
+  vercelEnvironment: deploymentTier,
+  hostname: browserHostname,
+  supabaseUrl,
+  hasAnonKey: Boolean(supabaseAnonKey),
+});
+
+export const isTestEnvironment = supabaseTarget === "test";
+export const isProductionEnvironment = supabaseTarget === "production";
+export const hasSupabaseEnv = supabaseTarget !== null;
+export const supabase = hasSupabaseEnv
+  ? createClient(supabaseUrl, supabaseAnonKey)
+  : null;
