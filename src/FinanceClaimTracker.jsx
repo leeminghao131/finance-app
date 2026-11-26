@@ -71,11 +71,12 @@ export default function FinanceClaimTracker({
     // NEVER silently merge, delete, or make a non-unique business fingerprint.
     let proposedSen=null;
     try{proposedSen=claimSen(draft.amount);}catch{/* normal validation reports later */}
-    const duplicate=proposedSen!==null&&claims.some(c=>!c.cancelled_at&&
+    const matchingClaims=proposedSen===null?[]:claims.filter(c=>
       c.paid_on===draft.paid_on&&c.method===draft.method&&
       String(c.title).trim()===draft.title.trim()&&
       String(c.claimant).trim()===draft.claimant.trim()&&
       claimSen(c.amount)===proposedSen);
+    const duplicate=matchingClaims.some(c=>!c.cancelled_at);
     if(duplicate&&!localizedFinanceConfirm(t(
       "已存在日期、金额、付款方式及报销对象相同的垫付。仅当这是另一笔真实付款时才继续。",
       "A matching advance already exists. Continue only if this was a separate real payment.")))return;
@@ -84,13 +85,13 @@ export default function FinanceClaimTracker({
       if(createReq.current&&!createReq.current.key.startsWith(
         "mh-finance-pending-claim-v1:"+owner+":advance:"))createReq.current=null;
       if(!createReq.current){
-        const pending=await getClaimRequest(owner,"advance",draft,storage,crypto,navigator.locks);
+        const pending=await getClaimRequest(owner,"advance",draft,storage,crypto,navigator.locks,matchingClaims.map(c=>c.id));
         if(liveOwnerRef.current!==owner)return;
         createReq.current=pending;
       }
       if(liveOwnerRef.current!==owner)return;
       const request=createReq.current;
-      await onCreate(draft,request.requestId);
+      await onCreate(draft,request.requestId,matchingClaims.filter(c=>!c.cancelled_at).map(c=>c.id));
       // Only an acknowledged server row clears the persisted request ID.
       confirmClaimRequest(owner,"advance",request,storage);
       if(liveOwnerRef.current!==owner)return;
