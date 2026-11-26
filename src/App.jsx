@@ -3054,6 +3054,12 @@ return (
               />
             </FinanceOverlay>
             <section className="grid items-start gap-4">
+              <HeatmapCard days={heatmapDays} label={filterLabel} records={periodRecords}
+                 allRecords={records} transfers={transfers} claims={claims}
+                 claimRepayments={claimRepayments} recurringBills={recurringBills}
+                 forecastPlans={forecastPlans} filterMode={filterMode}
+                 selectedMonth={selectedMonth} selectedYear={selectedYear}
+                 asOfDate={localToday} ownerKey={user?.id}/>
               <FinanceForecastPanel
                 records={records}
                 selectedMonth={forecastMonth}
@@ -3063,12 +3069,6 @@ return (
                 claimMovements={claimMovements}
                  onSavePlans={saveExpectedIncomePlans}
               />
-              <HeatmapCard days={heatmapDays} label={filterLabel} records={periodRecords}
-                 allRecords={records} transfers={transfers} claims={claims}
-                 claimRepayments={claimRepayments} recurringBills={recurringBills}
-                 forecastPlans={forecastPlans} filterMode={filterMode}
-                 selectedMonth={selectedMonth} selectedYear={selectedYear}
-                 asOfDate={localToday} ownerKey={user?.id}/>
               <div className="min-w-0">
                 <TopExpensesCard
                   records={topExpenses} label={filterLabel}
