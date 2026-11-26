@@ -148,6 +148,15 @@ jobs:
             exit 1
           fi
           echo '::notice::Verified LOCAL Supabase admin has restore privileges, no Production connection.'
+          # Local-only built-in Auth schema compatibility: verified against read-only
+          # Production information_schema metadata; never change Production or shared TEST.
+          if ! docker exec "$container" psql -U supabase_admin -d postgres -X -q -v ON_ERROR_STOP=1 \
+              -c "ALTER TABLE auth.custom_oauth_providers ADD COLUMN IF NOT EXISTS client_auth_method text NOT NULL DEFAULT 'client_secret', ADD COLUMN IF NOT EXISTS client_assertion_audience text" \
+              > "$work/private-local-auth-compat.log" 2>&1; then
+            echo '::error::Could not prepare missing Auth provider columns on disposable local DB.'
+            exit 1
+          fi
+          echo '::notice::Disposable Auth provider schema now includes the two source-compatible columns (metadata only).'
           docker cp "$work/roles.sql" "$container:/tmp/mh-restore-roles.sql" >/dev/null
           for file in schema.sql data.sql; do
             docker cp "$work/$file" "$container:/tmp/mh-restore-$file" >/dev/null
