@@ -53,6 +53,6 @@ test("live finance UI and fail-closed TEST endpoint remain present",()=>{
   assert.match(app,/<FinanceInsightsDock/);
   assert.match(app,/<FinanceCategoryBubbleChart/);
   assert.match(app,/React\.lazy\(\(\) => import\("\.\/FinanceExcelExportPanel\.jsx"\)/);
-  assert.match(guard,/const SANDBOX_PROJECT_ID = "qrkaxxdwqgffhkalvtby"/);
-  assert.match(guard,/export const supabase = hasSupabaseEnv \? createClient/);
+  assert.match(guard,/classifyFinanceSupabaseTarget/);
+  assert.match(guard,/export const supabase = hasSupabaseEnv\s*\? createClient/);
 });
