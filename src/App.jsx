@@ -32,7 +32,7 @@ import {readFxCurrencyPreference,writeFxCurrencyPreference} from "./financeFxCur
 import { openingTotal, calculateMethodBalances } from "./financeOpeningBalance.js";
 import FinanceOverlay from "./FinanceOverlay.jsx";
 import FinanceHeatmapDayDetails from "./FinanceHeatmapDayDetails.jsx";
-import {financeCalendarDayGrid,financeCalendarEventsForRange} from "./financeCalendarEvents.js";
+import {financeCalendarDayGrid,financeCalendarEventsForRange,financeCalendarAllScope} from "./financeCalendarEvents.js";
 import FinanceMobileRecords from "./FinanceMobileRecords.jsx";
 import FinanceTrendSummaryTooltip from "./FinanceTrendSummaryTooltip.jsx";
 import FinanceExpandedTrendOverlay from "./FinanceExpandedTrendOverlay.jsx";
@@ -367,38 +367,36 @@ function HeatmapCard({
   const [requestedPage,setRequestedPage]=useState("");
   const heatmapTriggerRef=useRef(null);
   const paged=filterMode==="year"||filterMode==="all";
-  const scope=useMemo(()=>{
-    if(!paged)return null;
-    if(filterMode!=="all")return heatmapScopeMonths(filterMode,records,selectedYear);
-    // Recurring plans are unbounded in theory. Include their anchor, saved
-    // occurrences and the present month, not an invented infinite future.
-    const activeClaims=claims.filter(c=>!c.cancelled_at);
-    const activeIds=new Set(activeClaims.map(c=>c.id));
-    const activeBills=recurringBills.filter(b=>b.active!==false);
-    return heatmapScopeMonths(filterMode,[
-      ...allRecords.filter(r=>!r.deleted_at),...transfers.filter(r=>!r.deleted_at),
-      ...activeClaims.map(c=>({date:c.paid_on})),
-      ...claimRepayments.filter(r=>!r.voided_at&&activeIds.has(r.claim_id)).map(r=>({date:r.received_on})),
-      ...forecastPlans,
-      ...activeBills.flatMap(b=>[{date:b.anchorDate},...(b.occurrences||[]).map(o=>({date:o.due}))]),
-      ...(activeBills.length?[{date:asOfDate}]:[])
-    ],selectedYear);
+  const scopeResult=useMemo(()=>{
+    try{
+      return {scope:!paged?null:filterMode==="all"?financeCalendarAllScope({
+        records:allRecords,transfers,claims,repayments:claimRepayments,bills:recurringBills,
+        plannedIncomes:forecastPlans,asOfDate
+      }):heatmapScopeMonths(filterMode,records,selectedYear),error:null};
+    }catch(error){return {scope:null,error:String(error?.message||error)};}
   },[paged,filterMode,records,allRecords,transfers,claims,claimRepayments,forecastPlans,recurringBills,asOfDate,selectedYear]);
+  const scope=scopeResult.scope;
   const page=paged?heatmapPageMonth(scope,requestedPage,asOfDate):null;
   const visibleDays=useMemo(()=>paged
     ?page?heatmapMonthCalendarDays(page,days):[]
     :days,[paged,page,days]);
   const {language}=useFinanceLanguage(),zh=language==="zh";
-  const calendarCells=useMemo(()=>financeCalendarDayGrid(visibleDays),[visibleDays]);
   const calendarResult=useMemo(()=>{
     try{
-      return {events:visibleDays.length?financeCalendarEventsForRange({
+      if(scopeResult.error)throw Error(scopeResult.error);
+      return {cells:financeCalendarDayGrid(visibleDays),events:visibleDays.length?financeCalendarEventsForRange({
         records:allRecords,transfers,claims,repayments:claimRepayments,
         bills:recurringBills,plannedIncomes:forecastPlans,
         first:visibleDays[0].date,last:visibleDays[visibleDays.length-1].date,asOfDate
       }):[],error:null};
-    }catch(error){return {events:[],error:String(error?.message||error)};}
-  },[allRecords,transfers,claims,claimRepayments,recurringBills,forecastPlans,visibleDays,asOfDate]);
+    }catch(error){
+      // Keep ordinary heatmap cells usable for display, but never invent
+      // missing financial events or a verified cash total.
+      let cells=[];try{cells=financeCalendarDayGrid(visibleDays);}catch{/* malformed dates */}
+      return {cells,events:[],error:String(error?.message||error)};
+    }
+  },[allRecords,transfers,claims,claimRepayments,recurringBills,forecastPlans,visibleDays,asOfDate,scopeResult.error]);
+  const calendarCells=calendarResult.cells;
   const calendarEvents=calendarResult.events;
   const eventByDay=useMemo(()=>{
     const map=new Map();
