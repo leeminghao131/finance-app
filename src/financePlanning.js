@@ -6,14 +6,15 @@ export function validateMonth(value) {
   if (typeof value !== "string" || !/^\d{4}-(0[1-9]|1[0-2])$/.test(value)) throw new Error("Choose a valid month.");
   return value;
 }
-export function compareFinanceMonths(records, firstMonth, secondMonth) {
+export function compareFinanceMonths(records, firstMonth, secondMonth, asOfDate=null) {
+  if(asOfDate!==null)requireCalendarDate(asOfDate);
   validateMonth(firstMonth); validateMonth(secondMonth);
   if (!Array.isArray(records)) throw new Error("Finance records not ready.");
   const summarize = month => {
     let income = 0, expense = 0, count = 0;
     const categories = Object.create(null); // reserved custom keys must never affect Object.prototype
     for (const record of records) {
-      if (record.deleted_at || !String(record.date || "").startsWith(month)) continue;
+      if (record.deleted_at || !String(record.date || "").startsWith(month) || (asOfDate!==null&&record.date>asOfDate)) continue;
       if (!["income","expense"].includes(record.type)) continue;
       const amount = toSen(record.amount);
       if (!Number.isSafeInteger(amount) || amount < 0) throw new Error("Invalid finance amount.");

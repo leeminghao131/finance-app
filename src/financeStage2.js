@@ -83,7 +83,18 @@ export function billOccurrences(bills,asOfDate,records=[],history=35,horizon=35,
     // 520 weekly occurrences is only ten years. Keep older unpaid bills
     // reachable, but expose at most ONE old overdue per bill, to avoid an
     // unbounded notification backlog that would overwhelm the phone.
-    for(let n=0;n<10000;n++){
+    // Only the notification path needs the oldest unresolved occurrence.
+    // For a visible date page, jump to its first possible recurrence, then
+    // retain the exact anchor-date/clamped-month calculation below.
+    let startIndex=0;
+    if(!includeOldestOverdue){
+      if(b.cycle==="weekly")startIndex=Math.max(0,Math.floor((dayNum(first)-dayNum(b.anchorDate))/offset));
+      else{
+        const [fy,fm]=first.split("-").map(Number),[ay,am]=b.anchorDate.split("-").map(Number);
+        startIndex=Math.max(0,Math.floor(((fy-ay)*12+fm-am)/offset));
+      }
+    }
+    for(let n=startIndex;n<10000;n++){
       const due=b.cycle==="weekly"?shiftCalendarDay(b.anchorDate,n*offset):addMonth(b.anchorDate,n*offset);
       if(due>last)break;
       const status=statusByDate.get(due);

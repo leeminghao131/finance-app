@@ -45,14 +45,26 @@ function readPending(storage,key){
     throw new Error("Claim retry ID is invalid. Nothing submitted; inspect Claim history.");
   return item.requestId;
 }
-export async function getClaimRequest(userId,kind,draft,storage,cryptoProvider,locks=null){
+export async function getClaimRequest(userId,kind,draft,storage,cryptoProvider,locks=null,advanceMatchingIds=null){
   if(!userId||!storage)throw new Error("Claim requires a signed-in account and browser retry storage.");
   const fingerprint=await hashIntent(userId,kind,draft,cryptoProvider);
   const key=PREFIX+userId+":"+kind+":"+fingerprint;
+  // Identical advances against the same observed history share a request ID
+  // across devices. A deliberately confirmed separate payment gets a new
+  // generation when the previous matching row is visible. Old pending IDs
+  // always win, preserving recovery of requests created by previous versions.
+  let advanceId=null;
+  if(kind==="advance"&&Array.isArray(advanceMatchingIds)){
+    const x=validateClaimDraft(draft);
+    const signature=JSON.stringify(["mh-claim-advance-v2",userId,x.title,x.claimant,claimSen(x.amount),x.method,x.paid_on,[...new Set(advanceMatchingIds)].sort()]);
+    const digest=await cryptoProvider.subtle.digest("SHA-256",new TextEncoder().encode(signature));
+    const h=Array.from(new Uint8Array(digest),b=>b.toString(16).padStart(2,"0")).join("");
+    advanceId=h.slice(0,8)+"-"+h.slice(8,12)+"-4"+h.slice(13,16)+"-8"+h.slice(17,20)+"-"+h.slice(20,32);
+  }
   const acquire=()=>{
     const existing=readPending(storage,key);
     if(existing)return {requestId:existing,key};
-    const requestId=cryptoProvider.randomUUID();
+    const requestId=advanceId||cryptoProvider.randomUUID();
     if(!UUID.test(requestId))throw new Error("Invalid secure Claim request ID.");
     try{storage.setItem(key,JSON.stringify({requestId}));}
     catch{throw new Error("Claim retry ID could not be saved; nothing submitted.");}

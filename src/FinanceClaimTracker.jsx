@@ -71,11 +71,12 @@ export default function FinanceClaimTracker({
     // NEVER silently merge, delete, or make a non-unique business fingerprint.
     let proposedSen=null;
     try{proposedSen=claimSen(draft.amount);}catch{/* normal validation reports later */}
-    const duplicate=proposedSen!==null&&claims.some(c=>!c.cancelled_at&&
-      c.paid_on===draft.paid_on&&c.method===draft.method&&
+    const matchingClaims=proposedSen===null?[]:claims.filter(c=>
+      c.paid_on===draft.paid_on&&String(c.method).trim()===String(draft.method).trim()&&
       String(c.title).trim()===draft.title.trim()&&
       String(c.claimant).trim()===draft.claimant.trim()&&
       claimSen(c.amount)===proposedSen);
+    const duplicate=matchingClaims.some(c=>!c.cancelled_at);
     if(duplicate&&!localizedFinanceConfirm(t(
       "已存在日期、金额、付款方式及报销对象相同的垫付。仅当这是另一笔真实付款时才继续。",
       "A matching advance already exists. Continue only if this was a separate real payment.")))return;
@@ -84,17 +85,32 @@ export default function FinanceClaimTracker({
       if(createReq.current&&!createReq.current.key.startsWith(
         "mh-finance-pending-claim-v1:"+owner+":advance:"))createReq.current=null;
       if(!createReq.current){
-        const pending=await getClaimRequest(owner,"advance",draft,storage,crypto,navigator.locks);
+        const pending=await getClaimRequest(owner,"advance",draft,storage,crypto,navigator.locks,matchingClaims.map(c=>c.id));
         if(liveOwnerRef.current!==owner)return;
         createReq.current=pending;
       }
       if(liveOwnerRef.current!==owner)return;
       const request=createReq.current;
-      await onCreate(draft,request.requestId);
+      let saved;
+      try{saved=await onCreate(draft,request.requestId,matchingClaims.map(c=>c.id));}
+      catch(error){
+        // A verified conflicting persisted row cannot be recovered as this
+        // draft. Clear only the local retry pointer; never change a saved row.
+        if(error?.financeClaimRequestConflict){
+          confirmClaimRequest(owner,"advance",request,storage);createReq.current=null;
+        }
+        throw error;
+      }
       // Only an acknowledged server row clears the persisted request ID.
       confirmClaimRequest(owner,"advance",request,storage);
       if(liveOwnerRef.current!==owner)return;
-      createReq.current=null;setDraft(initialDraft());setShowNew(false);
+      createReq.current=null;
+      // A known matching row can be a recovered earlier submission, not a new
+      // separate payment. Keep the draft and require a fresh deliberate submit.
+      if(saved&&matchingClaims.some(c=>c.id===saved.id))throw new Error(t(
+        "先前提交的垫付已经存在，并未新增记录。若这确实是另一笔付款，请核对后再次提交。",
+        "The earlier advance already exists; no new row was created. Review and submit again only for a separate real payment."));
+      setDraft(initialDraft());setShowNew(false);
       setFilter("outstanding");
     },t("已确认保存垫付记录。","Advance confirmed in cloud."));
   };

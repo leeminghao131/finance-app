@@ -43,13 +43,14 @@ test("FINAL P1-04: persistent mutation overlap fails closed, owner switch cancel
 test("FINAL P0-02: abort 101-row CSV import when login switches after first batch",async()=>{
   let owner="A",writes=0,getUserCalls=0;
   const client={
-    auth:{getUser:async()=>{getUserCalls++;return {data:{user:{id:owner}},error:null};}},
-    rpc:async(_name,params)=>{
+    auth:{getSession:async()=>({data:{session:{user:{id:owner},access_token:"token-"+owner}},error:null}),getUser:async(token)=>{getUserCalls++;return {data:{user:{id:token.slice(6)}},error:null};}},
+    rpc:(_name,params)=>({setHeader:async(name,value)=>{
       writes++;
+      assert.equal(name,"Authorization");assert.equal(value,"Bearer token-A");
       assert.equal(params.p_rows.length,100);
       owner="B";
       return {data:params.p_rows.map(r=>({source_row:r.source_row,import_status:"inserted"})),error:null};
-    },
+    }}),
   };
   const rows=Array.from({length:101},(_,i)=>({source_row:i+2,amount:"1.00"}));
   await assert.rejects(importReviewedCsvRows(client,"hash",rows,()=>{},{ownerId:"A",isOwnerCurrent:()=>owner==="A"}),/account changed/);
@@ -60,7 +61,7 @@ test("FINAL P0-02: abort 101-row CSV import when login switches after first batc
 test("FINAL P0-02: even without visible account switch, server auth mismatch prevents first import",async()=>{
   let writes=0;
   const client={
-    auth:{getUser:async()=>({data:{user:{id:"B"}},error:null})},
+    auth:{getSession:async()=>({data:{session:{user:{id:"A"},access_token:"token-A"}},error:null}),getUser:async()=>({data:{user:{id:"B"}},error:null})},
     rpc:async()=>{writes++;return {data:[],error:null};},
   };
   await assert.rejects(importReviewedCsvRows(client,"hash",[{source_row:2}],undefined,
@@ -101,7 +102,8 @@ test("FINAL P1-05: period net movement cannot use account low-balance warning",(
 
 test("FINAL P1-07: warn on matching claim advance, never auto-collapse legitimate identical payments",()=>{
   const claim=read("FinanceClaimTracker.jsx");
-  assert.match(claim,/const duplicate=proposedSen!==null&&claims\.some/);
+  assert.match(claim,/const matchingClaims=proposedSen===null\?\[\]:claims\.filter/);
+  assert.match(claim,/const duplicate=matchingClaims\.some\(c=>!c\.cancelled_at\)/);
   assert.match(claim,/localizedFinanceConfirm/);
   assert.doesNotMatch(claim,/claims\.filter\(c=>.*duplicate/);
 });

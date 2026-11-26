@@ -146,7 +146,7 @@ export default function FinanceInsightsDock({
         userId={userId} asOfDate={asOfDate} disabled={disabled} dockButton/>},
     {id:"comparison",label:zh?"月度财务对比":"Month Comparison",icon:"📊",node:
       <DockCardPopup title={zh?"月度财务对比":"Month Comparison"} icon="📊" disabled={disabled}>
-        <FinanceMonthComparison records={records}/>
+        <FinanceMonthComparison records={records} asOfDate={asOfDate}/>
       </DockCardPopup>},
     {id:"radar",label:zh?"消费雷达":"Spending Radar",icon:"◉",node:
       <DockCardPopup title={zh?"消费雷达":"Spending Radar"} icon="◉"

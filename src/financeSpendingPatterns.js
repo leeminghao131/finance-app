@@ -80,7 +80,7 @@ export function discoverSpendingPatterns(records,{asOfDate,baselineMonths=3}={})
         chart(labels,[...amounts,curr].map(toRM)),mine,
         "对比历史可用月份相同日期区间的分类总额，使用中位数；增长至少35%及RM30才提示。",
         "Median of the same days in prior comparable months; minimum +35% and +RM30.",
-        {changePct:pct,baseValue:toRM(baseline),currentValue:toRM(curr)}));
+        {changePct:pct,baseValue:toRM(baseline),currentValue:toRM(curr),rankScore:Math.min((curr-baseline)/3000,(curr/baseline-1)/.35)}));
     }
     const counts=validMonths.map(m=>m.rows.filter(r=>r.category===category).length);
     const typical=median(counts);
@@ -93,7 +93,7 @@ export function discoverSpendingPatterns(records,{asOfDate,baselineMonths=3}={})
         mine.length-typical,chart([...validMonths.map(m=>m.month),currentMonth],[...counts,mine.length]),mine,
         "先比较相同日期范围内的交易笔数，再单独观察金额；增加至少3笔且50%才提示。",
         "Transaction count compared over like-for-like dates; at least +3 and +50% before flagging.",
-        {changePct:pct,baseValue:typical,currentValue:mine.length}));
+        {changePct:pct,baseValue:typical,currentValue:mine.length,rankScore:Math.min((mine.length-typical)/3,(mine.length/typical-1)/.5)}));
     }
     const currTotal=total(mine),largest=[...mine].sort((a,b)=>b.sen-a.sen)[0];
     if(mine.length>=2&&currTotal>=15000&&largest.sen/currTotal>=.65){
@@ -106,7 +106,7 @@ export function discoverSpendingPatterns(records,{asOfDate,baselineMonths=3}={})
         [largest,...mine.filter(r=>r.id!==largest.id)],
         "分类本期总额至少RM150，并有至少2笔记录；最大单笔占比达到65%。",
         "At least RM150 and 2 transactions; one purchase accounts for at least 65%.",
-        {share,baseValue:toRM(currTotal),currentValue:toRM(largest.sen)}));
+        {share,baseValue:toRM(currTotal),currentValue:toRM(largest.sen),rankScore:Math.min(currTotal/15000,(largest.sen/currTotal)/.65)}));
     }
   }
   // Eight-week weekday averages: exactly 56 calendar days, including recorded zero days.
@@ -135,7 +135,7 @@ export function discoverSpendingPatterns(records,{asOfDate,baselineMonths=3}={})
         (avg[highest]-others)/100,chart(weekdayEn,avg.map(toRM)),byWeekday[highest].rows,
         "过去56个自然日，按每个星期几的8个日历日计算日均金额；缺失记账可能影响结果。",
         "Eight calendar occurrences per weekday over 56 days; missing diary entries can bias this estimate.",
-        {changePct:pct,baseValue:toRM(others),currentValue:toRM(avg[highest])}));
+        {changePct:pct,baseValue:toRM(others),currentValue:toRM(avg[highest]),rankScore:Math.min((avg[highest]-others)/1500,(avg[highest]/others-1)/.6)}));
     }
   }
   // Sustained trends require FOUR complete, independently observed months.
@@ -156,7 +156,8 @@ export function discoverSpendingPatterns(records,{asOfDate,baselineMonths=3}={})
           toRM(amounts[3]-amounts[0]),
           chart(completeMonths,amounts.map(toRM)),complete.flatMap(m=>m.rows.filter(r=>r.category===category)),
           "仅对最近四个完整月份比较；各月该分类支出严格上升，累计增加至少RM50及35%。",
-          "Four complete months, strict month-over-month increase, at least +RM50 and +35%."));
+          "Four complete months, strict month-over-month increase, at least +RM50 and +35%.",
+          {rankScore:Math.min((amounts[3]-amounts[0])/5000,(amounts[3]/amounts[0]-1)/.35)}));
       }
     }
   }
@@ -178,10 +179,13 @@ export function discoverSpendingPatterns(records,{asOfDate,baselineMonths=3}={})
         toRM(item.sen-normal),chart(["历史单笔中位数","这笔交易"],[toRM(normal),toRM(item.sen)]),
         [item,...prior.slice(-10)],
         "至少6笔历史同类记录；超过历史中位数3倍，并超过稳健差异门槛。不代表记录一定错误。",
-        "At least 6 historical peers; exceeds 3× median and robust deviation threshold. Not proof of error."));
+        "At least 6 historical peers; exceeds 3× median and robust deviation threshold. Not proof of error.",
+        {rankScore:Math.min(item.sen/normal/3,(item.sen-normal)/Math.max(5000,3*mad))}));
     }
   }
-  return {status:"ready",findings:findings.sort((a,b)=>b.score-a.score||a.id.localeCompare(b.id)),
+  // Compare dimensionless multiples of each finding\u0027s own reporting thresholds.
+  // Keep original score/evidence; rankScore is relative prominence, not severity.
+  return {status:"ready",findings:findings.sort((a,b)=>b.rankScore-a.rankScore||a.id.localeCompare(b.id)),
     analyzed:eligible.length,baselineMonths,asOfDate,
     explanation:"Statistical observations from saved Expenses, not predictions or financial advice."};
 }
