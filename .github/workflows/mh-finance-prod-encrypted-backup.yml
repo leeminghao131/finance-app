@@ -120,4 +120,4 @@ jobs:
           retention-days: 1
           if-no-files-found: error
 
-# Backup run explicitly requested by owner after scoped environment secrets and MH_BACKUP_ARMED=YES were configured (2026-11-26 MYT).
+# Owner confirmed all three scoped GitHub environment secrets and ARMING via screenshot on 2026-11-26.
