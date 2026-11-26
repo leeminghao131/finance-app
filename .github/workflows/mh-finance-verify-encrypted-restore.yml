@@ -126,13 +126,17 @@ jobs:
             docker cp "$work/$file" "$container:/tmp/mh-restore-$file" >/dev/null
           done
           if docker exec -e PGPASSWORD=postgres "$container" \
-            psql -h localhost -U postgres -d postgres -X -q -v ON_ERROR_STOP=1 -1 \
+            psql -h localhost -U postgres -d postgres -X -q -v ON_ERROR_STOP=1 -v VERBOSITY=sqlstate -1 \
               -f /tmp/mh-restore-roles.sql -f /tmp/mh-restore-schema.sql \
               -c 'SET session_replication_role = replica' -f /tmp/mh-restore-data.sql \
               > "$work/private-restore.log" 2>&1; then
             echo '::notice::All three SQL files restored transactionally to isolated local Postgres.'
           else
-            echo '::error::Local SQL restore failed. No raw SQL errors or individual rows printed.'
+            echo '::error::Local SQL restore failed. Raw errors remain private.'
+            sqlstate=$(grep -Eom1 '(ERROR|FATAL):[[:space:]]*[A-Z0-9]{5}' "$work/private-restore.log" | grep -Eo '[A-Z0-9]{5}' | tail -1) || true
+            if [[ "$sqlstate" =~ ^[A-Z0-9]{5}$ ]]; then
+              echo "::notice::SQLSTATE (code only, no private values): $sqlstate"
+            fi
             if grep -Fq 'mh-restore-roles.sql:' "$work/private-restore.log"; then
               echo '::notice::Sanitized failure stage: roles'
             elif grep -Fq 'mh-restore-schema.sql:' "$work/private-restore.log"; then
