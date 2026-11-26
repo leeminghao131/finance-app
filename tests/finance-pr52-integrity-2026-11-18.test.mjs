@@ -84,8 +84,8 @@ test("PR52: exported settings larger than a single Excel cell remain lossless an
 
 test("PR52: current balances exclude future-dated records but report historical periods unmodified",()=>{
   const app=read("App.jsx");
-  assert.match(app,/const income = sumType\(records\.filter\(row => row\.date <= localToday\), "income"\)/);
-  assert.match(app,/const expense = sumType\(records\.filter\(row => row\.date <= localToday\), "expense"\)/);
+  assert.match(app,/const income = useMemo\(\(\)=>sumType\(records\.filter\(row => row\.date <= localToday\), "income"\)/);
+  assert.match(app,/const expense = useMemo\(\(\)=>sumType\(records\.filter\(row => row\.date <= localToday\), "expense"\)/);
   assert.match(app,/const currentTransfers = useMemo\(\(\) => transfers\.filter\(row => row\.date <= localToday\)/);
   assert.match(app,/const earlier = firstDate \? records\.filter\(row => row\.date < firstDate\)/);
   assert.match(app,/if\(date>localToday\)return/);
