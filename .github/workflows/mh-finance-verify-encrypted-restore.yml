@@ -69,7 +69,7 @@ jobs:
       - name: Install Supabase CLI for disposable local database only
         uses: supabase/setup-cli@v1
         with:
-          version: latest
+          version: 3.4.0
 
       - name: Create isolated local PostgreSQL 17 (no remote database URL)
         shell: bash
