@@ -23,7 +23,7 @@ async function requireImportOwner(client,options) {
   if(!options?.ownerId)return;
   if(typeof options.isOwnerCurrent!=="function" || !options.isOwnerCurrent())
     throw new Error("CSV import stopped: account changed. Check import history before retrying.");
-  if(typeof client?.auth?.getUser!=="function")
+  if(typeof client?.auth?.getUser!=="function"||typeof client?.auth?.getSession!=="function")
     throw new Error("CSV import stopped: login could not be verified.");
   const sessionResult=await client.auth.getSession();
   const token=sessionResult.data?.session?.access_token;
@@ -48,7 +48,7 @@ export async function importReviewedCsvRows(client,fileSha256,selectedRecords,on
     });
     // Pin the verified original JWT to this single request. A later auth
     // change must never silently replace the bearer token of a queued RPC.
-    if(options.ownerId&&(!token||typeof request.setHeader!=="function"))
+    if(options.ownerId&&(!token||typeof request?.setHeader!=="function"))
       throw new Error("CSV import cannot safely bind the original account.");
     const {data,error}=await (options.ownerId?request.setHeader("Authorization","Bearer "+token):request);
     if(options?.ownerId)await requireImportOwner(client,options);
