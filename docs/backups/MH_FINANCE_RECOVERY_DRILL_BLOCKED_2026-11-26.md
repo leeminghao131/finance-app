@@ -1,3 +1,20 @@
+# 后续复核：2026-11-26 恢复演练已通过（取代下文早期阻断状态）
+
+**最新结论：隔离 PostgreSQL 数据库逻辑恢复验证 PASS。**
+
+- GitHub Actions [#45840348287](https://github.com/leeminghao131/finance-app/actions/runs/45840348287) 确认 **completed / success**，确切 Commit `ab6dc6354fafa311ad126c89d6d5e222b39bb02e`。
+- 从原 GitHub 加密附件 **#45831886534** 下载并解密，`roles.sql`、`schema.sql`、`data.sql` SHA-256 清单校验通过。
+- 在一次性 GitHub runner 上独立启动 PostgreSQL 17，使用隔离环境自带的 `supabase_admin` 角色恢复**原始 roles.sql，未删减任何角色授权**；随后以 `postgres` 身份导入 schema/data。针对本地旧版内置 Auth 模板，仅添加通过生产端只读结构核实的两个缺失字段 `auth.custom_oauth_providers.client_auth_method` 和 `client_assertion_audience`。
+- 自动验证备份时的总数：687 records、58 transfers、2 user_settings、2 auth.users；验证交易金额合法、用户归属、三张 public 表的 RLS 与至少 9 条策略，以及无 JWT 的 authenticated 角色不能读取 records。
+- 运行结束清理一次性临时容器和明文 SQL。没有上传恢复后的明文数据。
+- 这证实的是**PostgreSQL 逻辑备份的恢复能力**，不是完整云服务一键恢复：Auth 外部配置、API keys、Realtime、Vercel 登录和设备实际操作仍需分别确认。
+- 原始备份加密附件必须继续独立保存，避免 GitHub 1 天到期后丢失；解密密码另行保管。
+- **没有修改 Production 数据库、正式网站或 GitHub main；PR82 生产数据库升级仍未批准及执行。**
+
+下文为此前失败阶段的**历史记录**，保留其原始文本供审计，不再代表当前状态。
+
+---
+
 # MH Finance App — Production Backup Recovery Drill Status (2026-11-26)
 
 **Status: BLOCKED / DO NOT RELEASE.** This file is a factual audit, not evidence of a completed restore.
