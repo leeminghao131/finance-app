@@ -1,0 +1,96 @@
+name: MH Finance PR82 fictional migration rehearsal
+
+on:
+  push:
+    branches:
+      - fix/rc-pr82-production-migration-review-2026-11-26
+    paths:
+      - .github/workflows/mh-finance-pr82-synthetic-compat.yml
+
+permissions:
+  contents: read
+
+jobs:
+  test-only:
+    name: Supabase local only, 2 fictional users
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: supabase/setup-cli@v1
+        with:
+          version: 3.4.0
+      - name: Create disposable Supabase Postgres
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/finance-fake-db"
+          cd "$RUNNER_TEMP/finance-fake-db"
+          supabase init --force >/dev/null 2>&1
+          if [[ -f supabase/config.jsonc && ! -f supabase/config.toml ]]; then
+            SUPABASE_YES=1 supabase config convert --to toml --yes >/dev/null 2>&1
+          fi
+          test -f supabase/config.toml
+          sed -i -E '/^[[:space:]]*major_version[[:space:]]*=/s/=[[:space:]]*[0-9]+/= 17/' supabase/config.toml
+          supabase db start > "$RUNNER_TEMP/finance-fake-db-start.log" 2>&1 || {
+            echo '::error::Local Supabase DB failed to start; no remote database was touched.'
+            exit 1
+          }
+          count=$(docker ps --filter 'name=supabase_db_' -q | wc -l)
+          test "$count" -eq 1
+          localdb=$(docker ps --filter 'name=supabase_db_' -q | head -1)
+          echo "FAKE_ONLY_CONTAINER=$localdb" >> "$GITHUB_ENV"
+          echo '::notice::Only temporary local Postgres started. No secrets/remote DB connections.'
+      - name: Create 3 exact legacy shapes with fake owner A and B data
+        run: |
+          set -euo pipefail
+          docker cp "$GITHUB_WORKSPACE/tests/fixtures/pr82_production_legacy_fictional.sql" "$FAKE_ONLY_CONTAINER:/tmp/fake-legacy.sql" >/dev/null
+          docker exec -e PGPASSWORD=postgres "$FAKE_ONLY_CONTAINER" \
+            psql -h localhost -U postgres -d postgres -X -q -v ON_ERROR_STOP=1 -f /tmp/fake-legacy.sql
+          echo '::notice::Legacy shape with fictional user A/B, 3 records, 1 transfer, 2 settings.'
+      - name: Execute historic TEST scripts on fictional legacy schema
+        run: |
+          set -euo pipefail
+          for file in \
+            preview_finance_reliability.sql \
+            preview_finance_transfers_budget_forecast.sql \
+            preview_finance_safe_csv_import.sql \
+            preview_finance_opening_balances.sql \
+            test_finance_integrity_request_ids_2026-11-12.sql \
+            test_finance_transfer_idempotency_settings_guard_2026-11-12.sql \
+            preview_finance_savings_goals.sql \
+            test_only_stage1_saved_filters.sql \
+            test_only_stage2_bills_review_reconciliation.sql \
+            preview_finance_stage3_activities.sql \
+            preview_finance_stage3_rls_hardening.sql \
+            preview_finance_stage3_realtime.sql \
+            test_only_stage4_fx_20261117.sql \
+            test_only_stage4_fx_csv_import_20261117.sql \
+            test_only_claim_tracker_20261121.sql
+          do
+            test -s "$GITHUB_WORKSPACE/docs/database/$file"
+            docker cp "$GITHUB_WORKSPACE/docs/database/$file" "$FAKE_ONLY_CONTAINER:/tmp/$file" >/dev/null
+            if ! docker exec -e PGPASSWORD=postgres "$FAKE_ONLY_CONTAINER" \
+              psql -h localhost -U postgres -d postgres -X -q -v ON_ERROR_STOP=1 \
+              -f "/tmp/$file" > "$RUNNER_TEMP/fake-migration.log" 2>&1; then
+              echo "::error::Fictitious upgrade stopped at script $file"
+              grep -E 'ERROR|FATAL|psql:' "$RUNNER_TEMP/fake-migration.log" | head -8 || true
+              exit 1
+            fi
+            echo "::notice::Fictional migration passed: $file"
+          done
+      - name: Verify fake data and A/B RLS integrity
+        run: |
+          set -euo pipefail
+          docker cp "$GITHUB_WORKSPACE/tests/fixtures/pr82_production_fictional_assert.sql" "$FAKE_ONLY_CONTAINER:/tmp/fake-assert.sql" >/dev/null
+          docker exec -e PGPASSWORD=postgres "$FAKE_ONLY_CONTAINER" \
+            psql -h localhost -U postgres -d postgres -X -q -v ON_ERROR_STOP=1 -f /tmp/fake-assert.sql
+          echo '::notice::Synthetic checks passed. NO real data/Production/TEST used.'
+          echo '::notice::This rehearsal alone is NOT approval for Production migration.'
+      - name: Destroy local fake database
+        if: always()
+        run: |
+          if [[ -n "$FAKE_ONLY_CONTAINER" ]]; then
+            docker rm -f "$FAKE_ONLY_CONTAINER" >/dev/null 2>&1 || true
+          fi
+          rm -rf "$RUNNER_TEMP/finance-fake-db"
+          echo '::notice::Disposable database removed; original Production remains unchanged.'
