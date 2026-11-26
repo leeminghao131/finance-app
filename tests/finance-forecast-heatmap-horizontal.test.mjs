@@ -6,7 +6,7 @@ const read = name => readFileSync(new URL("../src/" + name, import.meta.url), "u
 const app = read("App.jsx");
 const forecast = read("FinanceForecastPanel.jsx");
 
-test("UI: forecast and heatmap each use a full-width row, retaining the Top 5 below", () => {
+test("UI: heatmap appears before forecast, both full width and Top 5 stays below", () => {
   const anchor = '<section className="grid items-start gap-4">';
   const start = app.indexOf(anchor);
   const end = app.indexOf("</section>", start);
@@ -15,7 +15,7 @@ test("UI: forecast and heatmap each use a full-width row, retaining the Top 5 be
   const iForecast = region.indexOf("<FinanceForecastPanel");
   const iHeatmap = region.indexOf("<HeatmapCard");
   const iTop5 = region.indexOf("<TopExpensesCard");
-  assert.ok(iForecast >= 0 && iForecast < iHeatmap && iHeatmap < iTop5);
+  assert.ok(iHeatmap >= 0 && iHeatmap < iForecast && iForecast < iTop5);
   assert.doesNotMatch(region, /xl:grid-cols-\[/);
   assert.doesNotMatch(region, /xl:col-span-2/);
   assert.match(region, /setCategory=\{setTopExpenseCategory\}/);
