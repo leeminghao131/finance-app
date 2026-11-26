@@ -1,0 +1,112 @@
+name: MH Finance encrypted production backup (manual setup)
+
+on:
+  push:
+    branches:
+      - backup/secure-prod-2026-11-26
+    paths:
+      - .github/workflows/mh-finance-prod-encrypted-backup.yml
+
+permissions:
+  contents: read
+
+jobs:
+  backup:
+    name: Read-only dump and AES-256 encrypted handoff
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    environment: mh-finance-prod-backup
+    steps:
+      - name: Verify manual arming and destination (no data access until ready)
+        id: guard
+        shell: bash
+        env:
+          DB_URL: ${{ secrets.MH_PROD_DB_URL }}
+          GPG_PASSPHRASE: ${{ secrets.MH_BACKUP_PASSPHRASE }}
+          BACKUP_ARMED: ${{ vars.MH_BACKUP_ARMED }}
+        run: |
+          set -euo pipefail
+          if [[ "${BACKUP_ARMED:-}" != "YES" ]]; then
+            echo '::notice::NOT ARMED: no production backup was performed.'
+            exit 0
+          fi
+          if [[ -z "${DB_URL:-}" || -z "${GPG_PASSPHRASE:-}" ]]; then
+            echo '::error::Missing one or both protected environment secrets. No backup performed.'
+            exit 1
+          fi
+          if [[ ${#GPG_PASSPHRASE} -lt 32 ]]; then
+            echo '::error::Encryption passphrase too short. Use a random 32+ character secret.'
+            exit 1
+          fi
+          python3 - <<'PY'
+          from urllib.parse import urlsplit, unquote
+          import os
+          u = urlsplit(os.environ['DB_URL'])
+          ref = 'hlkciowyusbhwcwjzfsr'
+          user = unquote(u.username or '')
+          host = (u.hostname or '').lower()
+          direct = (user == 'postgres' and host in (f'db.{ref}.supabase.co',f'db.{ref}.supabase.com'))
+          pooler = (user == f'postgres.{ref}' and host.endswith('.pooler.supabase.com'))
+          if u.scheme not in ('postgres','postgresql') or u.path != '/postgres' or not (direct or pooler) or (u.port or 5432) != 5432:
+              raise SystemExit('Not a verified MH Finance Production PostgreSQL connection; STOP.')
+          if not u.password:
+              raise SystemExit('Database connection secret has no password; STOP.')
+          PY
+          echo 'ready=true' >> "$GITHUB_OUTPUT"
+
+      - name: Install Supabase CLI for logical exports
+        if: steps.guard.outputs.ready == 'true'
+        uses: supabase/setup-cli@v1
+        with:
+          version: latest
+
+      - name: Read-only database dump, encrypt and verify encrypted archive
+        if: steps.guard.outputs.ready == 'true'
+        id: dump
+        shell: bash
+        env:
+          DB_URL: ${{ secrets.MH_PROD_DB_URL }}
+          GPG_PASSPHRASE: ${{ secrets.MH_BACKUP_PASSPHRASE }}
+        run: |
+          set -euo pipefail
+          umask 077
+          work_dir=$(mktemp -d "$RUNNER_TEMP/mh-finance-prod-XXXXXXXX")
+          trap 'rm -rf "$work_dir"' EXIT
+          cd "$work_dir"
+          echo 'Exporting production roles, schema, and data to runner temporary storage (no database writes).'
+          supabase db dump --db-url "$DB_URL" -f roles.sql --role-only
+          supabase db dump --db-url "$DB_URL" -f schema.sql
+          supabase db dump --db-url "$DB_URL" -f data.sql --data-only --use-copy -x 'storage.buckets_vectors' -x 'storage.vector_indexes'
+          for file in roles.sql schema.sql data.sql; do
+            test -s "$file" || { echo "::error::$file missing or empty. No artifact will be published."; exit 1; }
+          done
+          python3 - <<'PY'
+          from pathlib import Path
+          import re
+          sql = Path('data.sql').read_text('utf-8')
+          for schema, table in [('public','records'),('public','transfers'),('public','user_settings'),('auth','users')]:
+              pattern = rf'(?m)^COPY\s+(?:"?{schema}"?\.)"?{table}"?\s*\('
+              if re.search(pattern, sql) is None:
+                  raise SystemExit(f'Expected {schema}.{table} data section missing; refusing backup artifact.')
+          PY
+          sha256sum roles.sql schema.sql data.sql > manifest.sha256
+          printf 'source_project=hlkciowyusbhwcwjzfsr\ncreated_utc=%s\nmethod=supabase-cli-roles-schema-data\nrestoration_status=NOT_YET_VERIFIED\n' "$(date -u +%FT%TZ)" > metadata.txt
+          tar -czf plaintext.tar.gz roles.sql schema.sql data.sql manifest.sha256 metadata.txt
+          output="$RUNNER_TEMP/mh-finance-production-$(date -u +%Y%m%dT%H%M%SZ).tar.gz.gpg"
+          printf %s "$GPG_PASSPHRASE" | gpg --batch --yes --pinentry-mode loopback --passphrase-fd 0 \
+            --symmetric --cipher-algo AES256 --s2k-digest-algo SHA512 --s2k-mode 3 \
+            --output "$output" plaintext.tar.gz
+          test -s "$output"
+          printf %s "$GPG_PASSPHRASE" | gpg --batch --yes --pinentry-mode loopback --passphrase-fd 0 \
+            --decrypt "$output" | tar -tzf - >/dev/null
+          echo "archive=$output" >> "$GITHUB_OUTPUT"
+          echo '::notice::Encrypted backup generated and decrypted archive listing verified. It is NOT a full restore test.'
+
+      - name: Upload only encrypted artifact (temporary, download within 24 hours)
+        if: steps.dump.outputs.archive != ''
+        uses: actions/upload-artifact@v4
+        with:
+          name: mh-finance-prod-aes256-encrypted-backup
+          path: ${{ steps.dump.outputs.archive }}
+          retention-days: 1
+          if-no-files-found: error
