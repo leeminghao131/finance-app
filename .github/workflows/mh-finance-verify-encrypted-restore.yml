@@ -128,39 +128,32 @@ jobs:
               > "$work/private-restore.log" 2>&1; then
             echo '::notice::Roles/schema/data restored transactionally to disposable local database.'
           else
-            python3 - <<'PY'
-            from pathlib import Path
-            import re
-            p=Path('private-restore.log')
-            log=p.read_text(errors='replace') if p.exists() else ''
-            found=re.findall(r'psql:<stdin>:(\d+):\s*(?:ERROR|FATAL):\s*([^\r\n]*)',log)
-            # Never print SQL, role details, owner IDs, email addresses, or individual failed rows.
-            if found:
-                line,detail=found[0]
-                roles=sum(1 for _ in open('roles.sql',errors='replace'))
-                schema=sum(1 for _ in open('schema.sql',errors='replace'))
-                row=int(line)
-                stage='roles' if row<=1+roles else 'schema' if row<=2+roles+schema else 'data'
-                low=detail.lower()
-                labels=[
-                    ('already exists','duplicate-object'),
-                    ('does not exist','missing-object'),
-                    ('permission denied','permission-denied'),
-                    ('must be owner','owner-permission'),
-                    ('cannot be executed','transaction-command'),
-                    ('syntax error','syntax-error'),
-                    ('invalid input','invalid-data'),
-                    ('duplicate key','duplicate-key'),
-                    ('violates','constraint-violation'),
-                    ('unrecognized configuration','unsupported-setting'),
-                    ('not supported','unsupported-feature'),
-                    ('connection','connection'),
-                ]
-                category=next((label for needle,label in labels if needle in low),'other-error')
-                print(f'::error::Isolated restore stopped in {stage} SQL; safe error category: {category}; no private SQL printed.')
-            else:
-                print('::error::Isolated restore failed without a recognized SQL stage; no private SQL printed.')
-            PY
+            echo '::error::Isolated SQL restore failed. Full SQL errors remain private and are never uploaded.'
+            if grep -Fq 'already exists' "$work/private-restore.log"; then
+              echo '::notice::Sanitized SQL category: duplicate object'
+            elif grep -Fq 'does not exist' "$work/private-restore.log"; then
+              echo '::notice::Sanitized SQL category: missing object'
+            elif grep -Fq 'permission denied' "$work/private-restore.log"; then
+              echo '::notice::Sanitized SQL category: insufficient permission'
+            elif grep -Fq 'duplicate key' "$work/private-restore.log"; then
+              echo '::notice::Sanitized SQL category: duplicate key'
+            elif grep -Fq 'violates' "$work/private-restore.log"; then
+              echo '::notice::Sanitized SQL category: constraint violation'
+            else
+              echo '::notice::Sanitized SQL category: other (no private error text disclosed)'
+            fi
+            first_line=$(grep -Eom1 'psql:<stdin>:[0-9]+' "$work/private-restore.log" | sed 's/^.*://') || true
+            if [[ "$first_line" =~ ^[0-9]+$ ]]; then
+              roles_lines=$(wc -l < roles.sql)
+              schema_lines=$(wc -l < schema.sql)
+              if (( first_line <= 1 + roles_lines )); then
+                echo '::notice::Sanitized SQL stage: roles'
+              elif (( first_line <= 2 + roles_lines + schema_lines )); then
+                echo '::notice::Sanitized SQL stage: schema'
+              else
+                echo '::notice::Sanitized SQL stage: data'
+              fi
+            fi
             exit 1
           fi
 
