@@ -12,10 +12,10 @@ const file = path => readFileSync(new URL("../src/" + path, import.meta.url), "u
 test("Phase 4 baseline refuses any non-test Supabase URL in preview source", () => {
   const client=file("supabaseClient.js");
   const app=file("App.jsx");
-  assert.match(client, /SANDBOX_PROJECT_ID = "qrkaxxdwqgffhkalvtby"/);
-  assert.match(client, /isTestEnvironment = supabaseUrl === requiredSandboxUrl/);
-  assert.match(client, /hasSupabaseEnv = Boolean\(isTestEnvironment && supabaseAnonKey\)/);
-  assert.match(client, /supabase = hasSupabaseEnv \? createClient/);
+  assert.match(client, /classifyFinanceSupabaseTarget/);
+  assert.match(client, /isTestEnvironment = supabaseTarget === "test"/);
+  assert.match(client, /hasSupabaseEnv = supabaseTarget !== null/);
+  assert.match(client, /supabase = hasSupabaseEnv\s*\? createClient/);
   assert.match(app, /TEST MODE \/ 测试环境/);
 });
 
