@@ -181,7 +181,13 @@ export function discoverSpendingPatterns(records,{asOfDate,baselineMonths=3}={})
         "At least 6 historical peers; exceeds 3× median and robust deviation threshold. Not proof of error."));
     }
   }
-  return {status:"ready",findings:findings.sort((a,b)=>b.score-a.score||a.id.localeCompare(b.id)),
+  // Raw scores are RM, counts or percentage points and cannot be compared
+  // across kinds. Normalize each to its strongest observed peer (0–1), then
+  // use a stable kind/id tie break; this is relative prominence, not severity.
+  const maxima=new Map();
+  for(const f of findings)maxima.set(f.kind,Math.max(maxima.get(f.kind)||0,f.score));
+  for(const f of findings)f.rankScore=f.score/(maxima.get(f.kind)||1);
+  return {status:"ready",findings:findings.sort((a,b)=>b.rankScore-a.rankScore||a.id.localeCompare(b.id)),
     analyzed:eligible.length,baselineMonths,asOfDate,
     explanation:"Statistical observations from saved Expenses, not predictions or financial advice."};
 }
