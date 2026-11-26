@@ -1,21 +1,22 @@
 import React,{useMemo,useRef,useState} from "react";
 import FinanceOverlay from "./FinanceOverlay.jsx";
 import FinanceNativeMultiSeriesChart from "./FinanceNativeMultiSeriesChart.jsx";
-import {localMonthMY} from "./financeCalendar.js";
+import {localMonthMY,localDateMY} from "./financeCalendar.js";
 import {compareFinanceMonths} from "./financePlanning.js";
 
-const money = n => new Intl.NumberFormat("en-MY",{style:"currency",currency:"MYR"}).format(n);
+const formatter = new Intl.NumberFormat("en-MY",{style:"currency",currency:"MYR"});
+const money = n => formatter.format(n);
 function previousMonth(month){const [y,m]=month.split("-").map(Number);return m===1?(y-1)+"-12":y+"-"+String(m-1).padStart(2,"0");}
-export default function FinanceMonthComparison({records=[]}) {
+export default function FinanceMonthComparison({records=[],asOfDate=localDateMY()}) {
   const current=localMonthMY();
   const [firstMonth,setFirstMonth]=useState(()=>previousMonth(current));
   const [secondMonth,setSecondMonth]=useState(current);
   const [showCategories,setShowCategories]=useState(false);
   const categoryCompareTriggerRef=useRef(null);
   const comparison=useMemo(()=>{
-    try{return {value:compareFinanceMonths(records,firstMonth,secondMonth)};}
+    try{return {value:compareFinanceMonths(records,firstMonth,secondMonth,asOfDate)};}
     catch(e){return {error:e.message};}
-  },[records,firstMonth,secondMonth]);
+  },[records,firstMonth,secondMonth,asOfDate]);
   const value=comparison.value;
   const chart=value?[
     {metric:"Income",first:value.first.income,second:value.second.income},
