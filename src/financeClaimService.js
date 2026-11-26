@@ -15,14 +15,18 @@ async function findRequest(client,table,userId,requestId,columns){
   if(error)throw error;
   return data;
 }
+function requestConflict(message){
+  const error=new Error(message);error.financeClaimRequestConflict=true;return error;
+}
 function explainWriteFailure(error){
+  if(error?.financeClaimRequestConflict)return error;
   const message=String(error?.message||"Network response uncertain");
   return new Error(message+". If network was interrupted, refresh to confirm before retrying with the SAME draft.");
 }
 async function idempotentInsert(client,{table,userId,requestId,payload,columns,fields,beforeInsert}){
   const first=await findRequest(client,table,userId,requestId,columns);
   if(first){
-    if(!matches(first,payload,fields))throw new Error("This claim request ID already belongs to a different payment. Refusing to overwrite.");
+    if(!matches(first,payload,fields))throw requestConflict("This claim request ID already belongs to a different payment. Refresh and review before submitting again.");
     return first;
   }
   if(beforeInsert)await beforeInsert();
@@ -39,7 +43,7 @@ async function idempotentInsert(client,{table,userId,requestId,payload,columns,f
     const recovered=await findRequest(client,table,userId,requestId,columns);
     if(recovered){
       if(!matches(recovered,payload,fields))
-        throw new Error("Server returned a different claim for this request ID.");
+        throw requestConflict("Server returned a different claim for this request ID. Refresh before submitting again.");
       return recovered;
     }
   }catch(e){throw explainWriteFailure(e);}
@@ -54,10 +58,9 @@ export async function createFinanceClaim(client,userId,draft,requestId,confirmed
     beforeInsert:Array.isArray(confirmedMatchingIds)?async()=>{
       const {data,error}=await client.from("finance_claims").select("id")
         .eq("user_id",userId).eq("title",payload.title).eq("claimant",payload.claimant)
-        .eq("paid_on",payload.paid_on).eq("method",payload.method).eq("amount",payload.amount)
-        .is("cancelled_at",null);
+        .eq("paid_on",payload.paid_on).eq("method",payload.method).eq("amount",payload.amount);
       if(error||!Array.isArray(data))throw new Error("Cannot verify matching claims; nothing submitted.");
-      if(data.some(row=>!confirmedMatchingIds.includes(row.id)))
+      if(data.length!==new Set(confirmedMatchingIds).size||data.some(row=>!confirmedMatchingIds.includes(row.id)))
         throw new Error("A matching advance appeared on another device. Refresh and review the claim before retrying.");
     }:null,
     fields:["title","claimant","amount","method","paid_on","note"],
