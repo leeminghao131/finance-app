@@ -110,3 +110,5 @@ jobs:
           path: ${{ steps.dump.outputs.archive }}
           retention-days: 1
           if-no-files-found: error
+
+# Backup run explicitly requested by owner after scoped environment secrets and MH_BACKUP_ARMED=YES were configured (2026-11-26 MYT).
