@@ -17,40 +17,50 @@ jobs:
     timeout-minutes: 25
     environment: mh-finance-prod-backup
     steps:
-      - name: Verify manual arming and destination (no data access until ready)
+      - name: Verify owner approval and safely build an encoded session-pooler URL
         id: guard
         shell: bash
         env:
-          DB_URL: ${{ secrets.MH_PROD_DB_URL }}
+          DB_URL_TEMPLATE: ${{ secrets.MH_PROD_DB_URL }}
+          DB_PASSWORD: ${{ secrets.MH_PROD_DB_PASSWORD }}
           GPG_PASSPHRASE: ${{ secrets.MH_BACKUP_PASSPHRASE }}
           BACKUP_ARMED: ${{ vars.MH_BACKUP_ARMED }}
         run: |
           set -euo pipefail
-          if [[ "${BACKUP_ARMED:-}" != "YES" ]]; then
-            echo '::notice::NOT ARMED: no production backup was performed.'
-            exit 0
-          fi
-          if [[ -z "${DB_URL:-}" || -z "${GPG_PASSPHRASE:-}" ]]; then
-            echo '::error::Missing one or both protected environment secrets. No backup performed.'
+          if [[ "$BACKUP_ARMED" != "YES" ]]; then
+            echo '::error::Backup not armed. No connection attempted.'
             exit 1
           fi
-          if [[ ${#GPG_PASSPHRASE} -lt 32 ]]; then
-            echo '::error::Encryption passphrase too short. Use a random 32+ character secret.'
+          if [[ -z "$DB_URL_TEMPLATE" || -z "$DB_PASSWORD" || -z "$GPG_PASSPHRASE" ]]; then
+            echo '::error::Missing database connection template, separate password or encryption password. No connection attempted.'
             exit 1
           fi
           python3 - <<'PY'
-          from urllib.parse import urlsplit, unquote
-          import os
-          u = urlsplit(os.environ['DB_URL'])
+          import os, re
+          from urllib.parse import quote, urlsplit
           ref = 'hlkciowyusbhwcwjzfsr'
-          user = unquote(u.username or '')
-          host = (u.hostname or '').lower()
-          direct = (user == 'postgres' and host in (f'db.{ref}.supabase.co',f'db.{ref}.supabase.com'))
-          pooler = (user == f'postgres.{ref}' and host.endswith('.pooler.supabase.com'))
-          if u.scheme not in ('postgres','postgresql') or u.path != '/postgres' or not (direct or pooler) or (u.port or 5432) != 5432:
-              raise SystemExit('Not a verified MH Finance Production PostgreSQL connection; STOP.')
-          if not u.password:
-              raise SystemExit('Database connection secret has no password; STOP.')
+          template = os.environ['DB_URL_TEMPLATE'].strip()
+          password = os.environ['DB_PASSWORD']
+          encryption_password = os.environ['GPG_PASSPHRASE']
+          host = 'aws-1-ap-southeast-1.pooler.supabase.com'
+          if len(encryption_password) < 32:
+              raise SystemExit('Encryption passphrase too short; no backup attempted.')
+          # Accept a placeholder or an already populated password in the OLD template;
+          # discard that password completely, rather than trying to parse unsafe brackets/@.
+          pattern = (r'postgres(?:ql)?://postgres\.' + re.escape(ref) +
+                     r':.*@' + re.escape(host) + r':5432/postgres(?:\?sslmode=require)?')
+          if re.fullmatch(pattern, template) is None:
+              raise SystemExit('Template is not the approved Production Session pooler URL; STOP.')
+          safe_url = (f'postgresql://postgres.{ref}:' + quote(password, safe='') +
+                      f'@{host}:5432/postgres?sslmode=require')
+          check = urlsplit(safe_url)
+          if check.hostname != host or check.port != 5432:
+              raise SystemExit('Prepared URL does not point at approved host; STOP.')
+          # Mask both the encoded password and its entire assembled URL in Actions logs.
+          print(f'::add-mask::{quote(password, safe="")}')
+          print(f'::add-mask::{safe_url}')
+          with open(os.environ['GITHUB_ENV'], 'a', encoding='utf-8') as out:
+              out.write(f'SAFE_PROD_DB_URL={safe_url}\n')
           PY
           echo 'ready=true' >> "$GITHUB_OUTPUT"
 
@@ -65,7 +75,6 @@ jobs:
         id: dump
         shell: bash
         env:
-          DB_URL: ${{ secrets.MH_PROD_DB_URL }}
           GPG_PASSPHRASE: ${{ secrets.MH_BACKUP_PASSPHRASE }}
         run: |
           set -euo pipefail
@@ -74,9 +83,9 @@ jobs:
           trap 'rm -rf "$work_dir"' EXIT
           cd "$work_dir"
           echo 'Exporting production roles, schema, and data to runner temporary storage (no database writes).'
-          supabase db dump --db-url "$DB_URL" -f roles.sql --role-only
-          supabase db dump --db-url "$DB_URL" -f schema.sql
-          supabase db dump --db-url "$DB_URL" -f data.sql --data-only --use-copy -x 'storage.buckets_vectors' -x 'storage.vector_indexes'
+          supabase db dump --db-url "$SAFE_PROD_DB_URL" -f roles.sql --role-only
+          supabase db dump --db-url "$SAFE_PROD_DB_URL" -f schema.sql
+          supabase db dump --db-url "$SAFE_PROD_DB_URL" -f data.sql --data-only --use-copy -x 'storage.buckets_vectors' -x 'storage.vector_indexes'
           for file in roles.sql schema.sql data.sql; do
             test -s "$file" || { echo "::error::$file missing or empty. No artifact will be published."; exit 1; }
           done
