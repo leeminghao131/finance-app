@@ -25,9 +25,14 @@ async function requireImportOwner(client,options) {
     throw new Error("CSV import stopped: account changed. Check import history before retrying.");
   if(typeof client?.auth?.getUser!=="function")
     throw new Error("CSV import stopped: login could not be verified.");
-  const {data,error}=await client.auth.getUser();
+  const sessionResult=await client.auth.getSession();
+  const token=sessionResult.data?.session?.access_token;
+  if(sessionResult.error||!token||sessionResult.data?.session?.user?.id!==options.ownerId)
+    throw new Error("CSV import stopped: original session unavailable.");
+  const {data,error}=await client.auth.getUser(token);
   if(error||data?.user?.id!==options.ownerId||!options.isOwnerCurrent())
     throw new Error("CSV import stopped: authenticated account changed. Check previous import markers.");
+  return token;
 }
 export async function importReviewedCsvRows(client,fileSha256,selectedRecords,onProgress,options={}) {
   if(!Array.isArray(selectedRecords)||selectedRecords.length===0)throw new Error("Choose valid records to import.");
@@ -35,12 +40,17 @@ export async function importReviewedCsvRows(client,fileSha256,selectedRecords,on
   if(unique.size!==selectedRecords.length)throw new Error("Duplicate source-row numbers in import selection.");
   let inserted=0,alreadyImported=0,processed=0;
   for(let start=0;start<selectedRecords.length;start+=CHUNK_SIZE) {
-    await requireImportOwner(client,options);
+    const token=await requireImportOwner(client,options);
     const batch=selectedRecords.slice(start,start+CHUNK_SIZE);
     const rpc=batch.some(row=>row.fx_currency)?"finance_import_fx_csv_rows":"finance_import_csv_rows";
-    const {data,error}=await client.rpc(rpc,{
+    const request=client.rpc(rpc,{
       p_file_sha256:fileSha256,p_rows:batch,
     });
+    // Pin the verified original JWT to this single request. A later auth
+    // change must never silently replace the bearer token of a queued RPC.
+    if(options.ownerId&&(!token||typeof request.setHeader!=="function"))
+      throw new Error("CSV import cannot safely bind the original account.");
+    const {data,error}=await (options.ownerId?request.setHeader("Authorization","Bearer "+token):request);
     if(options?.ownerId)await requireImportOwner(client,options);
     if(error)throw new Error("Import stopped after "+processed+" of "+selectedRecords.length+
       " checked rows; retry safely using the same file. "+error.message);
