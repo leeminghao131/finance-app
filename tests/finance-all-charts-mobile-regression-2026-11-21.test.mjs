@@ -116,7 +116,7 @@ test("saved what-if scenarios and month comparison still use calculated source r
   assert.match(simulator,/const comparisonData=v\?\.baseline\.map/);
   assert.match(simulator,/entry\["saved"\+p\.index\]=p\.value\.scenario\[i\]\.balance/);
   assert.match(simulator,/key:"saved"\+p\.index/);
-  assert.match(comparison,/compareFinanceMonths\(records,firstMonth,secondMonth\)/);
+  assert.match(comparison,/compareFinanceMonths\(records,firstMonth,secondMonth,asOfDate\)/);
   assert.match(comparison,/first:value\.first\.income,second:value\.second\.income/);
   assert.match(comparison,/first:value\.first\.net,second:value\.second\.net/);
   assert.doesNotMatch(series,/localStorage|supabase|fetch\(|saveBudgets|addRecord|updateRecord|deleteRecord/);
