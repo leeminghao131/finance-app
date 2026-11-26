@@ -122,6 +122,17 @@ jobs:
             echo '::error::Disposable local PostgreSQL did not accept its own development credentials; no remote DB touched.'
             exit 1
           fi
+          # Read-only privilege boolean checks for the disposable local database.
+          for restore_role in postgres supabase_admin; do
+            probe=$(docker exec -e PGPASSWORD=postgres "$container" \
+              psql -h localhost -U postgres -d postgres -X -qAt -v ON_ERROR_STOP=1 \
+              -c "SELECT rolsuper::text || ',' || rolcreaterole::text FROM pg_roles WHERE rolname = '$restore_role'" 2>/dev/null || true)
+            if [[ "$probe" =~ ^(true|false|t|f),(true|false|t|f)$ ]]; then
+              echo "::notice::Local role ${restore_role} privilege flags: $probe"
+            else
+              echo "::notice::Local role ${restore_role} privilege flags unavailable."
+            fi
+          done
           # Original checksum-verified roles.sql is not altered.
           # Official Supabase recovery guidance allows this exact CLI-only grant exception.
           cp "$work/roles.sql" "$work/roles_restore.sql"
@@ -173,6 +184,27 @@ jobs:
             else
               echo '::notice::Sanitized failure category: other'
             fi
+            # Safe SQL error classification; never print source SQL or raw error.
+            python3 - <<'PY'
+            from pathlib import Path
+            import re
+            log=Path("private-restore.log").read_text(errors="replace")
+            match=re.search(r'psql:/tmp/mh-restore-roles\.sql:(\d+):\s*(?:ERROR|FATAL):',log)
+            if match:
+                index=int(match.group(1))
+                sql=Path("roles_restore.sql").read_text(errors="replace").splitlines()
+                window=sql[max(0,index-25):min(len(sql),index)]
+                candidate=sql[index-1].strip() if 0<index<=len(sql) else ''
+                start=next((line.strip() for line in reversed(window) if re.match(r'(?i)^(CREATE|ALTER|GRANT|REVOKE|COMMENT|SET|RESET|DO|SELECT|REASSIGN|DROP)\b',line.strip())),'')
+                directive=re.match(r'(?i)^([A-Z]+)', start or candidate)
+                opcode=(directive.group(1).upper() if directive else 'UNKNOWN')
+                allowed={'CREATE','ALTER','GRANT','REVOKE','COMMENT','SET','RESET','DO','SELECT','REASSIGN','DROP'}
+                if opcode not in allowed: opcode='UNKNOWN'
+                print(f'::notice::Private SQL diagnostics: roles line {index}, opcode {opcode}.')
+                print('::notice::Mentions Supabase CLI login grant: '+str('cli_login_postgres' in (start+candidate)))
+            else:
+                print('::notice::Private SQL diagnostics: no recognized role statement line.')
+            PY
             exit 1
           fi
 
