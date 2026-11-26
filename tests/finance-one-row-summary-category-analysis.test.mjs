@@ -99,7 +99,7 @@ test("Category charts and transaction views remain distinct from protected perio
   assert.match(app,/records=\{expandedTrend === "balance" \? periodRecords : chartRecords\}/);
   assert.match(app,/<FinanceForecastPanel\s+records=\{records\}/);
   assert.match(app,/<FinanceBudgetPanel[\s\S]*?records=\{records\}/);
-  assert.match(app,/const transactionFilteredIncome = sumType\(filteredRecords, "income"\)/);
-  assert.match(app,/const transactionFilteredExpense = sumType\(filteredRecords, "expense"\)/);
+  assert.match(app,/const transactionFilteredIncome = useMemo\(\(\)=>sumType\(filteredRecords, "income"\)/);
+  assert.match(app,/const transactionFilteredExpense = useMemo\(\(\)=>sumType\(filteredRecords, "expense"\)/);
   assert.match(app,/money\(transactionFilteredIncome\)/);
 });
