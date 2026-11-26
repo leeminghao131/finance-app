@@ -59,7 +59,7 @@ test("Previous dialogs preserve all callbacks while opening and closing from the
 });
 
 test("Monthly category comparison keeps chosen-month calculations and moves the table into a portal", () => {
-  assert.match(comparison, /compareFinanceMonths\(records,firstMonth,secondMonth\)/);
+  assert.match(comparison, /compareFinanceMonths\(records,firstMonth,secondMonth,asOfDate\)/);
   assert.match(comparison, /<FinanceOverlay open=\{showCategories\} title="Category Comparison \/ 分类对比"/);
   assert.match(comparison, /triggerRef=\{categoryCompareTriggerRef\}/);
   assert.match(comparison, /onClose=\{\(\)=>setShowCategories\(false\)\}/);
