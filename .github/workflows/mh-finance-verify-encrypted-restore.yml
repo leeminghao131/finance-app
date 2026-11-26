@@ -133,27 +133,29 @@ jobs:
               echo "::notice::Local role ${restore_role} privilege flags unavailable."
             fi
           done
-          # Original checksum-verified roles.sql is not altered.
-          # Official Supabase recovery guidance allows this exact CLI-only grant exception.
-          cp "$work/roles.sql" "$work/roles_restore.sql"
-          grant_regex='^[[:space:]]*GRANT "?postgres"? TO "?cli_login_postgres"? WITH INHERIT FALSE GRANTED BY "?supabase_admin"?;[[:space:]]*$'
-          grant_count=$(grep -Ec "$grant_regex" "$work/roles_restore.sql" || true)
-          if [[ "$grant_count" -gt 1 ]]; then
-            echo '::error::Multiple matching CLI-only grants; refusing local adjustment.'
+          # Local-only privilege gate: Supabase-managed postgres role is not a superuser.
+          # Local supabase_admin is a verified superuser; do NOT change privileges in Production.
+          # Restore unmodified roles.sql and preserve original SQL checksums.
+          if ! docker exec "$container" psql -X -qAt -v ON_ERROR_STOP=1 \
+              -U supabase_admin -d postgres \
+              -c "SELECT rolsuper::text FROM pg_roles WHERE rolname = current_user" \
+              > "$work/private-admin-probe.log" 2>&1; then
+            echo '::error::Disposable local Supabase admin connection unavailable; no restore attempted.'
             exit 1
           fi
-          if [[ "$grant_count" -eq 1 ]]; then
-            sed -i -E "/$grant_regex/s/^/-- LOCAL-RESTORE-ONLY: /" "$work/roles_restore.sql"
-            echo '::notice::Skipped one documented CLI login grant in disposable copy, never in original backup.'
+          if [[ "$(tr -d '[:space:]' < "$work/private-admin-probe.log")" != "true" ]]; then
+            echo '::error::Disposable local admin role is not verified superuser; stop.'
+            exit 1
           fi
-          docker cp "$work/roles_restore.sql" "$container:/tmp/mh-restore-roles.sql" >/dev/null
+          echo '::notice::Verified LOCAL Supabase admin has restore privileges, no Production connection.'
+          docker cp "$work/roles.sql" "$container:/tmp/mh-restore-roles.sql" >/dev/null
           for file in schema.sql data.sql; do
             docker cp "$work/$file" "$container:/tmp/mh-restore-$file" >/dev/null
           done
-          if docker exec -e PGPASSWORD=postgres "$container" \
-            psql -h localhost -U postgres -d postgres -X -q -v ON_ERROR_STOP=1 -v VERBOSITY=sqlstate -1 \
-              -f /tmp/mh-restore-roles.sql -f /tmp/mh-restore-schema.sql \
-              -c 'SET session_replication_role = replica' -f /tmp/mh-restore-data.sql \
+          if docker exec "$container" \
+            psql -U supabase_admin -d postgres -X -q -v ON_ERROR_STOP=1 -v VERBOSITY=sqlstate -1 \
+              -f /tmp/mh-restore-roles.sql -c 'SET session_replication_role = replica' \
+              -c 'SET ROLE postgres' -f /tmp/mh-restore-schema.sql -f /tmp/mh-restore-data.sql \
               > "$work/private-restore.log" 2>&1; then
             echo '::notice::All three SQL files restored transactionally to isolated local Postgres.'
           else
@@ -192,7 +194,7 @@ jobs:
           match=re.search(r'psql:/tmp/mh-restore-roles\.sql:(\d+):\s*(?:ERROR|FATAL):',log)
           if match:
               index=int(match.group(1))
-              sql=Path("roles_restore.sql").read_text(errors="replace").splitlines()
+              sql=Path("roles.sql").read_text(errors="replace").splitlines()
               window=sql[max(0,index-25):min(len(sql),index)]
               candidate=sql[index-1].strip() if 0<index<=len(sql) else ''
               start=next((line.strip() for line in reversed(window) if re.match(r'(?i)^(CREATE|ALTER|GRANT|REVOKE|COMMENT|SET|RESET|DO|SELECT|REASSIGN|DROP)\b',line.strip())),'')
