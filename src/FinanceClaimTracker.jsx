@@ -72,7 +72,7 @@ export default function FinanceClaimTracker({
     let proposedSen=null;
     try{proposedSen=claimSen(draft.amount);}catch{/* normal validation reports later */}
     const matchingClaims=proposedSen===null?[]:claims.filter(c=>
-      c.paid_on===draft.paid_on&&c.method===draft.method&&
+      c.paid_on===draft.paid_on&&String(c.method).trim()===String(draft.method).trim()&&
       String(c.title).trim()===draft.title.trim()&&
       String(c.claimant).trim()===draft.claimant.trim()&&
       claimSen(c.amount)===proposedSen);
@@ -91,7 +91,8 @@ export default function FinanceClaimTracker({
       }
       if(liveOwnerRef.current!==owner)return;
       const request=createReq.current;
-      try{await onCreate(draft,request.requestId,matchingClaims.map(c=>c.id));}
+      let saved;
+      try{saved=await onCreate(draft,request.requestId,matchingClaims.map(c=>c.id));}
       catch(error){
         // A verified conflicting persisted row cannot be recovered as this
         // draft. Clear only the local retry pointer; never change a saved row.
@@ -103,7 +104,13 @@ export default function FinanceClaimTracker({
       // Only an acknowledged server row clears the persisted request ID.
       confirmClaimRequest(owner,"advance",request,storage);
       if(liveOwnerRef.current!==owner)return;
-      createReq.current=null;setDraft(initialDraft());setShowNew(false);
+      createReq.current=null;
+      // A known matching row can be a recovered earlier submission, not a new
+      // separate payment. Keep the draft and require a fresh deliberate submit.
+      if(saved&&matchingClaims.some(c=>c.id===saved.id))throw new Error(t(
+        "先前提交的垫付已经存在，并未新增记录。若这确实是另一笔付款，请核对后再次提交。",
+        "The earlier advance already exists; no new row was created. Review and submit again only for a separate real payment."));
+      setDraft(initialDraft());setShowNew(false);
       setFilter("outstanding");
     },t("已确认保存垫付记录。","Advance confirmed in cloud."));
   };
