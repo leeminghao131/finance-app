@@ -367,19 +367,39 @@ function HeatmapCard({
   const [requestedPage,setRequestedPage]=useState("");
   const heatmapTriggerRef=useRef(null);
   const paged=filterMode==="year"||filterMode==="all";
-  const scope=useMemo(()=>paged?heatmapScopeMonths(filterMode,records,selectedYear):null,
-    [paged,filterMode,records,selectedYear]);
+  const scope=useMemo(()=>{
+    if(!paged)return null;
+    if(filterMode!=="all")return heatmapScopeMonths(filterMode,records,selectedYear);
+    // Recurring plans are unbounded in theory. Include their anchor, saved
+    // occurrences and the present month, not an invented infinite future.
+    const activeClaims=claims.filter(c=>!c.cancelled_at);
+    const activeIds=new Set(activeClaims.map(c=>c.id));
+    const activeBills=recurringBills.filter(b=>b.active!==false);
+    return heatmapScopeMonths(filterMode,[
+      ...allRecords.filter(r=>!r.deleted_at),...transfers.filter(r=>!r.deleted_at),
+      ...activeClaims.map(c=>({date:c.paid_on})),
+      ...claimRepayments.filter(r=>!r.voided_at&&activeIds.has(r.claim_id)).map(r=>({date:r.received_on})),
+      ...forecastPlans,
+      ...activeBills.flatMap(b=>[{date:b.anchorDate},...(b.occurrences||[]).map(o=>({date:o.due}))]),
+      ...(activeBills.length?[{date:asOfDate}]:[])
+    ],selectedYear);
+  },[paged,filterMode,records,allRecords,transfers,claims,claimRepayments,forecastPlans,recurringBills,asOfDate,selectedYear]);
   const page=paged?heatmapPageMonth(scope,requestedPage,asOfDate):null;
   const visibleDays=useMemo(()=>paged
     ?page?heatmapMonthCalendarDays(page,days):[]
     :days,[paged,page,days]);
   const {language}=useFinanceLanguage(),zh=language==="zh";
   const calendarCells=useMemo(()=>financeCalendarDayGrid(visibleDays),[visibleDays]);
-  const calendarEvents=useMemo(()=>visibleDays.length?financeCalendarEventsForRange({
-    records:allRecords,transfers,claims,repayments:claimRepayments,
-    bills:recurringBills,plannedIncomes:forecastPlans,
-    first:visibleDays[0].date,last:visibleDays[visibleDays.length-1].date,asOfDate
-  }):[],[allRecords,transfers,claims,claimRepayments,recurringBills,forecastPlans,visibleDays,asOfDate]);
+  const calendarResult=useMemo(()=>{
+    try{
+      return {events:visibleDays.length?financeCalendarEventsForRange({
+        records:allRecords,transfers,claims,repayments:claimRepayments,
+        bills:recurringBills,plannedIncomes:forecastPlans,
+        first:visibleDays[0].date,last:visibleDays[visibleDays.length-1].date,asOfDate
+      }):[],error:null};
+    }catch(error){return {events:[],error:String(error?.message||error)};}
+  },[allRecords,transfers,claims,claimRepayments,recurringBills,forecastPlans,visibleDays,asOfDate]);
+  const calendarEvents=calendarResult.events;
   const eventByDay=useMemo(()=>{
     const map=new Map();
     calendarEvents.forEach(e=>{const day=map.get(e.date)||[];day.push(e);map.set(e.date,day);});
@@ -407,6 +427,7 @@ function HeatmapCard({
     <Card className="mh-cosmic-panel mh-cosmic-heatmap">
       <h2 className="text-xl font-bold">{zh?"财务热力日历":"Finance Heatmap Calendar"}</h2>
        <p className="mh-finance-calendar__hint">{zh?"底色代表当前筛选的消费；彩色圆点代表当日财务事件。点击日期查看详情。":"Heat color follows expense filters; colored dots represent financial events. Tap a day for details."}</p>
+      {calendarResult.error&&<p role="alert" className="mt-3 text-sm">{zh?"财务事件暂时无法核实，日期详情已暂停；其他记账功能不受影响。":"Calendar events could not be verified. Day details are paused; other finance tools remain available."}</p>}
       {paged&&scope&&<div className="mt-3 flex flex-wrap items-center gap-2"
         aria-label="Complete spending heatmap month navigation">
         <button type="button" onClick={()=>changePage(heatmapShiftMonth(page,-1,scope))}
@@ -442,9 +463,9 @@ function HeatmapCard({
           const intensity=d.amount>0?0.18+(d.amount/max)*0.72:0.06;
           const events=eventByDay.get(d.date)||[];
           const types=[...new Set(events.map(e=>e.kind))].slice(0,4);
-          return <button key={d.date} type="button"
-            title={d.date+": "+money(d.amount)+" · "+events.length+" events"}
-            aria-label={d.date+" · Spending "+money(d.amount)+" · "+events.length+" financial events · Open daily details"}
+          return <button key={d.date} type="button" disabled={Boolean(calendarResult.error)}
+            title={d.date+": "+money(d.amount)+(calendarResult.error?" · events unavailable":" · "+events.length+" events")}
+            aria-label={d.date+" · Spending "+money(d.amount)+(calendarResult.error?" · events unavailable":" · "+events.length+" financial events · Open daily details")}
             aria-haspopup="dialog" aria-expanded={selectedDate===d.date}
             onClick={event=>{heatmapTriggerRef.current=event.currentTarget;
               setSelectedOwner(ownerKey);setSelectedDate(d.date);}}
@@ -463,7 +484,7 @@ function HeatmapCard({
           <span key={type}><i className={"mh-finance-calendar__dot is-"+type} aria-hidden="true"/>{caption}</span>)}
       </div>
       <FinanceHeatmapDayDetails
-        open={Boolean(selectedDay)}
+        open={Boolean(selectedDay)&&!calendarResult.error}
         date={selectedDate}
         records={records}
         events={calendarEvents}
@@ -1753,20 +1774,20 @@ const methodOptionsFor = () => expenseMethodOptions;
     [searchPeriodRecords, selectedCategoryFilter]);
   const chartRecords = useMemo(() => categoryComparisonRows(searchPeriodRecords, selectedCategoryFilter, periodRecords),
     [searchPeriodRecords, selectedCategoryFilter, periodRecords]);
-  const periodIncome = sumType(periodRecords, "income");
-  const periodExpense = sumType(periodRecords, "expense");
-  const transactionFilteredIncome = sumType(filteredRecords, "income");
-  const transactionFilteredExpense = sumType(filteredRecords, "expense");
+  const periodIncome = useMemo(()=>sumType(periodRecords, "income"),[periodRecords]);
+  const periodExpense = useMemo(()=>sumType(periodRecords, "expense"),[periodRecords]);
+  const transactionFilteredIncome = useMemo(()=>sumType(filteredRecords, "income"),[filteredRecords]);
+  const transactionFilteredExpense = useMemo(()=>sumType(filteredRecords, "expense"),[filteredRecords]);
   const advancedResults = useMemo(() => {
     if (!advancedFilter) return {rows:null,error:""};
     try { return {rows:filterFinanceRecordsAdvanced(records.map(row=>({...row,method:recordMethod(row)})),advancedFilter),error:""}; }
     catch (error) { return {rows:[],error:error.message}; }
   },[records,advancedFilter]);
   const expenseRecords = useMemo(() => chartRecords.filter((r) => r.type === "expense"), [chartRecords]);
-  const income = sumType(records.filter(row => row.date <= localToday), "income");
-  const expense = sumType(records.filter(row => row.date <= localToday), "expense");
-  const filteredIncome = sumType(chartRecords, "income");
-  const filteredExpense = sumType(chartRecords, "expense");
+  const income = useMemo(()=>sumType(records.filter(row => row.date <= localToday), "income"),[records,localToday]);
+  const expense = useMemo(()=>sumType(records.filter(row => row.date <= localToday), "expense"),[records,localToday]);
+  const filteredIncome = useMemo(()=>sumType(chartRecords, "income"),[chartRecords]);
+  const filteredExpense = useMemo(()=>sumType(chartRecords, "expense"),[chartRecords]);
   const filterLabel = filterMode === "all" ? "全部" : filterMode === "month" ? selectedMonth : filterMode === "year" ? selectedYear : filterMode === "recent30" ? "最近 30 天" : filterMode === "recent7" ? "最近 7 天" : "最近 3 天";
   const chartLabel = (d) => filterMode === "month" ? d.slice(8) : filterMode === "all" ? d : d.slice(5);
   const categoryData = useMemo(() => group(expenseRecords, (r) => r.category), [expenseRecords]);
@@ -1885,7 +1906,7 @@ const methodBalances = useMemo(() => withClaimMethodBalances(calculateMethodBala
   const forecastMonth = filterMode === "month" ? selectedMonth : monthNow();
   const heatmapDays = useMemo(() => {
     const amounts = {};
-    expenseRecords.forEach((r) => { amounts[r.date] = (amounts[r.date] || 0) + Number(r.amount || 0); });
+    expenseRecords.forEach((r) => { if(r.date<=localToday)amounts[r.date] = (amounts[r.date] || 0) + Number(r.amount || 0); });
     let dates = [];
     if (filterMode === "month") dates = dateRange(`${selectedMonth}-01`, daysInMonth(selectedMonth));
     else if (filterMode === "recent30") dates = dateRange(recentStart(30,localToday), 30);
@@ -2459,9 +2480,9 @@ async function addRecord(e) {
       throw new Error("Claim data is not fully synchronized. Refresh before changing cash.");
     return owner;
   }
-  async function handleCreateClaim(draft,requestId){
+  async function handleCreateClaim(draft,requestId,confirmedMatchingIds){
     const owner=claimWriteOwner();
-    const saved=await createFinanceClaim(supabase,owner,draft,requestId);
+    const saved=await createFinanceClaim(supabase,owner,draft,requestId,confirmedMatchingIds);
     if(liveUserIdRef.current===owner)markLedgerWriteConfirmed();
     if(liveUserIdRef.current===owner)await loadCloudData({background:true});
     return saved;
