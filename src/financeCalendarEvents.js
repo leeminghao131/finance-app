@@ -2,8 +2,27 @@ import {inclusiveCalendarDays,requireCalendarDate} from "./financeCalendar.js";
 import {billOccurrences} from "./financeStage2.js";
 import {claimCashMovements} from "./financeClaims.js";
 import {cents} from "./financeStage1Analytics.js";
+import {heatmapScopeMonths} from "./financeHeatmapScope.js";
 
 // READ ONLY. Calendar overlays never create/edit a saved finance transaction.
+// All includes dated cash and planning events. An active recurrence has an
+// infinite future in theory; use its anchor, recorded occurrences and today.
+export function financeCalendarAllScope({records=[],transfers=[],claims=[],repayments=[],bills=[],plannedIncomes=[],asOfDate}={}){
+  requireCalendarDate(asOfDate);
+  for(const rows of [records,transfers,claims,repayments,bills,plannedIncomes])
+    if(!Array.isArray(rows))throw Error("Incomplete finance calendar snapshot.");
+  const activeClaims=claims.filter(c=>!c.cancelled_at);
+  const activeIds=new Set(activeClaims.map(c=>c.id));
+  const activeBills=bills.filter(b=>b.active!==false);
+  return heatmapScopeMonths("all",[
+    ...records.filter(r=>!r.deleted_at),...transfers.filter(r=>!r.deleted_at),
+    ...activeClaims.map(c=>({date:c.paid_on})),
+    ...repayments.filter(r=>!r.voided_at&&activeIds.has(r.claim_id)).map(r=>({date:r.received_on})),
+    ...plannedIncomes,
+    ...activeBills.flatMap(b=>[{date:b.anchorDate},...(b.occurrences||[]).map(o=>({date:o.due}))]),
+    ...(activeBills.length?[{date:asOfDate}]:[])
+  ]);
+}
 // Actual cash and personal Expense are deliberately separate concepts.
 export function financeCalendarDayGrid(days=[]) {
   if(!Array.isArray(days)||!days.length)return [];
