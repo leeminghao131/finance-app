@@ -1,3 +1,16 @@
+# 最新增补：虚构数据迁移演练 PASS（2026-11-26）
+
+- [独立 GitHub Actions #45841822837](https://github.com/leeminghao131/finance-app/actions/runs/45841822837)：**completed/success**，Commit **17bf50d016a3ba9cc48a3577b2d0cef48a6b3b24**。
+- 由实际 Production 三张表的只读结构元数据建立虚构旧版基准（2 个虚构账号、3 笔虚构交易、1 笔虚构转账、2 条虚构设置），不是 Production 数据副本。
+- 在临时 Supabase PostgreSQL 17 中按依赖顺序执行 15 份原有 TEST SQL，全部自动步骤成功。
+- 自动验证原始虚构金额、原用户归属、9 张业务表 RLS、两个虚构账号的 SELECT 隔离和软删除后的 DELETE policy 移除；临时环境清理成功。
+- **本轮测试不等于已审查可安全执行的 Production 增量迁移**。这些原始脚本包含会破坏旧网页删除操作的策略切换；正式发布仍须将向后兼容扩展与 cutover 拆分，验证旧代码、新代码、多设备和真正 Release Candidate 环境配置。
+- Production main、Vercel Production、正式 Supabase 数据表均未变动。
+
+以下保留此前测试前的审查快照及当时待办状态，作为历史阶段记录。
+
+---
+
 # PR82 Production Migration Compatibility Review — DRAFT, 2026-11-26
 
 **DO NOT EXECUTE ON PRODUCTION.** This is a read-only technical audit and a synthetic rehearsal plan, not an approved Production migration. This review branch is based on PR83 SHA **ac438a6aa33faf8c401748d8df9bbb0d0b691866**. Nothing here should be merged into main or deployed.
