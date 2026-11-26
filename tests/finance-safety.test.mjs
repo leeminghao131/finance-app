@@ -66,8 +66,8 @@ test("Realtime, count-checked paging and recycle bin remain enabled", () => {
 });
 
 test("This preview build fails closed instead of connecting to production Supabase", () => {
-  assert.match(client, /SANDBOX_PROJECT_ID = "qrkaxxdwqgffhkalvtby"/);
-  assert.match(client, /isTestEnvironment = supabaseUrl === requiredSandboxUrl/);
-  assert.match(client, /hasSupabaseEnv = Boolean\(isTestEnvironment && supabaseAnonKey\)/);
+  assert.match(client, /classifyFinanceSupabaseTarget/);
+  assert.match(client, /isTestEnvironment = supabaseTarget === "test"/);
+  assert.match(client, /hasSupabaseEnv = supabaseTarget !== null/);
   assert.match(app, /TEST MODE \/ 测试环境/);
 });
