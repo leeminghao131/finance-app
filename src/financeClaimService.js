@@ -26,7 +26,8 @@ function explainWriteFailure(error){
 async function idempotentInsert(client,{table,userId,requestId,payload,columns,fields,beforeInsert}){
   const first=await findRequest(client,table,userId,requestId,columns);
   if(first){
-    if(!matches(first,payload,fields))throw requestConflict("This claim request ID already belongs to a different payment. Refresh and review before submitting again.");
+    if(!matches(first,payload,fields)||table==="finance_claims"&&first.cancelled_at)
+      throw requestConflict("This claim request ID belongs to a different or cancelled payment. Refresh and review before submitting again.");
     return first;
   }
   if(beforeInsert)await beforeInsert();
@@ -42,8 +43,8 @@ async function idempotentInsert(client,{table,userId,requestId,payload,columns,f
   try{
     const recovered=await findRequest(client,table,userId,requestId,columns);
     if(recovered){
-      if(!matches(recovered,payload,fields))
-        throw requestConflict("Server returned a different claim for this request ID. Refresh before submitting again.");
+      if(!matches(recovered,payload,fields)||table==="finance_claims"&&recovered.cancelled_at)
+        throw requestConflict("Server returned a different or cancelled claim for this request ID. Refresh before submitting again.");
       return recovered;
     }
   }catch(e){throw explainWriteFailure(e);}
