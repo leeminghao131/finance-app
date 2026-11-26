@@ -91,7 +91,15 @@ export default function FinanceClaimTracker({
       }
       if(liveOwnerRef.current!==owner)return;
       const request=createReq.current;
-      await onCreate(draft,request.requestId,matchingClaims.filter(c=>!c.cancelled_at).map(c=>c.id));
+      try{await onCreate(draft,request.requestId,matchingClaims.map(c=>c.id));}
+      catch(error){
+        // A verified conflicting persisted row cannot be recovered as this
+        // draft. Clear only the local retry pointer; never change a saved row.
+        if(error?.financeClaimRequestConflict){
+          confirmClaimRequest(owner,"advance",request,storage);createReq.current=null;
+        }
+        throw error;
+      }
       // Only an acknowledged server row clears the persisted request ID.
       confirmClaimRequest(owner,"advance",request,storage);
       if(liveOwnerRef.current!==owner)return;
