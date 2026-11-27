@@ -270,6 +270,44 @@ jobs:
           echo '::notice::Isolated restore passed counts, auth records, RLS, ownership and no-owner isolation, with no individual rows logged.'
           echo '::notice::This does not verify external Auth/email settings, live sessions or Android/Windows sign-in.'
 
+      - name: Compare restored ledger SHA-256 with current read-only Production baseline
+        shell: bash
+        run: |
+          set -euo pipefail
+          container="$LOCAL_RESTORE_DB_CONTAINER"
+          # Baseline obtained through a read-only SQL query, with UTC timezone.
+          # Aggregate digests only: no rows, amounts, passwords, or credentials are printed.
+          # Auth comparison is restricted to account IDs and creation timestamps.
+          # No remote database connection, production credential, or write.
+          expected_records='81d9437ad39b35996cc8f563930cb20d89377d27862d0f4b7ef8cc3588c46c9f'
+          expected_transfers='b0ed45bc2fe463a31a6ec1ee93b7f5214ea8bcc4210712fe0f2ecff1f02ee68a'
+          expected_settings='333c3c29db8e8c6418fb534e711ae767cbd991bbd3d0a60011cc64d7d09c225a'
+          expected_accounts='23798a6b91f216928918efb56b359f9993941842b261ab24c27e498bc1e80876'
+          if ! actual=$(docker exec "$container" psql -X -qAt -v ON_ERROR_STOP=1 -U postgres -d postgres \
+              -c "SET TIME ZONE 'UTC'" -c "
+                SELECT
+                  (SELECT encode(sha256(convert_to(coalesce(jsonb_agg(to_jsonb(r) ORDER BY r.id),'[]'::jsonb)::text,'UTF8')),'hex') FROM public.records r),
+                  (SELECT encode(sha256(convert_to(coalesce(jsonb_agg(to_jsonb(t) ORDER BY t.id),'[]'::jsonb)::text,'UTF8')),'hex') FROM public.transfers t),
+                  (SELECT encode(sha256(convert_to(coalesce(jsonb_agg(to_jsonb(s) ORDER BY s.user_id),'[]'::jsonb)::text,'UTF8')),'hex') FROM public.user_settings s),
+                  (SELECT encode(sha256(convert_to(coalesce(jsonb_agg(jsonb_build_array(u.id,u.created_at) ORDER BY u.id),'[]'::jsonb)::text,'UTF8')),'hex') FROM auth.users u)
+              " 2>/dev/null); then
+            echo '::error::Fingerprint computation failed in local restore; stop.'
+            exit 1
+          fi
+          IFS='|' read -r records transfers settings accounts <<< "$actual"
+          failed=0
+          for kind in records transfers settings accounts; do
+            want="expected_$kind"
+            if [[ "${!kind}" =~ ^[0-9a-f]{64}$ && "${!kind}" == "${!want}" ]]; then
+              echo "::notice::Verified identical $kind content fingerprint."
+            else
+              echo "::error::Fingerprint mismatch or invalid output for $kind; stop."
+              failed=1
+            fi
+          done
+          if [[ "$failed" != 0 ]]; then exit 1; fi
+          echo '::notice::All three original business tables and account identity fingerprints match the read-only baseline. No private rows printed.'
+
       - name: Cleanup disposable unencrypted data
         if: always()
         shell: bash
