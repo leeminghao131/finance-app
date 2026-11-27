@@ -8,8 +8,7 @@
  * popup behavior, and every money/data callback.
  *
  * Mobile/touch browsers keep the original untouched visual design.
- * The PR88 ?mh_perf=texture-off control remains available as a flatter
- * diagnostic comparison if this selective fix does not go far enough.
+ * This stylesheet is the final desktop material optimization after Windows acceptance.
  */
 @media (min-width: 768px) and (hover: hover) and (pointer: fine) {
   /* Large, vertically repeated 1920x1200 SVG is the first paint suspect. */
