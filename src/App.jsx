@@ -52,6 +52,7 @@ import "./financeClaimTracker.css";
 import "./financeHeatmapDetails.css";
 import "./financeLegibilitySweep.css";
 import "./financeHeatmapCalendar.css";
+import "./financeDesktopPerformance.css";
 import FinanceNativeChart from "./FinanceNativeChart.jsx";
 // Load import/export tools only when opened; keep spreadsheet parsing out of the dashboard bundle.
 const FinanceCsvImportPanel = React.lazy(() => import("./FinanceCsvImportPanel.jsx"));
