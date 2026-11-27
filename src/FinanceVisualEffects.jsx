@@ -1,19 +1,24 @@
 import React,{useEffect,useState} from "react";
 
-export function CoinRainEffect({ trigger }) {
+function CoinRainEffectView({ trigger }) {
   const [coins, setCoins] = useState([]);
 
   useEffect(() => {
     if (!trigger) return;
 
+    // Large mouse-driven desktop view: less GPU compositing than 42 nested 3D coins.
+    // Keep the original mobile effect unchanged (the user reports Android smooth).
+    const desktopLite = typeof window !== "undefined" &&
+      window.matchMedia?.("(min-width: 768px) and (hover: hover) and (pointer: fine)")?.matches;
     const symbols = ["RM", "$", "€", "¥", "£", "₿"];
-    const nextCoins = Array.from({ length: 42 }, (_, index) => ({
+    const nextCoins = Array.from({ length: desktopLite ? 16 : 42 }, (_, index) => ({
+      desktopLite: Boolean(desktopLite),
       id: `${trigger}-${index}`,
       symbol: symbols[index % symbols.length],
       left: 4 + Math.random() * 92,
-      delay: Math.random() * 0.45,
-      duration: 4.5 + Math.random() * 0.5,
-      size: 24 + Math.random() * 22,
+      delay: Math.random() * (desktopLite ? 0.16 : 0.45),
+      duration: desktopLite ? 2.55 + Math.random() * 0.3 : 4.5 + Math.random() * 0.5,
+      size: desktopLite ? 22 + Math.random() * 12 : 24 + Math.random() * 22,
       drift: -90 + Math.random() * 180,
       spin: 720 + Math.random() * 1080,
       wobble: 0.8 + Math.random() * 0.8,
@@ -24,7 +29,7 @@ export function CoinRainEffect({ trigger }) {
 
     const timer = setTimeout(() => {
       setCoins([]);
-    }, 5500);
+    }, desktopLite ? 3200 : 5500);
 
     return () => clearTimeout(timer);
   }, [trigger]);
@@ -35,6 +40,18 @@ export function CoinRainEffect({ trigger }) {
     <div className="pointer-events-none fixed inset-0 z-[9999] overflow-hidden">
       <style>
         {`
+          /* Desktop: compositor-friendly transform/opacity only; no animated filters,
+             nested wobble, or blurred moving shadow layers. */
+          @keyframes desktopCoinDrop {
+            0% { transform: translate3d(0, -14vh, 0) rotate(0deg); opacity: 0; }
+            9% { opacity: 1; }
+            85% { opacity: 1; }
+            100% {
+              transform: translate3d(var(--drift), 108vh, 0) rotate(var(--spin));
+              opacity: 0;
+            }
+          }
+
           @keyframes realisticCoinDrop {
             0% {
               transform: translate3d(0, -14vh, 0) rotateZ(0deg) rotateY(0deg) scale(0.8);
@@ -98,13 +115,13 @@ export function CoinRainEffect({ trigger }) {
           className="absolute top-0"
           style={{
             left: `${coin.left}%`,
-            animation: `realisticCoinDrop ${coin.duration}s cubic-bezier(.2,.75,.25,1) ${coin.delay}s forwards`,
+            animation: `${coin.desktopLite ? "desktopCoinDrop" : "realisticCoinDrop"} ${coin.duration}s cubic-bezier(.2,.75,.25,1) ${coin.delay}s forwards`,
             "--drift": `${coin.drift}px`,
             "--spin": `${coin.spin}deg`,
-            filter: `blur(${coin.blur}px)`,
+            filter: coin.desktopLite ? "none" : `blur(${coin.blur}px)`,
           }}
         >
-          <div
+          {!coin.desktopLite && <div
             className="absolute top-full rounded-full bg-black/30 blur-md"
             style={{
               width: `${coin.size * 0.9}px`,
@@ -115,13 +132,13 @@ export function CoinRainEffect({ trigger }) {
               transform: "translateX(-50%)",
               "--drift": `${coin.drift}px`,
             }}
-          />
+          />}
           <div
             className="relative flex items-center justify-center rounded-full"
             style={{
               width: `${coin.size}px`,
               height: `${coin.size}px`,
-              animation: `realisticCoinWobble ${coin.wobble}s ease-in-out ${coin.delay}s infinite, realisticCoinShine 0.85s ease-in-out ${coin.delay}s infinite`,
+              animation: coin.desktopLite ? "none" : `realisticCoinWobble ${coin.wobble}s ease-in-out ${coin.delay}s infinite, realisticCoinShine 0.85s ease-in-out ${coin.delay}s infinite`,
               background: "radial-gradient(circle at 30% 28%, #fff4bf 0%, #f7db7c 20%, #d89b1d 45%, #8a5110 78%, #5e3608 100%)",
               border: "1.5px solid rgba(107, 61, 8, 0.9)",
               boxShadow:
@@ -161,7 +178,9 @@ export function CoinRainEffect({ trigger }) {
     </div>
   );
 }
-export function IncomeCoinSpinEffect({ trigger }) {
+export const CoinRainEffect = React.memo(CoinRainEffectView);
+
+function IncomeCoinSpinEffectView({ trigger }) {
   const [visible, setVisible] = useState(false);
 
   useEffect(() => {
@@ -170,12 +189,14 @@ export function IncomeCoinSpinEffect({ trigger }) {
 
     const timer = setTimeout(() => {
       setVisible(false);
-    }, 5200);
+    }, typeof window !== "undefined" && window.matchMedia?.("(min-width: 768px) and (hover: hover) and (pointer: fine)")?.matches ? 3200 : 5200);
 
     return () => clearTimeout(timer);
   }, [trigger]);
 
   if (!visible) return null;
+  const desktopLite = typeof window !== "undefined" &&
+    window.matchMedia?.("(min-width: 768px) and (hover: hover) and (pointer: fine)")?.matches;
 
   return (
     <div className="pointer-events-none fixed inset-0 z-[9999] flex items-center justify-center overflow-hidden">
@@ -209,6 +230,11 @@ export function IncomeCoinSpinEffect({ trigger }) {
               transform: scale(1) rotateZ(0deg);
               opacity: 1;
             }
+          }
+
+          @keyframes incomeCoinSpinLite {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(720deg); }
           }
 
           @keyframes incomeCoinSpin {
@@ -247,19 +273,19 @@ export function IncomeCoinSpinEffect({ trigger }) {
 
       <div
         className="absolute inset-0 bg-[radial-gradient(circle_at_center,rgba(255,215,120,0.22),rgba(15,23,42,0.68))]"
-        style={{ animation: "incomeCoinBackdrop 5s ease forwards" }}
+        style={{ animation: desktopLite ? "incomeCoinBackdrop 3s ease forwards" : "incomeCoinBackdrop 5s ease forwards" }}
       />
       <div
         className="absolute rounded-full border border-amber-300/60"
         style={{
           width: "240px",
           height: "240px",
-          animation: "incomeCoinRing 5s ease-out forwards",
+          animation: desktopLite ? "incomeCoinRing 3s ease-out forwards" : "incomeCoinRing 5s ease-out forwards",
         }}
       />
       <div
         style={{
-          animation: "incomeCoinEnter 0.45s ease-out forwards, incomeCoinGlow 0.9s ease-in-out infinite",
+          animation: desktopLite ? "incomeCoinEnter 0.45s ease-out forwards" : "incomeCoinEnter 0.45s ease-out forwards, incomeCoinGlow 0.9s ease-in-out infinite",
           perspective: "1200px",
         }}
       >
@@ -268,7 +294,7 @@ export function IncomeCoinSpinEffect({ trigger }) {
           style={{
             width: "220px",
             height: "220px",
-            animation: "incomeCoinSpin 5s cubic-bezier(.2,.7,.2,1) forwards",
+            animation: desktopLite ? "incomeCoinSpinLite 2.85s cubic-bezier(.2,.7,.2,1) forwards" : "incomeCoinSpin 5s cubic-bezier(.2,.7,.2,1) forwards",
             background: "radial-gradient(circle at 30% 28%, #fff4bf 0%, #f6d46d 18%, #d28f19 43%, #8a4f10 75%, #5b3106 100%)",
             border: "2px solid rgba(112, 65, 10, 0.95)",
             boxShadow:
@@ -307,4 +333,4 @@ export function IncomeCoinSpinEffect({ trigger }) {
     </div>
   );
 }
-
+export const IncomeCoinSpinEffect = React.memo(IncomeCoinSpinEffectView);
