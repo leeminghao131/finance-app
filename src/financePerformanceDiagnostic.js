@@ -1,6 +1,6 @@
 // Read-only A/B performance diagnosis, allowed ONLY on a Vercel Preview hostname.
 // No Supabase imports, requests, app state writes, finance data or storage.
-export const FINANCE_PERF_MODES = Object.freeze(["baseline", "i18n-off", "paint-lite", "both"]);
+export const FINANCE_PERF_MODES = Object.freeze(["baseline", "i18n-off", "paint-lite", "both", "texture-off", "shadow-off", "motion-off"]);
 export const FINANCE_PRODUCTION_HOST = "finance-app-ivory-theta.vercel.app";
 
 export function resolveFinancePerformanceMode({ tier, hostname, search }) {
