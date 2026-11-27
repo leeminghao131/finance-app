@@ -76,7 +76,16 @@ jobs:
             echo '::error::Stage 1 changed fake ledger counts or old browser delete permissions'
             exit 1
           }
-          echo '::notice::Stage 1 passed old browser compatibility and fake data retention.'
+          echo '::notice::Stage 1 retained all original rows and legacy DELETE grants.'
+          docker cp "$GITHUB_WORKSPACE/tests/fixtures/rc89_stage1_old_browser_compat_fake.sql" "$FAKE_ONLY_CONTAINER:/tmp/mh-old-client-qa.sql"
+          docker exec -e PGPASSWORD=postgres "$FAKE_ONLY_CONTAINER" \
+            psql -h localhost -U postgres -d postgres -X -q -v ON_ERROR_STOP=1 \
+            -f /tmp/mh-old-client-qa.sql > "$RUNNER_TEMP/mh-old-client-qa.log" 2>&1 || {
+              echo '::error::Old-client create/update/delete and budget compatibility check FAILED'
+              grep -E 'ERROR|FATAL|psql:' "$RUNNER_TEMP/mh-old-client-qa.log" | head -8 || true
+              exit 1
+            }
+          echo '::notice::Old-client fake create/edit/delete, transfer and settings update passed with all data rolled back.'
       - name: Apply Draft Stage 2 and restore intended soft-delete security
         run: |
           set -euo pipefail
