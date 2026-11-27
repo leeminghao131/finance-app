@@ -63,7 +63,7 @@ test("Each narrowed desktop paint hypothesis is separately switchable without hi
   assert.match(css,/backdrop-filter: none !important;/);
   assert.match(css,/animation: none !important;/);
   assert.match(css,/transition: none !important;/);
-  assert.doesNotMatch(css,/display:\\s*none\\s*!important|visibility:\\s*hidden\\s*!important/);
+  assert.doesNotMatch(css,/display:\s*none\s*!important|visibility:\s*hidden\s*!important/);
 });
 
 test("Diagnostic overlay is independent of finance state and enabled only on Preview",()=>{
