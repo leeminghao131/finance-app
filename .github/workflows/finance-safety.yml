@@ -9,6 +9,7 @@ on:
       - "feature/**"
       - "feat/**"
       - "fix/**"
+      - "release/**"
       - "qa/**"
       - "integration/**"
       - "ui/**"
