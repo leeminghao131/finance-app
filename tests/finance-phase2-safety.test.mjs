@@ -1,0 +1,63 @@
+import test from "node:test";
+import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
+
+const source = (relative) => readFileSync(new URL(relative, import.meta.url),"utf8");
+const app = source("../src/App.jsx");
+const transfers = source("../src/FinanceTransferPanel.jsx");
+const budgets = source("../src/FinanceBudgetPanel.jsx");
+const forecast = source("../src/FinanceForecastPanel.jsx");
+const nativeChart = source("../src/FinanceNativeChart.jsx");
+const db = source("../docs/database/preview_finance_transfers_budget_forecast.sql");
+const client = source("../src/supabaseClient.js");
+
+test("new Preview is hard-locked to the independent MH Finance Test project",()=>{
+ assert.match(client,/classifyFinanceSupabaseTarget/);
+ assert.match(client,/isTestEnvironment = supabaseTarget === "test"/);
+ assert.doesNotMatch(client,/hlkciowyusbhwcwjzfsr/);
+});
+
+test("transfers are edited with owner + revision guard, soft-deleted and restorable",()=>{
+ assert.match(app,/async function updateTransfer\(transferId, edit\)/);
+ assert.match(app,/async function deleteTransfer\(transferId\)/);
+ assert.match(app,/async function restoreTransfer\(transferId\)/);
+ assert.match(app,/\.eq\("version",current\.version\)\.is\("deleted_at",null\)/);
+ assert.match(app,/\.eq\("user_id",user\.id\)/);
+ assert.match(app,/parseEditedAmount\(edit\.amount\)/);
+ assert.doesNotMatch(app,/\.from\("transfers"\)\s*\.delete\(/);
+ assert.match(transfers,/View All Transfers/);
+ assert.match(transfers,/Transfer Recycle Bin/);
+ assert.match(transfers,/Transfer History/);
+ assert.match(transfers,/setLimit\(n=>n\+25\)/);
+});
+
+test("month budgets are separate from filtered transactions and revision-checked",()=>{
+ const cloud = source("../src/financeCloudService.js");
+ assert.match(cloud,/\.from\("monthly_budgets"\)/);
+ assert.match(app,/\.eq\("version", expectedVersion\)/);
+ assert.match(budgets,/Monthly Budget/);
+ assert.match(budgets,/summarizeMonthlyBudget\(records,activeBudgets,budgetMonth,categories\)/);
+ assert.match(budgets,/No historical budget saved/);
+ assert.match(budgets,/Set as default template/);
+ assert.match(db,/Monthly budgets: update owned/);
+ assert.match(db,/auth\.uid\(\)/);
+});
+
+test("expected salary plans are stored outside real transactions",()=>{
+ assert.match(app,/queueSettingsField\("forecast_plans",normalized\)/);
+ assert.match(forecast,/Expected Income/);
+ assert.match(forecast,/Expected future income \(not real\)/);
+ assert.match(forecast,/onSavePlans\(\[\.\.\.plannedIncomes,newPlan\]\)/);
+ assert.match(forecast,/Next 90 days/);
+ assert.match(forecast,/kind="forecast"/);
+ assert.match(forecast,/rows=\{data.timeline\}/);
+ assert.ok(nativeChart.includes('strokeDasharray={kind==="forecast"&&field==="forecast"?"7 5":undefined}'));
+ assert.match(db,/forecast_plans jsonb NOT NULL DEFAULT '\[\]'::jsonb/);
+});
+
+test("local midnight and Supabase realtime updates cover all phase2 tables",()=>{
+ assert.match(app,/const today = localDateMY/);
+ assert.match(app,/const monthNow = localMonthMY/);
+ assert.match(app,/setInterval\(checkDate, 30000\)/);
+ assert.match(app,/for \(const table of \["records", "transfers", "user_settings", "monthly_budgets", "finance_activities", "finance_activity_links", "finance_claims", "finance_claim_repayments"\]\)/);
+});

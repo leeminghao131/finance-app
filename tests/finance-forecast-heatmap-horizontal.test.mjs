@@ -1,0 +1,47 @@
+import test from "node:test";
+import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
+
+const read = name => readFileSync(new URL("../src/" + name, import.meta.url), "utf8");
+const app = read("App.jsx");
+const forecast = read("FinanceForecastPanel.jsx");
+
+test("UI: heatmap appears before forecast, both full width and Top 5 stays below", () => {
+  const anchor = '<section className="grid items-start gap-4">';
+  const start = app.indexOf(anchor);
+  const end = app.indexOf("</section>", start);
+  assert.ok(start >= 0 && end > start);
+  const region = app.slice(start, end);
+  const iForecast = region.indexOf("<FinanceForecastPanel");
+  const iHeatmap = region.indexOf("<HeatmapCard");
+  const iTop5 = region.indexOf("<TopExpensesCard");
+  assert.ok(iHeatmap >= 0 && iHeatmap < iForecast && iForecast < iTop5);
+  assert.doesNotMatch(region, /xl:grid-cols-\[/);
+  assert.doesNotMatch(region, /xl:col-span-2/);
+  assert.match(region, /setCategory=\{setTopExpenseCategory\}/);
+});
+
+test("UI: forecast details remain left of a separate responsive graph on wide screens", () => {
+  assert.match(forecast, /grid items-start gap-5 xl:grid-cols-2/);
+  const left = forecast.indexOf('className="grid grid-cols-2 gap-3"');
+  const summary = forecast.indexOf('money(data.predictedBalance)');
+  const right = forecast.indexOf('{!outcome.error && (');
+  const chart = forecast.indexOf('<FinanceNativeChart');
+  assert.ok(left >= 0 && left < summary && summary < right && right < chart);
+  assert.match(forecast, /calculateCashForecast\(records,\{asOfDate,selectedMonth,horizon,trailingDays,plannedIncomes,openingBalanceTotal,claimMovements\}\)/);
+  assert.match(forecast, /aria-label="Manage Expected Income"/);
+  assert.match(forecast, /<FinanceOverlay open=\{incomePlannerOpen\}/);
+  assert.match(forecast, /rows=\{data.timeline\}/);
+  assert.match(forecast, /kind="forecast"/);
+  assert.doesNotMatch(forecast, /<ResponsiveContainer|<LineChart/);
+});
+
+test("UI: wider heatmap retains full amounts and unchanged Top 5 item layout", () => {
+  const heatmap = app.slice(app.indexOf("function HeatmapCard("),app.indexOf("function TopExpensesCard("));
+  assert.match(heatmap, /mh-finance-calendar__grid/);
+  assert.match(heatmap, /financeCalendarDayGrid\(visibleDays\)/);
+  assert.match(heatmap, /money\(d.amount\)/);
+  const top = app.slice(app.indexOf("function TopExpensesCard("),app.indexOf("function TodaySummaryCard("));
+  assert.match(top, /sm:grid-cols-2 xl:grid-cols-5/);
+  assert.match(top, /records.map\(\(record, index\) =>/);
+});

@@ -1,0 +1,207 @@
+import React, { useEffect, useLayoutEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
+
+// The visual transition is deliberately isolated from all finance forms and their state.
+export const FINANCE_MODAL_MOTION_MS = 300;
+const openDialogStack = [];
+// Ref-counted body scroll lock: closing a lower dialog must not unlock its child.
+const bodyScrollLock={count:0,overflow:"",paddingRight:""};
+function acquireBodyScrollLock(){
+  if(bodyScrollLock.count++>0)return;
+  bodyScrollLock.overflow=document.body.style.overflow;
+  bodyScrollLock.paddingRight=document.body.style.paddingRight;
+  const width=Math.max(0,window.innerWidth-document.documentElement.clientWidth);
+  document.body.style.overflow="hidden";
+  if(width)document.body.style.paddingRight=width+"px";
+}
+function releaseBodyScrollLock(){
+  if(bodyScrollLock.count<=0)return;
+  if(--bodyScrollLock.count>0)return;
+  document.body.style.overflow=bodyScrollLock.overflow;
+  document.body.style.paddingRight=bodyScrollLock.paddingRight;
+}
+
+function openerRect(triggerRef) {
+  const el = triggerRef?.current;
+  if (!el?.getBoundingClientRect) return null;
+  const rect = el.getBoundingClientRect();
+  if (!rect.width || !rect.height) return null;
+  return { left: rect.left, top: rect.top, width: rect.width, height: rect.height };
+}
+
+function modalFrames(source, modalRect) {
+  if (!source) {
+    return [
+      { transform: "translate3d(0, 10px, 0) scale(0.97)", opacity: 0.5 },
+      { transform: "translate3d(0, 0, 0) scale(1)", opacity: 1 },
+    ];
+  }
+  const dx = source.left - modalRect.left;
+  const dy = source.top - modalRect.top;
+  const sx = Math.max(0.025, Math.min(1, source.width / modalRect.width));
+  const sy = Math.max(0.025, Math.min(1, source.height / modalRect.height));
+  // From the exact button rectangle to the normal dialog rectangle: no 100%-viewport overshoot.
+  return [
+    {
+      transform: `translate3d(${dx}px, ${dy}px, 0) scale(${sx}, ${sy})`,
+      opacity: 0.76,
+    },
+    { transform: "translate3d(0, 0, 0) scale(1, 1)", opacity: 1 },
+  ];
+}
+
+// A portal dialog: its final dimensions, content, focus trap, scroll and finance callbacks
+// are unchanged. Only the journey from/to the provided trigger element is animated.
+export default function FinanceOverlay({
+  open, title, onClose, children, widthClass = "max-w-3xl", showTitle = true, triggerRef,
+}) {
+  const [mounted, setMounted] = useState(Boolean(open));
+  const dialogRef = useRef(null);
+  const backdropRef = useRef(null);
+  const veilRef = useRef(null);
+  const onCloseRef = useRef(onClose);
+  const openRef = useRef(open);
+  const triggerRefRef = useRef(triggerRef);
+  const originRectRef = useRef(null);
+  const motionRef = useRef([]);
+  const phaseRef = useRef("idle");
+  const lastChildrenRef = useRef(children);
+  const lastTitleRef = useRef(title);
+  if (open) { lastChildrenRef.current = children; lastTitleRef.current = title; }
+  const shownTitle = open ? title : lastTitleRef.current;
+  onCloseRef.current = onClose;
+  openRef.current = open;
+  triggerRefRef.current = triggerRef;
+
+  useLayoutEffect(() => {
+    if (open) setMounted(true);
+  }, [open]);
+
+  useLayoutEffect(() => {
+    if (!mounted || typeof window === "undefined") return undefined;
+    const dialog = dialogRef.current, backdrop = backdropRef.current, veil = veilRef.current;
+    if (!dialog || !backdrop || !veil) return undefined;
+    if (open && phaseRef.current === "open") return undefined;
+    if (!open && phaseRef.current === "closing") return undefined;
+
+    for (const animation of motionRef.current) animation?.cancel?.();
+    motionRef.current = [];
+    const reduced = window.matchMedia?.("(prefers-reduced-motion: reduce)")?.matches;
+    if (open) {
+      phaseRef.current = "open";
+      originRectRef.current = openerRect(triggerRefRef.current);
+    } else {
+      phaseRef.current = "closing";
+    }
+
+    if (reduced || typeof dialog.animate !== "function") {
+      if (!open) { phaseRef.current = "idle"; setMounted(false); }
+      return undefined;
+    }
+
+    // Promote only these two surfaces during animation, not the entire dashboard.
+    // Preserve the original trigger-origin path while avoiding paint-bound
+    // border-radius and full-viewport background-color animation.
+    dialog.style.willChange = "transform, opacity";
+    veil.style.willChange = "opacity";
+    const frames = modalFrames(originRectRef.current, dialog.getBoundingClientRect());
+    const options = {
+      duration: FINANCE_MODAL_MOTION_MS,
+      easing: "cubic-bezier(0.22, 1, 0.36, 1)",
+      fill: "both",
+      direction: open ? "normal" : "reverse",
+    };
+    // Independent backdrop and sheet animations let the sheet appear to emerge
+    // from the clicked button instead of scaling the entire application.
+    const sheetMotion = dialog.animate(frames, options);
+    const backdropMotion = veil.animate([
+      { opacity: 0 },
+      { opacity: 1 },
+    ], options);
+    motionRef.current = [sheetMotion, backdropMotion];
+    sheetMotion.onfinish = () => {
+      if (open) {
+        // Discard the animation's fill; the original static modal styling takes over.
+        sheetMotion.cancel();
+        backdropMotion.cancel();
+        dialog.style.willChange = "";
+        veil.style.willChange = "";
+      } else {
+        phaseRef.current = "idle";
+        setMounted(false);
+      }
+    };
+    return undefined;
+  }, [open, mounted]);
+
+  useEffect(() => () => {
+    for (const animation of motionRef.current) animation?.cancel?.();
+  }, []);
+
+  useEffect(() => {
+    if (!mounted || typeof document === "undefined") return undefined;
+    const activeBeforeOpen = document.activeElement;
+    acquireBodyScrollLock();
+    const currentDialog = dialogRef.current;
+    openDialogStack.push(currentDialog);
+    currentDialog?.focus({preventScroll:true});
+
+    const onKeyDown = event => {
+      if (openDialogStack[openDialogStack.length - 1] !== currentDialog) return;
+      if (event.key === "Escape") {
+        event.preventDefault();
+        if (openRef.current) onCloseRef.current?.();
+      }
+      if (event.key === "Tab" && dialogRef.current) {
+        const focusable = Array.from(dialogRef.current.querySelectorAll(
+          'button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])'
+        )).filter(el => el.getClientRects().length > 0);
+        if (!focusable.length) { event.preventDefault(); dialogRef.current.focus(); return; }
+        const first = focusable[0], last = focusable[focusable.length - 1];
+        if (event.shiftKey && (document.activeElement === first || document.activeElement === dialogRef.current)) {
+          event.preventDefault(); last.focus();
+        } else if (!event.shiftKey && document.activeElement === last) {
+          event.preventDefault(); first.focus();
+        }
+      }
+    };
+    document.addEventListener("keydown", onKeyDown);
+    return () => {
+      document.removeEventListener("keydown", onKeyDown);
+      const index = openDialogStack.lastIndexOf(currentDialog);
+      const wasTop=index===openDialogStack.length-1;
+      if(index!==-1)openDialogStack.splice(index,1);
+      releaseBodyScrollLock();
+      if(wasTop){
+        const nextTop=openDialogStack[openDialogStack.length-1];
+        if(nextTop?.focus)nextTop.focus({preventScroll:true});
+        else if(activeBeforeOpen?.focus)activeBeforeOpen.focus({preventScroll:true});
+      }
+    };
+  }, [mounted]);
+
+  if (!mounted || typeof document === "undefined") return null;
+  return createPortal(
+    <div ref={backdropRef}
+      className="mh-cosmic-modal-backdrop fixed inset-0 z-[100] flex items-center justify-center bg-slate-950/55 p-3 sm:p-5 mh-cosmic-modal-backdrop--composited"
+      onMouseDown={event => {
+        if (open && event.target === event.currentTarget) onCloseRef.current?.();
+      }}>
+      <div ref={veilRef} className="mh-cosmic-modal-backdrop__veil" aria-hidden="true" />
+      <section ref={dialogRef} role="dialog" aria-modal="true" aria-label={shownTitle} tabIndex={-1}
+        className={`mh-cosmic-modal-sheet w-full ${widthClass} min-w-0 overflow-y-auto rounded-2xl bg-white shadow-2xl outline-none`}
+        style={{ maxHeight: "calc(100dvh - 1.5rem)", transformOrigin: "top left", pointerEvents: open ? "auto" : "none" }}>
+        <div className={`sticky top-0 z-10 flex items-center gap-3 border-b border-slate-200 bg-white/95 px-4 py-3 backdrop-blur sm:px-5 ${showTitle ? "justify-between" : "justify-end"}`}>
+          <h2 className={showTitle ? "min-w-0 text-lg font-bold text-slate-900" : "sr-only"}>{shownTitle}</h2>
+          <button type="button" onClick={() => { if (open) onCloseRef.current?.(); }}
+            aria-label={"Close " + shownTitle}
+            className="min-h-11 rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-bold text-slate-700 hover:bg-slate-100">
+            ✕ Close
+          </button>
+        </div>
+        <div className="min-w-0 p-3 sm:p-4">{open ? children : lastChildrenRef.current}</div>
+      </section>
+    </div>,
+    document.body
+  );
+}

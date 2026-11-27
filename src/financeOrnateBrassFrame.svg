@@ -1,0 +1,92 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 480 300">
+<defs>
+ <linearGradient id="trim" x1="0" y1="0" x2=".9" y2=".95">
+  <stop stop-color="#23170e"/><stop offset=".09" stop-color="#89542b"/><stop offset=".22" stop-color="#e8c28a"/>
+  <stop offset=".36" stop-color="#aa713d"/><stop offset=".52" stop-color="#4b311e"/><stop offset=".69" stop-color="#e0b77a"/>
+  <stop offset=".84" stop-color="#81502a"/><stop offset="1" stop-color="#2a1b14"/>
+ </linearGradient>
+ <linearGradient id="bronze" x1="0" y1="0" x2=".8" y2="1">
+  <stop stop-color="#e1b273"/><stop offset=".23" stop-color="#704120"/><stop offset=".52" stop-color="#c58b4b"/><stop offset=".77" stop-color="#f6d598"/><stop offset="1" stop-color="#6d4223"/>
+ </linearGradient>
+ <radialGradient id="rivet" cx=".3" cy=".28">
+  <stop stop-color="#fff1bc"/><stop offset=".37" stop-color="#c6975a"/><stop offset=".72" stop-color="#724325"/><stop offset="1" stop-color="#25160e"/>
+ </radialGradient>
+</defs>
+<!-- Frame edge consists of individually lit extruded channels. Center is transparent. -->
+<rect x="5.5" y="5.5" width="469" height="289" rx="27" fill="none" stroke="#23150e" stroke-width="11"/>
+<rect x="8" y="8" width="464" height="284" rx="25" fill="none" stroke="url(#trim)" stroke-width="9"/>
+<rect x="13" y="13" width="454" height="274" rx="22" fill="none" stroke="#fae7ba" stroke-opacity=".64" stroke-width="1.5"/>
+<rect x="18" y="18" width="444" height="264" rx="19" fill="none" stroke="#382618" stroke-width="5"/>
+<rect x="22" y="22" width="436" height="256" rx="17" fill="none" stroke="#b0834e" stroke-width="1.9" stroke-opacity=".91"/>
+<rect x="26" y="26" width="428" height="248" rx="14" fill="none" stroke="#4c3928" stroke-width="1.2"/>
+<!-- Long straight industrial rails, preserved by CSS 9-slice -->
+<path d="M85 8H395M85 18H395M85 282H395M85 292H395M8 90V210M18 90V210M462 90V210M472 90V210" fill="none" stroke="#eac18a" stroke-opacity=".68" stroke-width="1.1"/>
+<g fill="#a4753e" stroke="#f7d7a0" stroke-width=".8" opacity=".93">
+<circle cx="102" cy="12" r="2.4"/><circle cx="102" cy="288" r="2.4"/>
+<circle cx="160" cy="12" r="2.4"/><circle cx="160" cy="288" r="2.4"/>
+<circle cx="240" cy="12" r="2.4"/><circle cx="240" cy="288" r="2.4"/>
+<circle cx="320" cy="12" r="2.4"/><circle cx="320" cy="288" r="2.4"/>
+<circle cx="378" cy="12" r="2.4"/><circle cx="378" cy="288" r="2.4"/>
+<circle cx="12" cy="115" r="2.4"/><circle cx="468" cy="115" r="2.4"/>
+<circle cx="12" cy="185" r="2.4"/><circle cx="468" cy="185" r="2.4"/>
+</g>
+<g transform="translate(0 0) scale(1 1)">
+ <path d="M0 95V24Q0 0 24 0H95L76 17H29Q17 17 17 29V76Z" fill="url(#trim)" stroke="#37200f" stroke-width="2"/>
+ <path d="M5 81V23Q5 5 23 5H81" fill="none" stroke="#fff4c9" stroke-width="2" opacity=".62"/>
+ <path d="M18 81V33Q18 18 33 18H81" fill="none" stroke="#50311d" stroke-width="4"/>
+ <path d="M11 64H36L63 37V11" fill="none" stroke="#d6a96b" stroke-width="3" opacity=".70"/>
+ <path d="M27 1L56 20L21 56L1 28Z" fill="url(#bronze)" stroke="#392319" stroke-width="2"/>
+ <path d="M28 9L46 20L20 46L9 28Z" fill="#2c2a29" stroke="#ebc181" stroke-width=".8"/>
+ <circle cx="27" cy="27" r="10" fill="url(#rivet)" stroke="#24170d" stroke-width="2"/>
+ <circle cx="27" cy="27" r="4" fill="#4e321e" stroke="#ffe7b7" stroke-width="1"/>
+ <path d="M24 24L30 30M30 24L24 30" stroke="#d8ae73" stroke-width="1"/>
+ <circle cx="55" cy="15" r="4" fill="url(#rivet)" stroke="#4c301e" stroke-width="1"/>
+ <circle cx="15" cy="55" r="4" fill="url(#rivet)" stroke="#4c301e" stroke-width="1"/>
+ <path d="M60 12L77 21L45 53L35 36Z" fill="url(#trim)" stroke="#64381a" stroke-width="1" opacity=".72"/>
+ </g>
+<g transform="translate(480 0) scale(-1 1)">
+ <path d="M0 95V24Q0 0 24 0H95L76 17H29Q17 17 17 29V76Z" fill="url(#trim)" stroke="#37200f" stroke-width="2"/>
+ <path d="M5 81V23Q5 5 23 5H81" fill="none" stroke="#fff4c9" stroke-width="2" opacity=".62"/>
+ <path d="M18 81V33Q18 18 33 18H81" fill="none" stroke="#50311d" stroke-width="4"/>
+ <path d="M11 64H36L63 37V11" fill="none" stroke="#d6a96b" stroke-width="3" opacity=".70"/>
+ <path d="M27 1L56 20L21 56L1 28Z" fill="url(#bronze)" stroke="#392319" stroke-width="2"/>
+ <path d="M28 9L46 20L20 46L9 28Z" fill="#2c2a29" stroke="#ebc181" stroke-width=".8"/>
+ <circle cx="27" cy="27" r="10" fill="url(#rivet)" stroke="#24170d" stroke-width="2"/>
+ <circle cx="27" cy="27" r="4" fill="#4e321e" stroke="#ffe7b7" stroke-width="1"/>
+ <path d="M24 24L30 30M30 24L24 30" stroke="#d8ae73" stroke-width="1"/>
+ <circle cx="55" cy="15" r="4" fill="url(#rivet)" stroke="#4c301e" stroke-width="1"/>
+ <circle cx="15" cy="55" r="4" fill="url(#rivet)" stroke="#4c301e" stroke-width="1"/>
+ <path d="M60 12L77 21L45 53L35 36Z" fill="url(#trim)" stroke="#64381a" stroke-width="1" opacity=".72"/>
+ </g>
+<g transform="translate(0 300) scale(1 -1)">
+ <path d="M0 95V24Q0 0 24 0H95L76 17H29Q17 17 17 29V76Z" fill="url(#trim)" stroke="#37200f" stroke-width="2"/>
+ <path d="M5 81V23Q5 5 23 5H81" fill="none" stroke="#fff4c9" stroke-width="2" opacity=".62"/>
+ <path d="M18 81V33Q18 18 33 18H81" fill="none" stroke="#50311d" stroke-width="4"/>
+ <path d="M11 64H36L63 37V11" fill="none" stroke="#d6a96b" stroke-width="3" opacity=".70"/>
+ <path d="M27 1L56 20L21 56L1 28Z" fill="url(#bronze)" stroke="#392319" stroke-width="2"/>
+ <path d="M28 9L46 20L20 46L9 28Z" fill="#2c2a29" stroke="#ebc181" stroke-width=".8"/>
+ <circle cx="27" cy="27" r="10" fill="url(#rivet)" stroke="#24170d" stroke-width="2"/>
+ <circle cx="27" cy="27" r="4" fill="#4e321e" stroke="#ffe7b7" stroke-width="1"/>
+ <path d="M24 24L30 30M30 24L24 30" stroke="#d8ae73" stroke-width="1"/>
+ <circle cx="55" cy="15" r="4" fill="url(#rivet)" stroke="#4c301e" stroke-width="1"/>
+ <circle cx="15" cy="55" r="4" fill="url(#rivet)" stroke="#4c301e" stroke-width="1"/>
+ <path d="M60 12L77 21L45 53L35 36Z" fill="url(#trim)" stroke="#64381a" stroke-width="1" opacity=".72"/>
+ </g>
+<g transform="translate(480 300) scale(-1 -1)">
+ <path d="M0 95V24Q0 0 24 0H95L76 17H29Q17 17 17 29V76Z" fill="url(#trim)" stroke="#37200f" stroke-width="2"/>
+ <path d="M5 81V23Q5 5 23 5H81" fill="none" stroke="#fff4c9" stroke-width="2" opacity=".62"/>
+ <path d="M18 81V33Q18 18 33 18H81" fill="none" stroke="#50311d" stroke-width="4"/>
+ <path d="M11 64H36L63 37V11" fill="none" stroke="#d6a96b" stroke-width="3" opacity=".70"/>
+ <path d="M27 1L56 20L21 56L1 28Z" fill="url(#bronze)" stroke="#392319" stroke-width="2"/>
+ <path d="M28 9L46 20L20 46L9 28Z" fill="#2c2a29" stroke="#ebc181" stroke-width=".8"/>
+ <circle cx="27" cy="27" r="10" fill="url(#rivet)" stroke="#24170d" stroke-width="2"/>
+ <circle cx="27" cy="27" r="4" fill="#4e321e" stroke="#ffe7b7" stroke-width="1"/>
+ <path d="M24 24L30 30M30 24L24 30" stroke="#d8ae73" stroke-width="1"/>
+ <circle cx="55" cy="15" r="4" fill="url(#rivet)" stroke="#4c301e" stroke-width="1"/>
+ <circle cx="15" cy="55" r="4" fill="url(#rivet)" stroke="#4c301e" stroke-width="1"/>
+ <path d="M60 12L77 21L45 53L35 36Z" fill="url(#trim)" stroke="#64381a" stroke-width="1" opacity=".72"/>
+ </g>
+<!-- End-capped rail brackets -->
+<path d="M204 6L214 18H266L276 6M204 294L214 282H266L276 294" stroke="#f2c991" stroke-width="1.6" fill="#4d321e" opacity=".73"/>
+<path d="M6 125L18 135V165L6 175M474 125L462 135V165L474 175" stroke="#eab97e" stroke-width="1.3" fill="#503520" opacity=".77"/>
+</svg>

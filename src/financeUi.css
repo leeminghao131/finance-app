@@ -1,0 +1,1479 @@
+/* UI-only layer. Scoped to the signed-in dashboard; no finance data or input value changes. */
+.mh-ui {
+  --mh-ink: #17202b;
+  --mh-edge: #d9dfe5;
+  --mh-metal: #eef0f2;
+  background: radial-gradient(circle at 90% 0%, #e6e9ee 0%, #f6f7f9 30%, #f3f5f7 100%);
+  font-family: Inter, "Segoe UI", Arial, "Noto Sans SC", sans-serif;
+  letter-spacing: .005em;
+}
+.mh-ui > div > header {
+  background: linear-gradient(125deg, #141a22 0%, #242b35 65%, #331c25 100%);
+  border: 1px solid #49515c;
+  box-shadow: inset 0 1px 0 #ffffff20, 0 14px 30px #11182714;
+}
+.mh-ui > div > header h1 { letter-spacing: -.025em; line-height: 1.15; }
+.mh-ui > div > header button { min-height: 44px; }
+.mh-ui > div > header button:focus-visible,
+.mh-ui button:focus-visible,
+.mh-record-input:focus-visible {
+  outline: 3px solid #bb5058;
+  outline-offset: 2px;
+}
+.mh-ui .rounded-2xl.bg-white.ring-1.ring-slate-200 {
+  border: 1px solid #e0e4e9;
+  box-shadow: 0 1px 2px #11182709, 0 5px 16px #11182706;
+}
+.mh-ui h2 { letter-spacing: -.015em; }
+.mh-ui select, .mh-ui input, .mh-ui textarea { max-width: 100%; }
+.mh-ui .mh-touch { min-height: 44px; touch-action: manipulation; }
+.mh-ui .mh-record-card { box-shadow: 0 3px 12px #1118270b; }
+.mh-ui .mh-record-amount { overflow-wrap: anywhere; font-variant-numeric: tabular-nums; }
+.mh-ui .mh-record-input { min-height: 46px; font-size: 16px; }
+.mh-ui button, .mh-ui [role="button"] { -webkit-tap-highlight-color: transparent; }
+@media (max-width: 767px) {
+  .mh-ui > div > header { padding: 1rem; border-radius: 1.1rem; }
+  .mh-ui > div > header h1 { font-size: clamp(1.45rem, 6vw, 2rem); }
+  .mh-ui > div > header > div:last-child { gap: .5rem; }
+  .mh-ui > div > header > div:last-child button { padding: .7rem .8rem; font-size: .8rem; }
+  .mh-ui .mh-record-card { width: 100%; min-width: 0; }
+  .mh-ui .mh-record-card button { touch-action: manipulation; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .mh-ui *, .mh-ui *::before, .mh-ui *::after { scroll-behavior: auto !important; transition-duration: .01ms !important; }
+}
+
+/* Only buttons that actually open a floating menu/dialog vibrate on desktop hover.
+   Non-button trend zoom surfaces intentionally remain completely still. Do not
+   animate submit/delete/tab/reorder controls. Long press and touch are excluded. */
+@keyframes mh-universal-hover-vibrate {
+  0%, 100% { translate: 0 0; rotate: 0deg; }
+  25% { translate: -0.8px 0.2px; rotate: -0.2deg; }
+  50% { translate: 0.8px -0.2px; rotate: 0.2deg; }
+  75% { translate: -0.45px -0.15px; rotate: -0.12deg; }
+}
+@media (hover: hover) and (pointer: fine) {
+  button:is(.mh-modal-trigger, [aria-haspopup="dialog"], [aria-haspopup="menu"]):not(:disabled):not(:active):hover {
+    animation: mh-universal-hover-vibrate .17s linear infinite;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  button:is(.mh-modal-trigger, [aria-haspopup="dialog"], [aria-haspopup="menu"]) {
+    animation: none !important;
+    translate: none !important;
+    rotate: none !important;
+  }
+}
+
+/* Stage 1.1: fixed, non-layout-shifting left tool drawer.
+   The rightmost 34px remains visible; its animation never affects finance cards. */
+.mh-insights-dock {
+  position: fixed;
+  left: 0;
+  top: 50%;
+  z-index: 45;
+  width: 208px;
+  max-width: calc(100vw - 12px);
+  max-height: calc(100dvh - 32px);
+  display: flex;
+  flex-direction: column;
+  padding: 6px 5px 8px 7px;
+  background: linear-gradient(150deg, #212a38, #171c27);
+  border: 1px solid #4b5563;
+  border-left: 0;
+  border-radius: 0 18px 18px 0;
+  box-shadow: 4px 10px 28px rgba(15,23,42,.2);
+  transform: translate3d(calc(-100% + 34px), -50%, 0);
+  transition: transform 260ms cubic-bezier(.22,1,.36,1), box-shadow 260ms ease;
+  will-change: transform;
+}
+.mh-insights-dock:focus-within,
+.mh-insights-dock[data-expanded="true"] {
+  transform: translate3d(0, -50%, 0);
+}
+@media (hover:hover) and (pointer:fine) {
+  .mh-insights-dock:hover { transform: translate3d(0, -50%, 0); box-shadow: 5px 15px 34px rgba(15,23,42,.26); }
+}
+.mh-insights-dock__toggle {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  width: 100%;
+  height: 30px;
+  padding-right: 6px;
+  font-size: 21px;
+  line-height: 1;
+  color: #f5cf8a;
+  background: none;
+  border: 0;
+  cursor: pointer;
+}
+.mh-insights-dock__toggle:focus-visible,
+.mh-insights-dock__button:focus-visible {
+  outline: 2px solid #f4d390;
+  outline-offset: 2px;
+}
+.mh-insights-dock__items {
+  display: grid;
+  gap: 6px;
+  min-height: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+  overscroll-behavior: contain;
+  scrollbar-width: thin;
+  /* Room for the floating hover lift without clipping the seven buttons. */
+  padding: 4px 8px 5px 2px;
+}
+.mh-insights-dock__button {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  min-height: 52px;
+  padding: 9px 2px 9px 11px;
+  border-radius: 12px;
+  background: rgba(255,255,255,.085);
+  color: #f8fafc;
+  font-weight: 650;
+  font-size: 13px;
+  cursor: pointer;
+  text-align: left;
+  transform: translate3d(0,0,0) scale(1);
+  transform-origin: center center;
+  box-shadow: 0 2px 5px rgba(2,6,23,.10);
+  transition: transform 290ms cubic-bezier(.22,1,.36,1),
+              box-shadow 290ms cubic-bezier(.22,1,.36,1),
+              background-color 220ms ease;
+}
+@media (hover:hover) and (pointer:fine) {
+  .mh-insights-dock__button:not(:disabled):hover {
+    transform: translate3d(3px,-3px,0) scale(1.025);
+    box-shadow: 0 10px 22px rgba(2,6,23,.43), 0 0 0 1px rgba(245,211,144,.34);
+    background: rgba(255,255,255,.20);
+  }
+}
+.mh-insights-dock__button:not(:disabled):focus-visible {
+  transform: translate3d(2px,-2px,0) scale(1.015);
+  background: rgba(255,255,255,.18);
+}
+.mh-insights-dock__button:disabled { opacity: .45; cursor: not-allowed; }
+.mh-insights-dock__label { min-width: 0; white-space: nowrap; }
+.mh-insights-dock__icon {
+  display: grid;
+  flex: 0 0 26px;
+  place-items: center;
+  font-size: 19px;
+}
+.mh-insights-dock__outside {
+  position: fixed;
+  inset: 0;
+  z-index: 44;
+  border: 0;
+  background: transparent;
+  cursor: default;
+}
+@media (max-width: 767px) {
+  .mh-insights-dock { top: 50%; width: 190px; }
+  .mh-insights-dock__button { min-height: 54px; }
+}
+@media (prefers-reduced-motion:reduce) {
+  .mh-insights-dock, .mh-insights-dock__button {
+    transition: none !important;
+    transform-origin: center center;
+  }
+  .mh-insights-dock__button:hover,
+  .mh-insights-dock__button:focus-visible {
+    transform: none !important;
+  }
+}
+
+/* Explicit arrow collapse overrides hover and keyboard focus until the pointer leaves. */
+.mh-insights-dock[data-suppress-hover="true"] {
+  transform: translate3d(calc(-100% + 34px), -50%, 0) !important;
+}
+.mh-insights-dock__sortable {
+  min-width: 0;
+  border-radius: 12px;
+  touch-action: pan-y;
+}
+.mh-insights-dock__sortable.is-dragging .mh-insights-dock__button,
+.mh-insights-dock__sortable.is-dragging .mh-insights-dock__button:hover {
+  opacity: .45;
+  background: rgba(245, 211, 144, .24);
+  transform: none !important;
+  box-shadow: inset 0 0 0 1px #f5d390;
+  cursor: grabbing;
+}
+.mh-insights-dock__hint {
+  padding: 5px 3px 0;
+  text-align: center;
+  font-size: 10px;
+  color: #d6d9e0;
+  user-select: none;
+}
+.mh-insights-dock__ghost {
+  position: fixed;
+  z-index: 70;
+  pointer-events: none;
+  display: flex;
+  width: 180px;
+  min-height: 52px;
+  align-items: center;
+  justify-content: space-between;
+  padding: 9px 14px;
+  border: 1px solid #f5d390;
+  border-radius: 12px;
+  background: #293240;
+  color: #fff;
+  font-size: 13px;
+  font-weight: 700;
+  box-shadow: 0 15px 32px #0f172a70;
+  transform: scale(1.04);
+}
+@media (max-width:767px){.mh-insights-dock__ghost{width:168px}}
+
+/* Stage 2: independent top-right in-app animated reminders; never reflow cards. */
+.mh-stage2-notifications {
+  position: fixed;
+  z-index: 60;
+  right: max(12px, env(safe-area-inset-right));
+  top: max(76px, env(safe-area-inset-top));
+  width: min(318px, calc(100vw - 26px));
+  display: grid;
+  justify-items: stretch;
+  gap: 7px;
+  pointer-events: none;
+}
+.mh-stage2-notifications > * { pointer-events: auto; }
+.mh-stage2-notifications__bell {
+  justify-self: end;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  padding: 8px 12px;
+  min-height: 40px;
+  color: #f8fafc;
+  background: #17202f;
+  border: 1px solid #64748b;
+  border-radius: 12px;
+  box-shadow: 0 6px 22px #0f172a30;
+  font-weight: 700;
+  font-size: 12px;
+}
+.mh-stage2-notifications__count {
+  min-width: 24px;
+  display: inline-grid;
+  place-items: center;
+  padding: 3px 5px;
+  border-radius: 999px;
+  background: #e05043;
+  color: white;
+  font-size: 11px;
+}
+.mh-stage2-notifications__toast {
+  width: 100%;
+  min-height: 58px;
+  display: grid;
+  grid-template-columns: 23px 1fr 16px;
+  align-items: center;
+  gap: 8px;
+  text-align: left;
+  padding: 10px 11px;
+  border-radius: 15px;
+  border: 1px solid #e9d5a5;
+  background: #fffbeb;
+  color: #713f12;
+  box-shadow: 0 10px 28px #0f172a30;
+  animation: mh-stage2-jump 1.45s ease-in-out infinite;
+}
+.mh-stage2-notifications__toast:nth-of-type(3){animation-delay: .18s}
+.mh-stage2-notifications__toast:nth-of-type(4){animation-delay: .34s}
+.mh-stage2-notifications__toast:hover { border-color: #b45309; }
+.mh-stage2-notifications__toast:focus-visible,
+.mh-stage2-notifications__bell:focus-visible,
+.mh-stage2-notifications__menu button:focus-visible {
+  outline: 3px solid #2563eb;
+  outline-offset: 2px;
+}
+.mh-stage2-notifications__more {
+  justify-self: end;
+  background: #ffffff;
+  color: #334155;
+  padding: 8px 12px;
+  border: 1px solid #cbd5e1;
+  border-radius: 10px;
+  font-size: 12px;
+}
+.mh-stage2-notifications__menu {
+  display: grid;
+  gap: 5px;
+  padding: 8px;
+  background: #ffffff;
+  border: 1px solid #cbd5e1;
+  border-radius: 14px;
+  box-shadow: 0 12px 32px #0f172a30;
+}
+.mh-stage2-notifications__menu button {
+  min-height: 43px;
+  padding: 8px 11px;
+  border-radius: 8px;
+  text-align: left;
+  font-weight: 600;
+  font-size: 13px;
+  color: #17202b;
+}
+.mh-stage2-notifications__menu button:hover { background: #f1f5f9; }
+/* Bell menu is now only an actionable alert list, not a second tool launcher. */
+.mh-stage2-notifications__alert-list {
+  display: grid;
+  gap: 4px;
+  max-height: min(52dvh, 430px);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+.mh-stage2-notifications__alert-list button {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  min-width: 0;
+}
+
+@keyframes mh-stage2-jump {
+  0%, 100% {transform: translateY(0) rotate(0)}
+  35% {transform: translateY(-5px) rotate(-.8deg)}
+  60% {transform: translateY(0) rotate(.6deg)}
+}
+@media (max-width: 767px) {
+  .mh-stage2-notifications {top: max(58px, env(safe-area-inset-top));width: min(260px, calc(100vw - 28px));}
+  .mh-stage2-notifications__bell {min-height: 42px;}
+  .mh-stage2-notifications__toast {min-height: 56px;padding: 8px 10px;}
+}
+@media (prefers-reduced-motion:reduce) {
+  .mh-stage2-notifications__toast { animation: none !important; }
+}
+
+
+/* Stage 4 assistant: a small anchored overlay, never a permanent dashboard card. */
+.mh-rule-assistant {
+  position: fixed;
+  z-index: 59;
+  right: max(15px, env(safe-area-inset-right));
+  bottom: max(15px, env(safe-area-inset-bottom));
+  pointer-events: none;
+  font-family: Inter, "Segoe UI", Arial, "Noto Sans SC", sans-serif;
+}
+.mh-rule-assistant > * { pointer-events: auto; }
+.mh-rule-assistant__launcher {
+  display: block;
+  margin-left: auto;
+  min-height: 50px;
+  padding: 10px 16px;
+  border: 1px solid #caa364;
+  border-radius: 16px;
+  color: #f8fafc;
+  background: linear-gradient(132deg,#202a37,#3a2932);
+  box-shadow: 0 8px 26px #0f172a60;
+  font-weight: 700;
+  font-size: 13px;
+}
+.mh-rule-assistant__launcher > span { font-size: 22px; margin-right: 5px; }
+.mh-rule-assistant__launcher:focus-visible,
+.mh-rule-assistant__sheet button:focus-visible,
+.mh-rule-assistant__sheet input:focus-visible {
+  outline: 3px solid #caa364;
+  outline-offset: 2px;
+}
+.mh-rule-assistant__sheet {
+  position: absolute;
+  right: 0;
+  bottom: calc(100% + 9px);
+  display: flex;
+  flex-direction: column;
+  width: min(380px, calc(100vw - 28px));
+  max-height: min(76dvh, 650px);
+  overflow: hidden;
+  border: 1px solid #64748b;
+  border-radius: 16px;
+  background: white;
+  box-shadow: 0 18px 48px #02061755;
+}
+@media(max-width:767px) {
+  .mh-rule-assistant {right: max(11px,env(safe-area-inset-right));bottom:max(11px,env(safe-area-inset-bottom));}
+  .mh-rule-assistant__sheet {max-height: 72dvh;}
+}
+@media(prefers-reduced-motion:reduce) {
+  .mh-rule-assistant__launcher {transition: none!important;}
+}
+
+
+/* Stage 4.1: one responsive orbital Transfer console — presentation only.
+   Keep every method on one equally spaced ring, including custom methods. */
+.mh-transfer-console {
+  isolation: isolate;
+  position: relative;
+  min-width: 0;
+  overflow: hidden;
+  padding: clamp(14px,2.5vw,25px);
+  border: 1px solid #82705a;
+  border-radius: 22px;
+  background:
+    radial-gradient(circle at 50% 40%,rgba(197,129,65,.13),transparent 54%),
+    radial-gradient(circle at 92% 7%,rgba(45,197,175,.10),transparent 44%),
+    linear-gradient(150deg,#222d3b 0%,#171e29 56%,#27232b 100%);
+  box-shadow: 0 12px 32px rgba(20,27,39,.22),inset 0 0 0 1px rgba(255,213,151,.07);
+  color: #f8fafc;
+}
+.mh-transfer-console:before{
+  content:"";
+  position:absolute;inset:0;
+  pointer-events:none;z-index:-1;opacity:.24;
+  background-image:linear-gradient(90deg,transparent 98%,#b6a18b 99%),
+    linear-gradient(0deg,transparent 98%,#b6a18b 99%);
+  background-size:26px 26px;
+  mask-image:linear-gradient(to bottom,#000,transparent 72%);
+}
+.mh-transfer-console__header{
+  display:flex;align-items:flex-start;justify-content:space-between;
+  gap:14px;flex-wrap:wrap;position:relative;z-index:2;
+}
+.mh-transfer-console__eyebrow{
+  font-size:10px;letter-spacing:.19em;color:#e7bb80;font-weight:800;
+}
+.mh-transfer-console__title{
+  margin-top:4px;color:#f9fafb;font-weight:800;font-size:clamp(20px,2.3vw,27px);
+}
+.mh-transfer-console__subtitle{
+  margin-top:5px;color:#cbd5e1;font-size:12px;max-width:450px;line-height:1.6;
+}
+.mh-transfer-console__history{
+  display:inline-flex;align-items:center;gap:7px;
+  min-height:44px;padding:8px 12px;
+  border:1px solid rgba(240,192,123,.48);border-radius:13px;
+  background:rgba(255,255,255,.065);color:#f5dfbf;
+  font-size:12px;font-weight:800;
+  transition:background .2s ease,box-shadow .2s ease,transform .2s ease;
+}
+.mh-transfer-console__history:hover:not(:disabled){
+  background:rgba(240,192,123,.16);transform:translateY(-1px);
+  box-shadow:0 6px 18px rgba(0,0,0,.24);
+}
+.mh-transfer-console__history:disabled{opacity:.5;cursor:not-allowed}
+.mh-transfer-console__history-count{
+  min-width:22px;line-height:22px;text-align:center;border-radius:50%;
+  background:#e9bb79;color:#1b2430;font-variant-numeric:tabular-nums;
+}
+.mh-transfer-console__form{margin-top:12px;display:grid;gap:12px}
+.mh-transfer-orbit{
+  min-width:0;
+  padding:10px 6px 11px;
+  border:1px solid rgba(230,190,131,.26);
+  border-radius:18px;
+  background:linear-gradient(180deg,rgba(5,10,18,.35),rgba(40,48,57,.2));
+}
+.mh-transfer-orbit__topline{
+  display:flex;gap:9px;align-items:center;justify-content:space-between;
+  padding:0 9px;font-size:11px;letter-spacing:.15em;
+  color:#edc48b;font-weight:850;
+}
+.mh-transfer-orbit__topline > span{color:#b9d8dc;letter-spacing:normal;font-weight:650}
+.mh-transfer-orbit__help{
+  color:#b7c0ce;padding:6px 9px 0;
+  font-size:11px;line-height:1.5;text-align:center;
+}
+.mh-transfer-orbit__viewport{
+  display:block;position:relative;
+  overflow-x:auto;overflow-y:hidden;
+  max-width:100%;min-width:0;
+  scrollbar-width:thin;scrollbar-color:#9d805e transparent;
+  overscroll-behavior-x:contain;
+  -webkit-overflow-scrolling:touch;
+}
+.mh-transfer-orbit__stage{
+  position:relative;
+  flex:none;margin:0 auto;
+  max-width:none;
+  touch-action:pan-x;
+}
+.mh-transfer-orbit__svg{
+  position:absolute;inset:0;z-index:1;width:100%;height:100%;
+  pointer-events:none;overflow:visible;
+}
+.mh-transfer-orbit__track{
+  fill:none;stroke:#b89568;stroke-width:1.8;
+  stroke-dasharray:4 11;opacity:.66;
+  transform-origin:center;
+  animation:mh-transfer-orbit-spin 42s linear infinite;
+}
+.mh-transfer-orbit__ticks{
+  fill:none;stroke:#d3a86b;stroke-width:.85;
+  stroke-dasharray:1 6;opacity:.45;
+  transform-origin:center;
+  animation:mh-transfer-orbit-spin 60s linear reverse infinite;
+}
+.mh-transfer-orbit__outer{
+  fill:none;stroke:rgba(225,196,143,.28);stroke-width:.7;
+  stroke-dasharray:1 20;
+}
+.mh-transfer-orbit__spoke{stroke:rgba(190,203,217,.17);stroke-width:.8}
+.mh-transfer-orbit__stud{fill:#ddb580;stroke:#2d3641;stroke-width:2}
+.mh-transfer-orbit__wire-glow{
+  fill:none;stroke-width:8;opacity:.42;
+  stroke-linecap:round;stroke-linejoin:round;
+}
+.mh-transfer-orbit__wire{
+  fill:none;stroke-width:2.8;
+  stroke-dasharray:9 9;stroke-linecap:round;stroke-linejoin:round;
+  filter:drop-shadow(0 0 4px rgba(244,194,122,.65));
+  animation:mh-transfer-energy-flow .85s linear infinite;
+}
+.mh-transfer-orbit__wire--drag{stroke-width:3.5}
+.mh-transfer-orbit__node{
+  position:absolute;z-index:4;
+  display:flex;flex-direction:column;justify-content:center;align-items:center;
+  gap:1px;width:100px;min-height:54px;padding:5px 7px;
+  transform:translate(-50%,-50%);
+  border:1px solid rgba(164,180,192,.6);
+  border-radius:13px;
+  background:linear-gradient(155deg,#344255,#202a37);
+  color:#f9fafb;box-shadow:0 5px 14px rgba(0,0,0,.42),
+    inset 0 1px 0 rgba(255,255,255,.11);
+  cursor:grab;touch-action:none;
+  transition:border-color .19s ease,box-shadow .22s ease,background-color .22s ease;
+}
+.mh-transfer-orbit__node:not(:disabled):hover,
+.mh-transfer-orbit__node:not(:disabled):focus-visible{
+  border-color:#f0cc91;
+  box-shadow:0 7px 20px rgba(0,0,0,.55),0 0 0 2px rgba(245,204,141,.28),
+    0 0 18px rgba(255,185,92,.12);
+}
+.mh-transfer-orbit__node:active{cursor:grabbing}
+.mh-transfer-orbit__node:disabled{opacity:.43;cursor:not-allowed}
+.mh-transfer-orbit__node.is-source{
+  border-color:#f6ca86;
+  background:linear-gradient(155deg,#5d4835,#302b2e);
+  box-shadow:0 0 0 1px rgba(251,204,132,.36),0 0 20px rgba(248,192,113,.23);
+}
+.mh-transfer-orbit__node.is-target{
+  border-color:#7ce8d0;
+  background:linear-gradient(155deg,#30565b,#22333c);
+  box-shadow:0 0 0 1px rgba(113,225,205,.38),0 0 20px rgba(109,232,213,.2);
+}
+.mh-transfer-orbit__node.is-hover-target{animation:mh-transfer-target-pulse .78s ease-in-out infinite alternate}
+.mh-transfer-orbit__node-glyph{font-size:10px;line-height:11px;color:#e5b67a}
+.mh-transfer-orbit__node.is-target .mh-transfer-orbit__node-glyph{color:#7ce8d0}
+.mh-transfer-orbit__node-name{
+  max-width:100%;
+  font-size:11px;line-height:1.25;font-weight:750;text-align:center;
+  overflow-wrap:anywhere;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;
+  overflow:hidden;
+}
+.mh-transfer-orbit__node-role{
+  font-size:9px;line-height:11px;letter-spacing:.1em;color:#ffe1b0;font-weight:850;
+}
+.mh-transfer-orbit__node.is-target .mh-transfer-orbit__node-role{color:#9affea}
+.mh-transfer-orbit__core{
+  position:absolute;z-index:5;
+  left:50%;top:50%;
+  width:144px;height:144px;
+  transform:translate(-50%,-50%);
+  display:flex;flex-direction:column;align-items:center;justify-content:center;
+  gap:3px;
+  border-radius:50%;
+  background:radial-gradient(circle at 40% 30%,#475260 0%,#222b39 48%,#151d29 100%);
+  border:2px solid rgba(229,191,135,.83);
+  box-shadow:0 0 0 6px rgba(223,184,122,.1),0 0 0 10px rgba(223,184,122,.04),
+    0 10px 28px rgba(0,0,0,.55),inset 0 0 25px rgba(231,187,110,.14);
+}
+.mh-transfer-orbit__core-caption{
+  color:#f1d1a2;font-size:9px;letter-spacing:.09em;font-weight:850;text-align:center;
+}
+.mh-transfer-orbit__core-currency{color:#78ddce;font-size:11px;font-weight:900;letter-spacing:.09em}
+.mh-transfer-orbit__amount{
+  display:block;width:121px;min-height:39px;
+  padding:4px 6px;border:1px solid rgba(245,206,145,.4);
+  border-radius:9px;background:#101722;color:#fff;
+  font-size:21px;font-weight:800;text-align:center;font-variant-numeric:tabular-nums;
+  outline:none;box-shadow:inset 0 2px 5px rgba(0,0,0,.3);
+}
+.mh-transfer-orbit__amount:focus-visible{
+  border-color:#eec68b;box-shadow:0 0 0 2px rgba(237,198,139,.38);
+}
+.mh-transfer-orbit__amount:disabled{opacity:.5}
+.mh-transfer-orbit__core-hint{color:#aebccb;font-size:9px;text-align:center}
+.mh-transfer-orbit__scroll-hint{text-align:center;color:#e7c592;font-size:10px;padding:2px 6px 0}
+.mh-transfer-orbit__selection{
+  display:flex;align-items:center;justify-content:center;gap:clamp(8px,3vw,26px);
+  padding:8px 9px;
+  border:1px solid rgba(188,199,208,.2);
+  border-radius:12px;background:rgba(255,255,255,.055);
+}
+.mh-transfer-orbit__selection > div{
+  display:flex;flex-direction:column;gap:3px;
+  min-width:0;flex:1;text-align:center;
+}
+.mh-transfer-orbit__selection small{color:#9faebd;font-size:9px;letter-spacing:.13em;font-weight:850}
+.mh-transfer-orbit__selection strong{font-size:12px;color:#fff;overflow-wrap:anywhere}
+.mh-transfer-orbit__direction{color:#e9c18a;font-size:25px}
+.mh-transfer-orbit__note{
+  padding:9px 9px 0;color:#aeb8c4;
+  font-size:11px;text-align:center;line-height:1.5;
+}
+.mh-transfer-console__fallback{
+  padding:9px 13px;
+  border:1px solid rgba(209,180,138,.32);
+  border-radius:12px;background:rgba(255,255,255,.035);color:#cbd5e1;
+}
+.mh-transfer-console__fallback summary{cursor:pointer;font-size:11px;font-weight:750;color:#efcf9d}
+.mh-transfer-console__fallback label{color:#dae1eb}
+.mh-transfer-console__fields{
+  display:grid;grid-template-columns:1fr 1fr;gap:12px;
+  color:#d7e0e9;font-size:12px;font-weight:750;
+}
+.mh-transfer-console__fields label{min-width:0}
+.mh-transfer-console__fields input{min-height:42px}
+.mh-transfer-console__submit{
+  display:flex;align-items:center;justify-content:center;gap:12px;
+  width:100%;min-height:49px;padding:11px 17px;
+  border:1px solid rgba(255,220,167,.52);
+  border-radius:13px;color:#1c2430;font-size:13px;font-weight:850;letter-spacing:.02em;
+  background:linear-gradient(110deg,#ffd99c,#edba74 56%,#8ed7cc);
+  box-shadow:0 6px 19px rgba(0,0,0,.24),inset 0 1px 0 rgba(255,255,255,.36);
+  transition:filter .2s ease,transform .2s ease,box-shadow .2s ease;
+}
+.mh-transfer-console__submit:not(:disabled):hover{
+  transform:translateY(-2px);filter:brightness(1.07);
+  box-shadow:0 9px 24px rgba(0,0,0,.3),0 0 19px rgba(253,198,116,.22);
+}
+.mh-transfer-console__submit:disabled{opacity:.36;cursor:not-allowed}
+.mh-transfer-console__submit:focus-visible,
+.mh-transfer-console__history:focus-visible,
+.mh-transfer-console__fallback summary:focus-visible{
+  outline:2px solid #f0cc91;outline-offset:3px;
+}
+@keyframes mh-transfer-orbit-spin{to{transform:rotate(360deg)}}
+@keyframes mh-transfer-energy-flow{to{stroke-dashoffset:-36}}
+@keyframes mh-transfer-target-pulse{to{box-shadow:0 0 0 3px rgba(109,232,213,.28),0 0 24px rgba(112,237,215,.4)}}
+@media(max-width:540px){
+  .mh-transfer-console{padding:13px 9px}
+  .mh-transfer-console__header{align-items:center}
+  .mh-transfer-console__history{font-size:11px}
+  .mh-transfer-console__fields{grid-template-columns:1fr}
+}
+@media(prefers-reduced-motion:reduce){
+  .mh-transfer-orbit__track,.mh-transfer-orbit__ticks,
+  .mh-transfer-orbit__wire,.mh-transfer-orbit__node.is-hover-target{animation:none!important}
+  .mh-transfer-orbit__node,.mh-transfer-console__submit{transition:none!important}
+}
+
+/* Stage 4.2: assistant is 100% button-based — no free text entry. */
+.mh-rule-assistant__question-area{
+  min-height:0;max-height:38dvh;overflow-y:auto;
+  padding:10px 12px;border-top:1px solid #e2e8f0;background:#f8fafc;
+}
+.mh-rule-assistant__questions{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:7px}
+.mh-rule-assistant__question{
+  display:flex;align-items:flex-start;gap:7px;
+  min-height:48px;padding:9px 8px;text-align:left;
+  border:1px solid #cbd5e1;border-radius:10px;
+  color:#26374a;background:#fff;font-size:11px;line-height:1.35;font-weight:700;
+  transition:background .15s ease,border-color .15s ease,transform .15s ease;
+}
+.mh-rule-assistant__question:not(:disabled):hover{
+  border-color:#b88b4f;background:#fff8ed;transform:translateY(-1px);
+}
+.mh-rule-assistant__question:focus-visible{outline:2px solid #ac813d;outline-offset:2px}
+.mh-rule-assistant__question-index{
+  flex-shrink:0;color:#a67942;font-weight:850;font-variant-numeric:tabular-nums;
+}
+@media(max-width:340px){.mh-rule-assistant__questions{grid-template-columns:1fr}}
+@media(prefers-reduced-motion:reduce){.mh-rule-assistant__question{transition:none!important}}
+
+/* Stage 4.3: one tool in the existing reorderable drawer splits into two actions.
+   No extra persistent card and no change to CSV/Excel data logic. */
+.mh-insights-dock__data-tools{position:relative;width:100%;height:54px;min-width:0}
+.mh-insights-dock__data-primary{
+  position:absolute;inset:0;width:100%;height:100%;
+  transition:opacity 180ms ease,transform 180ms ease!important;
+}
+.mh-insights-dock__data-split{
+  display:grid;grid-template-columns:1fr 1fr;gap:5px;
+  position:absolute;inset:0;z-index:1;
+  opacity:0;visibility:hidden;pointer-events:none;
+  transform:scale(.91);transition:opacity 190ms ease,transform 190ms cubic-bezier(.2,.8,.2,1),visibility 190ms;
+}
+.mh-insights-dock__data-tools.is-open .mh-insights-dock__data-primary{
+  opacity:0;pointer-events:none;transform:scale(.94)!important;
+}
+.mh-insights-dock__data-tools.is-open .mh-insights-dock__data-split{
+  opacity:1;visibility:visible;pointer-events:auto;transform:scale(1);
+}
+.mh-insights-dock__data-action{
+  display:flex;align-items:center;justify-content:center;flex-direction:column;
+  min-width:0;min-height:52px;gap:2px;padding:5px 4px;
+  border:1px solid rgba(243,207,151,.55);border-radius:11px;
+  background:linear-gradient(155deg,#4c4036,#253243);
+  color:#faf5e9;font-size:11px;font-weight:800;
+  box-shadow:0 3px 10px rgba(0,0,0,.24);
+}
+.mh-insights-dock__data-action > span:first-child{font-size:16px;color:#f3c68a}
+.mh-insights-dock__data-action:hover:not(:disabled){background:linear-gradient(145deg,#756044,#344a54)}
+.mh-insights-dock__data-action:focus-visible{outline:2px solid #f5d390;outline-offset:1px}
+.mh-insights-dock__data-action:disabled{opacity:.45;cursor:not-allowed}
+@media(prefers-reduced-motion:reduce){
+  .mh-insights-dock__data-primary,.mh-insights-dock__data-split{transition:none!important}
+}
+
+.mh-transfer-orbit__viewport:focus-visible{outline:2px solid #e9bd7c;outline-offset:-3px;border-radius:12px}
+
+/* Animated metallic alert badge: same brass/steel motion language as Transfer. */
+.mh-stage2-notifications__bell {
+  position: relative;
+  padding: 5px 13px 5px 6px;
+  min-height: 47px;
+  gap: 6px;
+  color: #f8fafc;
+  border-color: #b69a72;
+  background: linear-gradient(135deg,#192637 0%,#34485a 48%,#342c2c 100%);
+  box-shadow: 0 5px 17px #10182755, inset 0 1px 0 #f6e0af25;
+}
+.mh-notification-emblem { display: inline-grid; place-items: center; width: 38px; height: 38px; flex: none; }
+.mh-notification-emblem__halo, .mh-notification-emblem__ring, .mh-notification-emblem__bell {
+  transform-box: view-box; transform-origin: 50% 50%;
+}
+.mh-notification-emblem__halo { animation: mh-notification-orbit 11s linear infinite; }
+.mh-notification-emblem__ring { animation: mh-notification-orbit 7s linear infinite reverse; }
+.mh-notification-emblem.is-active .mh-notification-emblem__bell,
+.mh-stage2-notifications__bell:hover .mh-notification-emblem__bell {
+  animation: mh-notification-swing 1.25s ease-in-out infinite;
+}
+.mh-notification-emblem__signal { transform-box: fill-box; transform-origin: center; animation: mh-notification-flare 1.8s ease-out infinite; }
+.mh-stage2-notifications__count { box-shadow: 0 0 0 1px #f5d9b4, 0 0 10px #ef806766; }
+@keyframes mh-notification-orbit { to { transform: rotate(360deg); } }
+@keyframes mh-notification-swing {
+  0%,100% { transform: rotate(0); }
+  18%,58% { transform: rotate(-10deg); }
+  38%,78% { transform: rotate(9deg); }
+}
+@keyframes mh-notification-flare {
+  0%,100% { opacity: .9; transform: scale(1); }
+  45% { opacity: 1; transform: scale(1.3); }
+}
+@media(prefers-reduced-motion:reduce) {
+  .mh-notification-emblem__halo,
+  .mh-notification-emblem__ring,
+  .mh-notification-emblem__bell,
+  .mh-notification-emblem__signal { animation: none !important; }
+}
+
+/* Icon-only floating launchers: same brass / slate-steel palette as Money Transfer.
+   The notification count stays visible, without any word label on the button. */
+.mh-stage2-notifications__bell {
+  width: 56px;
+  height: 56px;
+  min-height: 56px;
+  padding: 0;
+  gap: 0;
+  border-radius: 17px;
+  position: relative;
+}
+.mh-stage2-notifications__count {
+  position: absolute;
+  top: -5px;
+  right: -5px;
+  z-index: 1;
+  min-width: 20px;
+  min-height: 20px;
+  padding: 2px 4px;
+  font-size: 10px;
+  line-height: 1;
+  pointer-events: none;
+}
+.mh-rule-assistant__launcher {
+  display: grid;
+  place-items: center;
+  width: 58px;
+  height: 58px;
+  min-width: 58px;
+  min-height: 58px;
+  padding: 3px;
+  border-radius: 17px;
+  background: linear-gradient(142deg,#1c2b3c 0%,#30475a 48%,#302728 100%);
+  border: 1px solid #cbaa75;
+  box-shadow: 0 8px 25px #10182765, inset 0 1px 0 #fae5b72c;
+  cursor: pointer;
+}
+.mh-rule-assistant__launcher > .mh-steampunk-assistant-emblem {
+  margin: 0;
+  font-size: inherit;
+}
+.mh-steampunk-assistant-emblem {
+  display: inline-grid;
+  place-items: center;
+  width: 49px;
+  height: 49px;
+  flex: 0 0 auto;
+}
+.mh-steampunk-assistant-emblem svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+}
+.mh-steampunk-assistant-emblem.is-compact {
+  width: 28px;
+  height: 28px;
+}
+.mh-steampunk-assistant-emblem__orbit,
+.mh-steampunk-assistant-emblem__gear {
+  transform-box: view-box;
+  transform-origin: center;
+}
+.mh-steampunk-assistant-emblem__orbit {
+  animation: mh-steampunk-assistant-spin 14s linear infinite;
+}
+.mh-steampunk-assistant-emblem__gear {
+  animation: mh-steampunk-assistant-spin 22s linear infinite reverse;
+}
+.mh-steampunk-assistant-emblem__eyes {
+  animation: mh-steampunk-assistant-glow 3s ease-in-out infinite;
+}
+@keyframes mh-steampunk-assistant-spin { to { transform: rotate(360deg); } }
+@keyframes mh-steampunk-assistant-glow {
+  0%, 100% { opacity: .85; }
+  55% { opacity: 1; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .mh-steampunk-assistant-emblem__orbit,
+  .mh-steampunk-assistant-emblem__gear,
+  .mh-steampunk-assistant-emblem__eyes { animation: none !important; }
+}
+
+
+/* PR48 UI-only refinement: compact always-visible header; existing actions unchanged. */
+.mh-ui .mh-dashboard-header {
+  position: sticky;
+  top: env(safe-area-inset-top, 0px);
+  z-index: 42;
+  min-width: 0;
+  background: linear-gradient(125deg, #151b24 0%, #26303b 65%, #30202a 100%);
+  border: 1px solid #4d5560;
+  box-shadow: inset 0 1px 0 #ffffff22, 0 9px 24px #0f172a27;
+  backdrop-filter: blur(14px);
+}
+.mh-ui .mh-dashboard-header h1 { letter-spacing: -.025em; line-height: 1.2; }
+.mh-ui .mh-dashboard-header .mh-dashboard-actions { min-width: max-content; }
+.mh-ui .mh-dashboard-header .mh-dashboard-action {
+  min-height: 40px;
+  border-radius: 11px;
+  white-space: nowrap;
+}
+.mh-ui .mh-dashboard-quick-actions {
+  min-height: 54px;
+  margin-top: 10px;
+  background: linear-gradient(115deg, #ffffff 0%, #f0f3f7 100%);
+}
+.mh-ui .mh-dashboard-quick-actions button { min-height: 38px; }
+
+/* The final card stays the same familiar component, but its own Save may
+   adhere to the bottom of the phone viewport while this card is in view.
+   No overflow clipping on the card: overflow:hidden prevents sticky buttons. */
+.mh-ui .mh-add-card { min-width: 0; }
+.mh-ui .mh-add-header { overflow: hidden; }
+.mh-ui .mh-entry-aux-toggle { display: none; }
+
+@media (max-width: 767px) {
+  .mh-ui .mh-dashboard-header {
+    gap: 6px;
+    padding: 9px 10px;
+    border-radius: 13px;
+  }
+  .mh-ui .mh-dashboard-header h1 {
+    max-width: 100%;
+    font-size: clamp(13px, 4.2vw, 17px);
+  }
+  .mh-ui .mh-dashboard-header .mh-dashboard-brand { flex: 1 1 0; min-width: 0; }
+  .mh-ui .mh-dashboard-header .mh-dashboard-actions { gap: 5px; }
+  .mh-ui .mh-dashboard-header .mh-dashboard-action {
+    padding: 9px 7px;
+    min-width: 37px;
+    min-height: 40px;
+    font-size: 12px;
+  }
+
+  .mh-ui .mh-add-card {
+    padding: 12px 12px 14px;
+    border-radius: 17px;
+  }
+  .mh-ui .mh-add-header {
+    margin: -12px -12px 9px;
+    padding: 11px 12px;
+    border-radius: 16px 16px 0 0;
+  }
+  .mh-ui .mh-add-header__main {
+    display: flex;
+    flex: 1;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+  }
+  .mh-ui .mh-add-header h2 {
+    font-size: 16px;
+    line-height: 1.3;
+    white-space: nowrap;
+  }
+  .mh-ui .mh-add-header__icon { display: none; }
+  .mh-ui .mh-add-header .mh-add-records-link {
+    margin-top: 0;
+    min-height: 35px;
+    padding: 6px 8px;
+    gap: 4px;
+    font-size: 11px;
+    white-space: nowrap;
+  }
+  .mh-ui .mh-add-card > p[role="status"] { margin: 8px 0; }
+  .mh-ui .mh-add-form {
+    display: flex;
+    flex-direction: column;
+    gap: 9px;
+    margin-top: 10px;
+    scroll-margin-top: 78px;
+  }
+  .mh-ui .mh-add-form > * ~ * { margin-top: 0 !important; }
+  .mh-ui .mh-entry-type { order: 0; gap: 4px; border-radius: 13px; }
+  .mh-ui .mh-entry-type button { min-height: 38px; padding: 7px 9px; }
+  .mh-ui .mh-entry-amount { order: 1; }
+  .mh-ui .mh-entry-category { order: 2; }
+  .mh-ui .mh-entry-method { order: 4; }
+  .mh-ui .mh-entry-date { order: 5; }
+  .mh-ui .mh-entry-note { order: 6; }
+  .mh-ui .mh-entry-note-quick { order: 7; min-width: 0; }
+  .mh-ui .mh-entry-note-quick > div { margin-top: 0; }
+  .mh-ui .mh-entry-note-quick button {
+    min-height: 32px;
+    padding: 5px 8px;
+    font-size: 11px;
+  }
+  .mh-ui .mh-entry-currency { order: 8; min-width: 0; }
+  .mh-ui .mh-entry-currency--active { order: 1; }
+  .mh-ui .mh-entry-calculator { order: 9; min-width: 0; }
+  .mh-ui .mh-entry-aux-toggle {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    width: 100%;
+    min-height: 42px;
+    padding: 9px 12px;
+    border: 1px solid #dce2e9;
+    border-radius: 12px;
+    background: #f4f6f8;
+    color: #334155;
+    font-size: 13px;
+    font-weight: 700;
+    text-align: left;
+  }
+  .mh-ui .mh-entry-aux-toggle:disabled { opacity: 1; cursor: default; }
+  .mh-ui .mh-entry-tool-content { padding-top: 6px; }
+  .mh-ui .mh-entry-tool-content--closed { display: none; }
+  .mh-ui .mh-add-form label > span:first-child { font-size: 12px; }
+  .mh-ui .mh-add-form input,
+  .mh-ui .mh-add-form select,
+  .mh-ui .mh-add-form textarea {
+    min-width: 0;
+    font-size: 16px;
+    border-radius: 11px;
+  }
+  .mh-ui .mh-entry-amount > input,
+  .mh-ui .mh-entry-category > select,
+  .mh-ui .mh-entry-method > select,
+  .mh-ui .mh-entry-date > input,
+  .mh-ui .mh-entry-note > input {
+    padding: 10px 12px;
+  }
+  .mh-ui .mh-entry-save {
+    order: 10;
+    position: sticky;
+    bottom: calc(8px + env(safe-area-inset-bottom, 0px));
+    z-index: 20;
+    width: 100%;
+    min-height: 48px;
+    margin-top: 5px !important;
+    border-radius: 13px;
+    box-shadow: 0 6px 22px #17202b34, 0 0 0 5px #f8fafce8;
+  }
+}
+/* The two secondary tools are always available on the desktop: no duplicate
+   FinanceCurrencyInput mounts, no extra exchange-rate lookups or state changes. */
+@media (min-width: 768px) {
+  .mh-ui .mh-entry-tool-content--closed { display: block !important; }
+}
+
+/* Compact Add Expense / Income on BOTH desktop and phone. Calculator now opens in
+   FinanceOverlay, so the form has no inline calculator textarea or empty card. */
+.mh-ui .mh-add-card {
+  min-width: 0;
+  padding: 14px 14px 16px;
+  border-radius: 18px;
+}
+.mh-ui .mh-add-header {
+  overflow: hidden;
+  margin: -14px -14px 10px;
+  padding: 11px 13px;
+  border-radius: 17px 17px 0 0;
+}
+.mh-ui .mh-add-header__main {
+  display: flex;
+  min-width: 0;
+  width: 100%;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+.mh-ui .mh-add-header h2 { font-size: 17px; line-height: 1.3; white-space: nowrap; }
+.mh-ui .mh-add-header__icon { display: none; }
+.mh-ui .mh-add-header .mh-add-records-link {
+  margin-top: 0;
+  min-height: 37px;
+  padding: 7px 9px;
+  gap: 5px;
+  font-size: 11px;
+  white-space: nowrap;
+}
+.mh-ui .mh-add-form {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-areas:
+    "type type"
+    "amount amount"
+    "category method"
+    "date note"
+    "quicknotes quicknotes"
+    "tools tools"
+    "save save";
+  column-gap: 10px;
+  row-gap: 9px;
+  margin-top: 10px;
+  min-width: 0;
+}
+.mh-ui .mh-add-form > * { min-width: 0; margin-top: 0 !important; }
+.mh-ui .mh-entry-type { grid-area: type; order: initial; gap: 5px; border-radius: 12px; }
+.mh-ui .mh-entry-type button { min-height: 38px; padding: 6px 9px; }
+.mh-ui .mh-entry-amount { grid-area: amount; order: initial; }
+.mh-ui .mh-entry-amount > span { gap: 4px; font-size: 12px; }
+.mh-ui .mh-entry-amount [role="group"] { font-size: 10px; padding: 2px; }
+.mh-ui .mh-entry-amount [role="group"] button { min-height: 28px; padding: 4px 6px; }
+.mh-ui .mh-entry-category { grid-area: category; order: initial; }
+.mh-ui .mh-entry-method { grid-area: method; order: initial; }
+.mh-ui .mh-entry-date { grid-area: date; order: initial; }
+.mh-ui .mh-entry-note { grid-area: note; order: initial; }
+.mh-ui .mh-entry-note-quick { grid-area: quicknotes; order: initial; min-width: 0; }
+.mh-ui .mh-entry-note-quick > div { margin-top: 0; }
+.mh-ui .mh-entry-note-quick button { min-height: 32px; padding: 5px 8px; font-size: 11px; }
+.mh-ui .mh-entry-tools {
+  grid-area: tools;
+  order: initial;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0,1fr));
+  gap: 8px;
+  align-items: start;
+  min-width: 0;
+}
+.mh-ui .mh-entry-currency,
+.mh-ui .mh-entry-calculator { min-width: 0; order: initial; }
+.mh-ui .mh-entry-tools .mh-entry-aux-toggle {
+  display: flex;
+  align-items: center;
+  width: 100%;
+  gap: 5px;
+  min-height: 43px;
+  padding: 8px 9px;
+  border: 1px solid #d6dce5;
+  border-radius: 11px;
+  background: linear-gradient(145deg, #f7f8fa, #e9edf3);
+  color: #29384a;
+  font-size: 12px;
+  font-weight: 700;
+  text-align: left;
+}
+.mh-ui .mh-entry-tools .mh-entry-calculator-button {
+  border-color: #b99d77;
+  background: linear-gradient(145deg, #273443, #3c4b57);
+  box-shadow: inset 0 1px 0 #f8e4b22f;
+  color: #fff3d8;
+}
+.mh-ui .mh-entry-tools .mh-entry-tool-content--closed {
+  display: none !important;
+}
+.mh-ui .mh-entry-tools .mh-entry-tool-content { padding-top: 8px; }
+.mh-ui .mh-entry-tools .mh-entry-currency--active { grid-column: 1 / -1; }
+.mh-ui .mh-add-form label > span:first-child { font-size: 12px; }
+.mh-ui .mh-entry-amount > input,
+.mh-ui .mh-entry-category > select,
+.mh-ui .mh-entry-method > select,
+.mh-ui .mh-entry-date > input,
+.mh-ui .mh-entry-note > input {
+  margin-top: 4px;
+  display: block;
+  width: 100%;
+  min-width: 0;
+  min-height: 43px;
+  padding: 9px 10px;
+  border-radius: 10px;
+  font-size: 16px;
+  box-sizing: border-box;
+}
+.mh-ui .mh-entry-save {
+  grid-area: save;
+  order: initial;
+  margin-top: 2px !important;
+  min-height: 46px;
+  padding: 11px 12px;
+  border-radius: 12px;
+}
+
+/* A click-only native-calculator-style keypad inside the existing 300ms overlay. */
+.mh-calc-keypad { min-width: 0; }
+.mh-calc-keypad__screen {
+  padding: 15px 16px;
+  min-height: 106px;
+  border: 1px solid #506275;
+  border-radius: 16px;
+  background: linear-gradient(145deg, #192633 0%, #2d4152 100%);
+  color: #f8fafc;
+  text-align: right;
+  overflow: hidden;
+}
+.mh-calc-keypad__expression {
+  display: block;
+  min-height: 31px;
+  margin-top: 5px;
+  color: #fff7dd;
+  font-size: 23px;
+  font-weight: 750;
+  overflow-wrap: anywhere;
+  line-height: 1.35;
+  font-variant-numeric: tabular-nums;
+}
+.mh-calc-keypad__result {
+  display: block;
+  min-height: 24px;
+  color: #7fe7ca;
+  font-size: 18px;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+}
+.mh-calc-keypad__keys {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 8px;
+  margin-top: 12px;
+}
+.mh-calc-keypad__key {
+  display: grid;
+  place-items: center;
+  min-width: 0;
+  min-height: 54px;
+  border: 1px solid #d2dbe5;
+  border-radius: 14px;
+  background: #f3f6f9;
+  color: #263445;
+  font-size: 21px;
+  font-weight: 700;
+  touch-action: manipulation;
+  user-select: none;
+  transition: background 120ms ease, filter 120ms ease;
+}
+.mh-calc-keypad__key:active { background: #d9e1eb; }
+.mh-calc-keypad__key--util { background: #e9edf2; color: #52667a; font-size: 16px; }
+.mh-calc-keypad__key--op { background: #fff1e1; border-color: #e9c99d; color: #9b632f; }
+.mh-calc-keypad__key--equals { background: #2e4c5d; border-color: #315468; color: #fff; }
+.mh-calc-keypad__fill {
+  width: 100%;
+  min-height: 48px;
+  margin-top: 12px;
+  border-radius: 13px;
+  border: 1px solid #c3a47a;
+  background: linear-gradient(110deg, #293644, #454036);
+  color: white;
+  font-size: 15px;
+  font-weight: 800;
+}
+@media (max-width: 767px) {
+  .mh-ui .mh-add-form {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
+  }
+  .mh-ui .mh-entry-date > input {
+    padding: 8px 6px;
+    font-size: 14px;
+  }
+  .mh-ui .mh-entry-amount > input,
+  .mh-ui .mh-entry-category > select,
+  .mh-ui .mh-entry-method > select,
+  .mh-ui .mh-entry-note > input { padding: 9px 8px; }
+  .mh-ui .mh-entry-tools .mh-entry-aux-toggle { font-size: 11px; }
+  .mh-calc-keypad__key { min-height: 50px; }
+}
+@media (max-width: 350px) {
+  .mh-ui .mh-add-form {
+    grid-template-areas:
+      "type type" "amount amount" "category method"
+      "date date" "note note" "quicknotes quicknotes" "tools tools" "save save";
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .mh-calc-keypad__key { transition: none !important; }
+}
+
+
+/* PR50: SINGLE ROW sticky header. Never introduce a second summary row. */
+.mh-ui .mh-dashboard-header {
+  display: grid;
+  grid-template-columns: minmax(118px, 210px) minmax(0, 1fr) auto;
+  align-items: center;
+  column-gap: 12px;
+  min-width: 0;
+}
+.mh-ui .mh-dashboard-header .mh-dashboard-brand {
+  min-width: 0;
+  max-width: 210px;
+}
+.mh-ui .mh-dashboard-today {
+  min-width: 0;
+  overflow: hidden;
+}
+.mh-ui .mh-dashboard-today__track {
+  display: flex;
+  align-items: stretch;
+  gap: 7px;
+  max-width: 100%;
+  overflow-x: auto;
+  overflow-y: hidden;
+  overscroll-behavior-x: contain;
+  scrollbar-width: none;
+  scroll-snap-type: x proximity;
+  padding: 3px 1px;
+}
+.mh-ui .mh-dashboard-today__track::-webkit-scrollbar { display: none; }
+.mh-ui .mh-dashboard-today__track:focus-visible {
+  outline: 2px solid #d4b37a;
+  outline-offset: -2px;
+  border-radius: 8px;
+}
+.mh-ui .mh-dashboard-today__metric {
+  display: flex;
+  flex: 1 0 104px;
+  min-width: 104px;
+  flex-direction: column;
+  justify-content: center;
+  gap: 3px;
+  padding: 9px 10px;
+  border: 1px solid #475469;
+  border-radius: 11px;
+  background: #344153;
+  scroll-snap-align: start;
+}
+.mh-ui .mh-dashboard-today__metric span {
+  font-size: 10px;
+  font-weight: 600;
+  line-height: 1.2;
+  color: #c2cddc;
+  white-space: nowrap;
+}
+.mh-ui .mh-dashboard-today__metric strong {
+  display: block;
+  font-size: clamp(11px, 1.05vw, 15px);
+  font-weight: 800;
+  line-height: 1.25;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.mh-ui .mh-dashboard-today__metric--income strong { color: #7bd5ad; }
+.mh-ui .mh-dashboard-today__metric--expense strong { color: #ff9b95; }
+.mh-ui .mh-dashboard-today__metric--neutral strong { color: #f8fafc; }
+.mh-ui .mh-dashboard-actions { min-width: 0; }
+@media (max-width: 767px) {
+  .mh-ui .mh-dashboard-header {
+    grid-template-columns: minmax(70px, 105px) minmax(0, 1fr) auto;
+    column-gap: 6px;
+    padding: 8px 7px;
+  }
+  .mh-ui .mh-dashboard-header .mh-dashboard-brand { min-width: 0; max-width: 105px; }
+  .mh-ui .mh-dashboard-header .mh-dashboard-brand h1 {
+    font-size: clamp(12px, 3.15vw, 15px);
+    overflow: visible;
+    white-space: normal;
+    line-height: 1.3;
+  }
+  .mh-ui .mh-dashboard-header .mh-dashboard-actions { gap: 4px; }
+  .mh-ui .mh-dashboard-header .mh-dashboard-action {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 34px;
+    min-height: 36px;
+    padding: 7px 5px;
+    border-radius: 10px;
+    font-size: 13px;
+    line-height: 1.1;
+  }
+  .mh-ui .mh-dashboard-today__track { gap: 6px; padding: 2px 0; }
+  .mh-ui .mh-dashboard-today__metric {
+    flex: 0 0 108px;
+    min-width: 108px;
+    padding: 7px 8px;
+    gap: 3px;
+    border-radius: 10px;
+  }
+  .mh-ui .mh-dashboard-today__metric strong { font-size: 12px; }
+}
+/* A category picker replaces the wide search field. Text search remains
+   accessible via the compact magnifier without overwriting category keys. */
+.mh-ui .mh-analysis-filter__controls { min-width: 0; }
+.mh-ui .mh-analysis-filter__category {
+  display: inline-flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  min-width: 175px;
+  max-width: 255px;
+  background: linear-gradient(140deg, #ffffff, #f3f6f9);
+  border-color: #d3dbe6;
+}
+.mh-ui .mh-analysis-filter__search { min-width: 46px; min-height: 46px; }
+.mh-ui .mh-analysis-filter__keyword { min-width: 0; }
+.mh-ui .mh-analysis-filter__scope { min-width: 0; }
+.mh-category-picker { display: flex; flex-direction: column; gap: 11px; }
+.mh-category-picker__section { min-width: 0; }
+.mh-category-picker__heading {
+  margin-bottom: 9px;
+  color: #526274;
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: .025em;
+}
+.mh-category-picker__choices { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+.mh-category-picker__item {
+  display: flex;
+  min-width: 0;
+  min-height: 44px;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+  border: 1px solid #dce3ec;
+  border-radius: 12px;
+  padding: 10px 12px;
+  background: #f8fafc;
+  font-size: 13px;
+  font-weight: 700;
+  color: #283746;
+  text-align: left;
+}
+.mh-category-picker__item.is-selected {
+  border-color: #a99070;
+  background: linear-gradient(130deg, #fcf7ed, #f1f4f8);
+  box-shadow: inset 0 0 0 1px #ddc79c;
+}
+.mh-category-picker__item:focus-visible { outline: 2px solid #bc9054; outline-offset: 2px; }
+@media (max-width: 767px) {
+  .mh-ui .mh-analysis-filter__controls { display: grid; grid-template-columns: minmax(0,1fr) minmax(0,1fr) 44px; }
+  .mh-ui .mh-analysis-filter__controls select { grid-column: 1; width: 100%; min-width: 0; }
+  .mh-ui .mh-analysis-filter__controls input[type="month"],
+  .mh-ui .mh-analysis-filter__controls input[type="number"] { grid-column: 2 / 4; width: 100%; min-width: 0; }
+  .mh-ui .mh-analysis-filter__category { grid-column: 1 / 3; max-width: none; min-width: 0; }
+  .mh-ui .mh-analysis-filter__search { grid-column: 3; }
+}
+
+
+/* Mobile only: do not leave the 34px collapsed-drawer strip in the viewport.
+   The drawer's original desktop hover and reorder logic remain unchanged. */
+.mh-insights-dock__mobile-launcher { display: none; }
+@media (max-width: 767px) {
+  .mh-insights-dock__mobile-launcher {
+    position: fixed;
+    top: calc(env(safe-area-inset-top, 0px) + 72px);
+    left: max(9px, env(safe-area-inset-left, 0px));
+    z-index: 46;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 45px;
+    height: 45px;
+    border: 1px solid #c7a36e;
+    border-radius: 13px;
+    background: linear-gradient(145deg, #1d2a39, #39495a);
+    color: #f9e3bb;
+    box-shadow: 0 7px 19px #17212e44, inset 0 1px 0 #fff4cd2e;
+    touch-action: manipulation;
+  }
+  .mh-insights-dock__mobile-launcher:focus-visible {
+    outline: 2px solid #f5cc83;
+    outline-offset: 3px;
+  }
+  .mh-insights-dock,
+  .mh-insights-dock:focus-within,
+  .mh-insights-dock[data-suppress-hover="true"] {
+    transform: translate3d(-110%, -50%, 0) !important;
+    visibility: hidden;
+    pointer-events: none;
+  }
+  .mh-insights-dock[data-expanded="true"] {
+    transform: translate3d(0, -50%, 0) !important;
+    visibility: visible;
+    pointer-events: auto;
+    z-index: 48;
+  }
+}
+@media (hover: hover) and (pointer: fine) {
+  /* Allow mouse to cross the small gap between the bell and its menu.
+     Keep other dashboard cards clickable when the menu is collapsed. */
+  .mh-stage2-notifications[data-menu-open="true"] { pointer-events: auto; }
+}
+
+/* One-step native transaction currency picker. FX details appear only after
+   a foreign currency is selected; the existing calculator remains separate. */
+.mh-ui .mh-entry-fx-direct { min-width: 0; }
+.mh-ui .mh-entry-fx-direct__picker {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 43px;
+  width: 100%;
+  min-width: 0;
+  padding: 7px 8px;
+  border: 1px solid #d6dce5;
+  border-radius: 11px;
+  background: linear-gradient(145deg, #f7f8fa, #e9edf3);
+  color: #29384a;
+  box-sizing: border-box;
+}
+.mh-ui .mh-entry-fx-direct__picker:focus-within {
+  outline: 2px solid #2563eb;
+  outline-offset: 2px;
+}
+.mh-ui .mh-entry-fx-direct__select {
+  display: block;
+  flex: 1 1 auto;
+  width: 100%;
+  min-width: 0;
+  min-height: 27px;
+  padding: 0 3px;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
+}
+.mh-ui .mh-entry-fx-direct__select:focus { outline: none; }
+.mh-ui .mh-entry-fx-direct__select:disabled { cursor: not-allowed; opacity: .55; }
+.mh-ui .mh-entry-fx-direct__details {
+  min-width: 0;
+  padding: 10px;
+  border: 1px solid #dce2e9;
+  border-radius: 12px;
+  background: #f8fafc;
+}

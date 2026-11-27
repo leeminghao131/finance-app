@@ -1,0 +1,34 @@
+/* MH Finance PR87: Windows desktop compositor budget, visual-only.
+ * Only mouse/large-screen layouts are affected; Android/touch layouts are unchanged.
+ * No element visibility, form layout, financial calculation or saved data changed. */
+@media (min-width: 768px) and (hover: hover) and (pointer: fine) {
+  /* The header is already opaque: blur triggers re-rasterization while scrolling. */
+  .mh-ui.mh-cosmic-pilot .mh-dashboard-header {
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+  }
+
+  /* Freeze only decorative, perpetual SVG movements. Preserve labels,
+     connections, pointer dragging and the normal Transfer interaction. */
+  .mh-ui .mh-transfer-orbit__track,
+  .mh-ui .mh-transfer-orbit__ticks,
+  .mh-ui .mh-transfer-orbit__wire,
+  .mh-ui .mh-notification-emblem__halo,
+  .mh-ui .mh-notification-emblem__ring,
+  .mh-ui .mh-notification-emblem__signal,
+  .mh-ui .mh-steampunk-assistant-emblem__orbit,
+  .mh-ui .mh-steampunk-assistant-emblem__gear,
+  .mh-ui .mh-steampunk-assistant-emblem__eyes {
+    animation: none;
+  }
+
+  /* This decoration otherwise continuously re-paints a blurred SVG stroke. */
+  .mh-ui .mh-transfer-orbit__wire { filter: none; }
+
+  /* Repeated vibration of popup buttons is not required for their behavior. */
+  .mh-ui button:is(.mh-modal-trigger, [aria-haspopup="dialog"], [aria-haspopup="menu"]):not(:disabled):not(:active):hover {
+    animation: none;
+    translate: none;
+    rotate: none;
+  }
+}

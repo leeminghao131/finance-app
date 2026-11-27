@@ -1,0 +1,321 @@
+/*
+ * MH Finance PR66 contrast audit. Visual-only, loaded last on signed-in screens.
+ * The existing cosmic theme assigns light text to the whole app, but several
+ * Tailwind white/50 utility surfaces (including <details> and assistant :hover)
+ * were still bright. This final, scoped layer pairs every dark surface with
+ * readable text; it never changes amounts, state or financial event handlers.
+ */
+.mh-ui.mh-cosmic-pilot,
+.mh-cosmic-modal-sheet,
+.mh-rule-assistant__sheet,
+.mh-stage2-notifications__menu {
+  --mh-legibility-card: #172a3c;
+  --mh-legibility-raised: #263b4d;
+  --mh-legibility-inset: #102435;
+  --mh-legibility-text: #f4ebdd;
+  --mh-legibility-muted: #c0ccd5;
+  --mh-legibility-line: #a88455;
+  --mh-legibility-warning: #f8d59a;
+  color-scheme: dark;
+}
+
+/* All white Tailwind panels must become a dark-with-light-text pair.
+ * Include <details>, <summary>, controls, messages, empty-state <p> and
+ * loose <span>s, which the earlier whole-app theme unintentionally missed. */
+.mh-ui.mh-cosmic-pilot :is(details,summary,button,div,section,article,aside,p,span).bg-white:not(.mh-cosmic-panel),
+.mh-cosmic-modal-sheet :is(details,summary,button,div,section,article,aside,p,span).bg-white,
+.mh-rule-assistant__sheet :is(details,summary,button,div,section,article,aside,p,span).bg-white {
+  color: var(--mh-legibility-text);
+  background-color: var(--mh-legibility-raised);
+  border-color: var(--mh-legibility-line);
+}
+.mh-ui.mh-cosmic-pilot :is(details,summary,button,div,section,article,aside,p,span).bg-slate-50,
+.mh-ui.mh-cosmic-pilot :is(details,summary,button,div,section,article,aside,p,span).bg-slate-100,
+.mh-ui.mh-cosmic-pilot :is(details,summary,button,div,section,article,aside,p,span).bg-gray-50,
+.mh-cosmic-modal-sheet :is(details,summary,button,div,section,article,aside,p,span).bg-slate-50,
+.mh-cosmic-modal-sheet :is(details,summary,button,div,section,article,aside,p,span).bg-slate-100,
+.mh-rule-assistant__sheet :is(details,summary,button,div,section,article,aside,p,span).bg-slate-50,
+.mh-rule-assistant__sheet :is(details,summary,button,div,section,article,aside,p,span).bg-slate-100 {
+  color: var(--mh-legibility-text);
+  background-color: var(--mh-legibility-inset);
+  border-color: #6f685c;
+}
+/* Tailwind's slash-opacity colors on bill cards are otherwise nearly white. */
+.mh-cosmic-modal-sheet :is(article,div,section).bg-amber-50\/40,
+.mh-ui.mh-cosmic-pilot :is(article,div,section).bg-amber-50\/40 {
+  background: #3c2e24;
+  color: var(--mh-legibility-warning);
+  border-color: #ab8654;
+}
+.mh-cosmic-modal-sheet :is(div,section,article,details).bg-amber-50,
+.mh-ui.mh-cosmic-pilot :is(div,section,article,details).bg-amber-50 {
+  background-color: #3b2e23;
+  color: #f9e2ba;
+  border-color: #ab8654;
+}
+.mh-cosmic-modal-sheet :is(button,span,div).bg-amber-100,
+.mh-ui.mh-cosmic-pilot :is(button,span,div).bg-amber-100 {
+  background-color: #533e26;
+  color: #ffe7bd;
+  border-color: #a48256;
+}
+.mh-cosmic-modal-sheet :is(button,span,div,p).bg-blue-50,
+.mh-ui.mh-cosmic-pilot :is(button,span,div,p).bg-blue-50 {
+  background-color: #193d53;
+  color: #dcf1ff;
+  border-color: #6d9bb5;
+}
+.mh-cosmic-modal-sheet :is(button,span,div,p).bg-red-50,
+.mh-ui.mh-cosmic-pilot :is(button,span,div,p).bg-red-50 {
+  background-color: #512c34;
+  color: #ffd4ce;
+  border-color: #a96062;
+}
+.mh-cosmic-modal-sheet :is(button,span,div,p).bg-emerald-50,
+.mh-ui.mh-cosmic-pilot :is(button,span,div,p).bg-emerald-50 {
+  background-color: #173b35;
+  color: #c8f8e6;
+  border-color: #5a9d86;
+}
+/* Utility text colours must agree with the dark surface; semantic colors stay
+ * green income / red expense / warm amber warning, not all converted to gold. */
+.mh-cosmic-modal-sheet :is(.text-slate-900,.text-slate-800,.text-slate-700,.text-slate-600,.text-slate-500),
+.mh-rule-assistant__sheet :is(.text-slate-900,.text-slate-800,.text-slate-700,.text-slate-600,.text-slate-500),
+.mh-stage2-notifications__menu :is(.text-slate-900,.text-slate-800,.text-slate-700,.text-slate-600,.text-slate-500) {
+  color: #e4e8e8;
+}
+.mh-cosmic-modal-sheet .text-amber-900,
+.mh-cosmic-modal-sheet .text-amber-800 { color: #ffdfad; }
+.mh-cosmic-modal-sheet .text-red-700,
+.mh-cosmic-modal-sheet .text-red-800 { color: #ffb8ae; }
+.mh-cosmic-modal-sheet .text-emerald-700,
+.mh-cosmic-modal-sheet .text-emerald-800 { color: #a9eed1; }
+
+/* Screenshots 1 / Quick Notes: never render white chips with pale labels.
+ * Disabled chips must remain legible but distinguishable. */
+.mh-ui.mh-cosmic-pilot .mh-entry-note-quick button,
+.mh-ui.mh-cosmic-pilot .mh-add-form .mh-entry-note-quick button {
+  color: #f7eedf;
+  background: #21364a;
+  border: 1px solid #ad8957;
+  box-shadow: inset 0 1px 0 #f4dcb21d;
+  opacity: 1;
+}
+.mh-ui.mh-cosmic-pilot .mh-entry-note-quick button:hover:not(:disabled) {
+  color: #fff8ea;
+  background: #324d60;
+  border-color: #f0c98c;
+}
+.mh-ui.mh-cosmic-pilot .mh-entry-note-quick button:disabled {
+  color: #d0d8dc;
+  background: #1a2b3b;
+  opacity: .78;
+}
+.mh-ui.mh-cosmic-pilot .mh-entry-fx-direct,
+.mh-ui.mh-cosmic-pilot .mh-entry-calculator,
+.mh-ui.mh-cosmic-pilot .mh-entry-aux-toggle {
+  color: #f5e9d7;
+}
+.mh-ui.mh-cosmic-pilot .mh-entry-fx-direct select,
+.mh-ui.mh-cosmic-pilot .mh-add-form input,
+.mh-ui.mh-cosmic-pilot .mh-add-form textarea {
+  color: #f5eddd;
+  background-color: #0e2132;
+  border-color: #99784f;
+}
+
+/* Screenshot 2 / Assistant: base hover rule was setting light cream paper
+ * underneath white letters. Keep both idle and hovered cards dark. */
+.mh-rule-assistant__sheet .mh-rule-assistant__question-area {
+  color: #f3e9dc;
+  background: #112536;
+  border-top: 1px solid #917148;
+}
+.mh-rule-assistant__sheet .mh-rule-assistant__question {
+  background: #203749;
+  color: #f5ead9;
+  border: 1px solid #a27b4d;
+  opacity: 1;
+}
+.mh-rule-assistant__sheet .mh-rule-assistant__question:hover:not(:disabled),
+.mh-rule-assistant__sheet .mh-rule-assistant__question:focus-visible {
+  background: #344b5c;
+  color: #fff5e2;
+  border-color: #f0c88e;
+}
+.mh-rule-assistant__sheet .mh-rule-assistant__question-index {
+  color: #f8d59c;
+}
+.mh-rule-assistant__sheet .bg-blue-50 { background: #1b4055; color: #e3f2ff; }
+.mh-rule-assistant__sheet .bg-slate-100 { background: #21394d; color: #f5eadd; }
+.mh-rule-assistant__sheet .mh-rule-assistant__question:disabled { opacity: .76; }
+
+/* Screenshot 3 / Recurring Bills: details themselves were not targeted by
+ * previous dark mode rules; their summary strips stayed #fff, text became pale. */
+.mh-cosmic-modal-sheet details.bg-white,
+.mh-cosmic-modal-sheet details.bg-slate-50 {
+  color: #f7efde;
+  background: #192e40;
+  border: 1px solid #bd9361;
+  box-shadow: inset 0 1px 0 #ffe7bb1b, 0 3px 9px #0005;
+}
+.mh-cosmic-modal-sheet details > summary {
+  color: #ffe9c0;
+  background: transparent;
+  border-radius: 8px;
+}
+.mh-cosmic-modal-sheet details > summary:hover,
+.mh-cosmic-modal-sheet details > summary:focus-visible {
+  background: #2b4456;
+  color: #fff4e1;
+}
+.mh-cosmic-modal-sheet [role="tab"][aria-selected="true"] {
+  color: #fff0d4;
+  background: #3b5362;
+  border: 1px solid #bf9864;
+}
+.mh-cosmic-modal-sheet [role="tab"][aria-selected="false"] {
+  color: #cbd7de;
+  background: #192d40;
+  border: 1px solid #59687a;
+}
+.mh-cosmic-modal-sheet [role="tabpanel"] > p.bg-slate-50,
+.mh-cosmic-modal-sheet [role="tabpanel"] p.bg-slate-50 {
+  color: #d7e1e5;
+  background: #162c3e;
+}
+.mh-cosmic-modal-sheet button.bg-white,
+.mh-cosmic-modal-sheet button.bg-slate-100,
+.mh-ui.mh-cosmic-pilot button.bg-white {
+  background: #2b4255;
+  color: #fff1dd;
+  border: 1px solid #ae8b5d;
+}
+/* Preserve readable warnings/feedback, even when a disabled control is shown. */
+.mh-cosmic-modal-sheet :is(button,input,select):disabled,
+.mh-ui.mh-cosmic-pilot :is(button,input,select):disabled {
+  opacity: .74;
+}
+.mh-cosmic-modal-sheet [role="alert"] { color: #ffbcb5; }
+.mh-cosmic-modal-sheet [role="status"] { color: #b4f4d9; }
+.mh-cosmic-modal-sheet :is(input,select,textarea):focus-visible,
+.mh-ui.mh-cosmic-pilot :is(input,select,textarea):focus-visible {
+  outline: 2px solid #ecc38a;
+  outline-offset: 2px;
+}
+/* Portals, sheets and alerts are reachable with Android scrolling and keyboard.
+ * No blur, page-wide expensive filters or animated global effects. */
+@media (prefers-reduced-motion: reduce) {
+  .mh-rule-assistant__sheet .mh-rule-assistant__question { transition: none !important; }
+}
+
+/* PR #67 follow-up: screenshots exposed form and label utilities that were
+ * absent from the previous :is(details,button,div,...) selectors. Keep these
+ * visual overrides scoped to the TEST dashboard and its modal portals. */
+.mh-cosmic-modal-sheet :is(label,form,fieldset,header,footer,nav,li).bg-white,
+.mh-ui.mh-cosmic-pilot :is(label,form,fieldset,header,footer,nav,li).bg-white {
+  background-color: #20394c;
+  border-color: #a9855b;
+  color: #f5eddf;
+}
+.mh-cosmic-modal-sheet :is(label,form,fieldset,header,footer,nav,li).bg-slate-50,
+.mh-cosmic-modal-sheet :is(label,form,fieldset,header,footer,nav,li).bg-slate-100,
+.mh-ui.mh-cosmic-pilot :is(label,form,fieldset,header,footer,nav,li).bg-slate-50,
+.mh-ui.mh-cosmic-pilot :is(label,form,fieldset,header,footer,nav,li).bg-slate-100 {
+  background-color: #142b3d;
+  border-color: #6f7882;
+  color: #f0e8dd;
+}
+/* Explicitly cover the Review Inbox's switch labels and threshold form. */
+.mh-cosmic-modal-sheet label.bg-white:has(input[role="switch"]) {
+  background: #20394b;
+  color: #fff0dc;
+  box-shadow: inset 0 0 0 1px #947750;
+}
+.mh-cosmic-modal-sheet form.bg-slate-50:has(input[name="threshold"]) {
+  background: #162d40;
+  color: #f1e7d9;
+  border: 1px solid #786b5b;
+}
+.mh-cosmic-modal-sheet :is(input,textarea,select).bg-white,
+.mh-cosmic-modal-sheet :is(input,textarea,select).bg-slate-50,
+.mh-ui.mh-cosmic-pilot :is(input,textarea,select).bg-white {
+  background: #0e2234;
+  color: #f7eee0;
+  border-color: #ac885b;
+  color-scheme: dark;
+}
+/* Selected Activity items use bg-teal-50 (pale mint); neutral text on that
+ * background was invisible. Preserve teal as a dark selection accent. */
+.mh-cosmic-modal-sheet :is(button,article,div,section,label).bg-teal-50,
+.mh-ui.mh-cosmic-pilot :is(button,article,div,section,label).bg-teal-50 {
+  background: #133c40;
+  color: #e1fff3;
+  border-color: #66b4a9;
+}
+.mh-cosmic-modal-sheet button.bg-teal-50:hover,
+.mh-cosmic-modal-sheet button.bg-teal-50:focus-visible {
+  background: #20545a;
+  border-color: #91dac9;
+}
+.mh-cosmic-modal-sheet button.bg-teal-50 :is(.text-slate-500,.text-slate-600),
+.mh-ui.mh-cosmic-pilot button.bg-teal-50 :is(.text-slate-500,.text-slate-600) {
+  color: #b7dfdc;
+}
+/* Remaining pale status shades keep meaning without turning into white cards. */
+.mh-cosmic-modal-sheet :is(div,article,section,p,button,form,label).bg-green-50,
+.mh-ui.mh-cosmic-pilot :is(div,article,section,p,button,form,label).bg-green-50 {
+  background-color: #183b31;
+  color: #c4f3d8;
+  border-color: #62987b;
+}
+.mh-cosmic-modal-sheet :is(div,article,section,p,button,form,label).bg-rose-50,
+.mh-ui.mh-cosmic-pilot :is(div,article,section,p,button,form,label).bg-rose-50 {
+  background-color: #462b38;
+  color: #ffd5df;
+  border-color: #a77a87;
+}
+.mh-cosmic-modal-sheet :is(div,article,section,p,button,form,label).bg-cyan-50,
+.mh-ui.mh-cosmic-pilot :is(div,article,section,p,button,form,label).bg-cyan-50 {
+  background-color: #17394a;
+  color: #d3effb;
+  border-color: #6794a9;
+}
+/* Currency picker has its OWN hard-coded bright gradient in financeUi.css.
+ * Override the wrapper, the list and its FX quotation panel as one unit. */
+.mh-ui.mh-cosmic-pilot .mh-entry-fx-direct__picker {
+  background: linear-gradient(145deg, #182c3f, #294154);
+  color: #f5ebdc;
+  border: 1px solid #b28d60;
+  box-shadow: inset 0 1px 0 #ffe2ab24;
+}
+.mh-ui.mh-cosmic-pilot .mh-entry-fx-direct__picker:focus-within {
+  outline: 2px solid #f3ca87;
+  outline-offset: 2px;
+}
+.mh-ui.mh-cosmic-pilot .mh-entry-fx-direct__select {
+  background: #102739;
+  color: #fff0de;
+  color-scheme: dark;
+}
+.mh-ui.mh-cosmic-pilot .mh-entry-fx-direct__select option {
+  color: #fff0de;
+  background-color: #102739;
+}
+.mh-ui.mh-cosmic-pilot .mh-entry-fx-direct__details {
+  background: #162d40;
+  color: #f5ebdc;
+  border-color: #a38358;
+}
+.mh-ui.mh-cosmic-pilot .mh-entry-fx-direct__details :is(input,select,textarea) {
+  background: #0f2235;
+  color: #f5ebdc;
+  border-color: #ac885b;
+  color-scheme: dark;
+}
+/* Heading strips inside portals must never look like white paper. */
+.mh-cosmic-modal-sheet > .sticky.bg-white\/95 {
+  background: rgba(22, 43, 59, .97);
+  color: #f5ebdc;
+  border-color: #947653;
+}

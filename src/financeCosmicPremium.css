@@ -1,0 +1,537 @@
+/*
+ * PR #59 performance: gradient-baked local scene + precomputed tile bitmap.
+ * Avoid costly filter primitives on repeated SVG backgrounds while retaining
+ * the same ornament and financial UI structure. Existing files remain as rollback.
+ *
+ * STEAM × COSMOS — luxury mechanical UI, visual-only second pilot (PR #56 base).
+ * Explicitly limited to the signed-in dashboard background, sticky cockpit,
+ * Transfer console, Spending Heatmap, Top 5, and two floating launcher badges.
+ * Existing form, chart, authentication, record, amount and modal logic untouched.
+ *
+ * Mechanical material system:
+ *  - deep-space SVG art (static, no script)
+ *  - baked hammered-steel texture (subtle and tiled)
+ *  - reusable nine-slice brass 3D frame (corner geometry never stretches)
+ *  - inset machined grooves, rivets, embossing and brass-colored edge highlights.
+ */
+.mh-ui.mh-cosmic-pilot {
+  --mh-brass-1: #f0d39b;
+  --mh-brass-2: #d5a765;
+  --mh-brass-3: #8b592e;
+  --mh-steel-0: #07111f;
+  --mh-steel-1: #142131;
+  --mh-steel-2: #243649;
+  --mh-steel-3: #3d5266;
+  --mh-cream: #f5ecdd;
+  background-color: #050d1a;
+  background-image: url("./financeCosmicDeepSpaceStatic.svg");
+  /* PR #57 scroll fix: the root grows with the complete dashboard.
+     'cover' made the filtered SVG scale to the FULL document height (often
+     many thousands of pixels), while fixed attachment forced costly scroll
+     compositing. Keep the exact original artwork at its native bounded size;
+     reuse its tile as the user scrolls instead of repainting a huge filter. */
+  background-size: 1920px 1200px;
+  background-position: center top;
+  background-repeat: repeat;
+  background-attachment: scroll;
+}
+
+/* Hard-edged, depth-mapped metalwork: the same nine-slice material for
+   all four selected card families, with unscaled corner ornaments. */
+.mh-ui.mh-cosmic-pilot .mh-dashboard-header,
+.mh-ui.mh-cosmic-pilot .mh-transfer-console,
+.mh-ui.mh-cosmic-pilot .mh-cosmic-panel {
+  position: relative;
+  isolation: isolate;
+  border: 2px solid #77512f;
+  border-radius: 23px;
+  background-color: #142335;
+  background-image:
+    linear-gradient(165deg, rgba(102,116,129,.14) 0%, rgba(8,19,29,.26) 37%, rgba(4,11,22,.54) 100%),
+    url("./financeHammeredSteelGrain.png"),
+    linear-gradient(160deg,#27394a 0%,#162535 32%,#0e1b2a 68%,#243342 100%);
+  background-size: auto, 256px 256px, auto;
+  background-blend-mode: normal, screen, normal;
+  box-shadow:
+    0 16px 34px rgba(0,0,0,.52),
+    0 4px 0 #080e14,
+    inset 0 0 0 2px rgba(14,23,31,.93),
+    inset 0 0 0 4px rgba(220,171,103,.32),
+    inset 0 5px 7px rgba(254,222,160,.085),
+    inset 0 -13px 25px rgba(0,0,0,.31);
+}
+.mh-ui.mh-cosmic-pilot .mh-dashboard-header::after,
+.mh-ui.mh-cosmic-pilot .mh-transfer-console::after,
+.mh-ui.mh-cosmic-pilot .mh-cosmic-panel::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 7;
+  display: block;
+  border: 25px solid transparent;
+  border-image-source: url("./financeOrnateBrassFrame.svg");
+  border-image-slice: 70;
+  border-image-width: 25px;
+  border-image-repeat: stretch;
+  pointer-events: none;
+}
+.mh-ui.mh-cosmic-pilot .mh-dashboard-header > *,
+.mh-ui.mh-cosmic-pilot .mh-transfer-console > *,
+.mh-ui.mh-cosmic-pilot .mh-cosmic-panel > * {
+  position: relative;
+  z-index: 1;
+}
+
+/* COCKPIT HEADER: actual machined brass + dark steel rather than flat cards.
+   Preserve the exact PR50 one-row responsive metrics layout. */
+.mh-ui.mh-cosmic-pilot .mh-dashboard-header {
+  padding: 17px 24px;
+  min-height: 104px;
+  background-color: #0e1b2b;
+}
+.mh-ui.mh-cosmic-pilot .mh-dashboard-header .mh-dashboard-brand {
+  min-width: 0;
+  padding-left: 39px;
+  position: relative;
+}
+.mh-ui.mh-cosmic-pilot .mh-dashboard-brand::before {
+  content: "✦";
+  position: absolute;
+  left: 0;
+  top: 50%;
+  width: 33px;
+  height: 33px;
+  line-height: 27px;
+  transform: translateY(-50%);
+  border: 3px double #e0b87a;
+  border-radius: 50%;
+  background: radial-gradient(circle at 28% 25%,#9b7348,#3a2a21 53%,#101823 80%);
+  box-shadow: inset 0 2px 2px #ffe6b645, 0 1px 6px #000b;
+  color: #ffe0a0;
+  text-align: center;
+  font-size: 18px;
+  text-shadow: 0 1px 2px #000;
+  pointer-events: none;
+}
+.mh-ui.mh-cosmic-pilot .mh-dashboard-header h1 {
+  color: #fff8ea;
+  letter-spacing: -.025em;
+  text-shadow: 0 2px 3px #0009;
+}
+.mh-ui.mh-cosmic-pilot .mh-dashboard-eyebrow {
+  color: #edc38c;
+  font-weight: 700;
+}
+.mh-ui.mh-cosmic-pilot .mh-dashboard-today__track { padding: 4px 2px; }
+.mh-ui.mh-cosmic-pilot .mh-dashboard-today__metric {
+  position: relative;
+  padding: 11px 9px 10px 15px;
+  border: 2px solid #765b3f;
+  border-radius: 13px;
+  background-color: #152638;
+  background-image:
+    url("./financeHammeredSteelGrain.png"),
+    linear-gradient(155deg,#344759 0%,#223548 25%,#112132 75%,#253746 100%);
+  background-size: 220px,auto;
+  background-blend-mode: overlay, normal;
+  box-shadow: 0 4px 8px #040c18a0,
+    inset 0 2px 2px #f4d7aa28,
+    inset 0 0 0 1px #bc8d56a0,
+    inset 0 -3px 6px #070e18a5;
+}
+.mh-ui.mh-cosmic-pilot .mh-dashboard-today__metric::before {
+  content: "";
+  position: absolute;
+  left: 5px;
+  top: 7px;
+  bottom: 7px;
+  width: 2px;
+  border-radius: 2px;
+  background: linear-gradient(#e3bd83,#584329,#a67e4c);
+  box-shadow: 1px 0 1px #0008;
+  pointer-events: none;
+}
+.mh-ui.mh-cosmic-pilot .mh-dashboard-today__metric span {
+  color: #e5d5bd;
+  font-size: 11px;
+  text-shadow: 0 1px 2px #000;
+}
+.mh-ui.mh-cosmic-pilot .mh-dashboard-today__metric strong {
+  color: #f6efe3;
+  font-weight: 850;
+  text-shadow: 0 1px 2px #000b;
+}
+.mh-ui.mh-cosmic-pilot .mh-dashboard-today__metric--income strong { color: #73e6b9; }
+.mh-ui.mh-cosmic-pilot .mh-dashboard-today__metric--expense strong { color: #ff8f8c; }
+.mh-ui.mh-cosmic-pilot .mh-dashboard-today__metric--neutral strong { color: #fff5e5; }
+.mh-ui.mh-cosmic-pilot .mh-dashboard-header .mh-dashboard-action {
+  min-height: 45px;
+  border: 2px solid #96724c;
+  border-radius: 13px;
+  padding: 8px 13px;
+  color: #ffedd0;
+  background: linear-gradient(160deg,#3f4b55,#1c2b3b 49%,#0d1826);
+  box-shadow: inset 0 2px 2px #ffe5ab24,
+    inset 0 -3px 5px #0008,
+    0 4px 6px #0007,0 0 0 1px #1c1510;
+  text-shadow: 0 1px #050505;
+}
+.mh-ui.mh-cosmic-pilot .mh-dashboard-header .mh-dashboard-actions button:last-child {
+  background: linear-gradient(145deg,#e2ba7a,#986539 52%,#543924);
+  border-color: #ffda9a;
+  color: #fff9ed;
+}
+.mh-ui.mh-cosmic-pilot .mh-dashboard-header .mh-dashboard-action:hover {
+  filter: brightness(1.13);
+}
+.mh-ui.mh-cosmic-pilot .mh-dashboard-header .mh-dashboard-action:focus-visible {
+  outline: 2px solid #f4d298;
+  outline-offset: 3px;
+}
+/* Quick navigator is an engraved accessory rail, not a second floating card. */
+.mh-ui.mh-cosmic-pilot .mh-dashboard-quick-actions {
+  position: relative;
+  overflow: visible;
+  border: 2px solid #825b37;
+  border-radius: 15px;
+  padding: 12px 19px;
+  background:
+    url("./financeHammeredSteelGrain.png") repeat,
+    linear-gradient(170deg,#263447,#12202e);
+  background-size: 250px,auto;
+  background-blend-mode: overlay,normal;
+  box-shadow: 0 7px 14px #020914a8, inset 0 1px 2px #eed3a33b, inset 0 -4px 6px #020916a1;
+}
+.mh-ui.mh-cosmic-pilot .mh-dashboard-quick-actions::before {
+  content:"";position:absolute;inset:4px;border:1px solid #b68a557a;border-radius:10px;
+  pointer-events:none;
+}
+.mh-ui.mh-cosmic-pilot .mh-dashboard-quick-actions button {
+  position: relative;
+  border:1px solid #806b51;
+  border-radius:10px;
+  color:#e9dec9;
+  background:linear-gradient(155deg,#384b5b,#1b2a3b 70%);
+  box-shadow: inset 0 1px 2px #fff3cc22, inset 0 -2px 2px #0005, 0 2px 3px #0008;
+}
+.mh-ui.mh-cosmic-pilot .mh-dashboard-quick-actions button:first-child {
+  color:#fff4f1;
+  border-color:#bd6d68;
+  background:linear-gradient(#a63d41,#64282d);
+}
+.mh-ui.mh-cosmic-pilot .mh-dashboard-quick-actions button:nth-child(2) {
+  color:#c2f5db;
+  border-color:#638f7e;
+  background:linear-gradient(#28534d,#17352f);
+}
+.mh-ui.mh-cosmic-pilot .mh-dashboard-quick-actions button:hover { filter:brightness(1.1); }
+
+/* ORBITAL TRANSFER: high-relief frame and a celestial engraved instrument,
+   but the existing circular click/drag nodes and amounts keep their positions. */
+.mh-ui.mh-cosmic-pilot .mh-transfer-console {
+  min-width: 0;
+  overflow: hidden;
+  padding: clamp(19px,2.5vw,30px);
+  color: #f4eee3;
+}
+.mh-ui.mh-cosmic-pilot .mh-transfer-console::before {
+  content:"";
+  position:absolute;inset:0;z-index:0;pointer-events:none;
+  opacity:1;
+  background:
+    radial-gradient(ellipse at 50% 47%,#28576a70,transparent 42%),
+    radial-gradient(ellipse at 84% 12%,#a77d3c27,transparent 30%),
+    radial-gradient(circle at 94% 19%,#e4ba7027 0 2px,transparent 3px),
+    url("./financeHammeredSteelGrain.png");
+  background-size:auto,auto,auto,256px 256px;
+}
+.mh-ui.mh-cosmic-pilot .mh-transfer-console .mh-transfer-console__header,
+.mh-ui.mh-cosmic-pilot .mh-transfer-console .mh-transfer-console__form {
+  position:relative;z-index:2;
+}
+.mh-ui.mh-cosmic-pilot .mh-transfer-console__eyebrow {
+  color:#f2bd73;font-weight:850;letter-spacing:.16em;
+  text-shadow:0 1px 2px #000;
+}
+.mh-ui.mh-cosmic-pilot .mh-transfer-console__title {
+  color:#fff7e7;
+  font-size:clamp(25px,2.7vw,34px);
+  text-shadow:0 2px 4px #000b;
+}
+.mh-ui.mh-cosmic-pilot .mh-transfer-console__title::before {
+  content:"✥";display:inline-block;margin-right:10px;
+  color:#f2c688;text-shadow:0 1px 3px #000;
+  font-size:.7em;vertical-align:2px;
+}
+.mh-ui.mh-cosmic-pilot .mh-transfer-console__subtitle { color:#cfd5df; }
+.mh-ui.mh-cosmic-pilot .mh-transfer-console__history {
+  border:2px solid #af8453;
+  border-radius:13px;
+  color:#ffe5b8;
+  background:linear-gradient(155deg,#4b4337,#24384c 37%,#142338);
+  box-shadow:inset 0 1px 2px #fff5d12e,inset 0 -3px 4px #030a17,0 3px 9px #0007;
+}
+.mh-ui.mh-cosmic-pilot .mh-transfer-console__history-count {
+  background:linear-gradient(135deg,#f3d69e,#a56d38);
+  border:1px solid #f6d4a0;
+  box-shadow:inset 0 1px 2px #fff9da6a,0 1px 3px #0009;
+}
+.mh-ui.mh-cosmic-pilot .mh-transfer-orbit {
+  position:relative;
+  border:3px ridge #957047;
+  border-radius:20px;
+  background:
+    radial-gradient(circle at center,#142e38 0%,#132333 44%,#0a1523 78%),
+    url("./financeHammeredSteelGrain.png");
+  box-shadow: 0 6px 18px #0007,
+    inset 0 2px 10px #0009,
+    inset 0 0 0 3px #372e24,
+    inset 0 0 0 5px #a67e4b69;
+}
+.mh-ui.mh-cosmic-pilot .mh-transfer-orbit::before {
+  content:"";position:absolute;inset:7px;pointer-events:none;
+  border:1px dashed #be945f66;border-radius:14px;
+}
+.mh-ui.mh-cosmic-pilot .mh-transfer-orbit__topline { color:#f2c689; }
+.mh-ui.mh-cosmic-pilot .mh-transfer-orbit__node {
+  border:2px solid #ae8455;
+  background:linear-gradient(145deg,#455b70 0%,#28384c 46%,#172434 100%);
+  box-shadow: 0 7px 12px #0008,inset 0 1px 2px #ffde9b30,inset 0 -3px 4px #0008;
+}
+.mh-ui.mh-cosmic-pilot .mh-transfer-orbit__node.is-source,
+.mh-ui.mh-cosmic-pilot .mh-transfer-orbit__node.is-target {
+  border-color:#e0be84;
+  box-shadow:0 6px 14px #0008,inset 0 1px 3px #fff1b345,0 0 0 2px #927a5680;
+}
+.mh-ui.mh-cosmic-pilot .mh-transfer-orbit__core {
+  border-color:#e5b977;
+  box-shadow: 0 9px 20px #0009,inset 0 2px 5px #ffecbe22,inset 0 0 0 3px #2a2e35;
+}
+.mh-ui.mh-cosmic-pilot .mh-transfer-console__fields label {
+  color:#f0e3cc;
+}
+.mh-ui.mh-cosmic-pilot .mh-transfer-console__fields input {
+  border:1px solid #8a7258;
+  background:#132335;
+  color:#fff7eb;
+  box-shadow:inset 0 2px 5px #0009,inset 0 0 0 1px #bd995633;
+}
+.mh-ui.mh-cosmic-pilot .mh-transfer-console__submit {
+  border:2px solid #f0cb89;
+  background:linear-gradient(175deg,#f9d995 0%,#bb8144 55%,#86502c 100%);
+  color:#22170f;
+  box-shadow:inset 0 2px 3px #fff9cf, inset 0 -4px 4px #4b2b17, 0 6px 15px #0007;
+  font-weight:850;
+}
+.mh-ui.mh-cosmic-pilot .mh-transfer-console__submit:not(:disabled):hover {
+  filter:brightness(1.08);
+  box-shadow:inset 0 2px 3px #fff9cf,inset 0 -4px 4px #4b2b17,0 8px 17px #0008;
+}
+
+/* SELECTED DISPLAY CARDS — same real metal enclosure as Transfer:
+   no white rectangles left in Heatmap and Top 5. */
+.mh-ui.mh-cosmic-pilot .mh-cosmic-panel {
+  min-width:0;
+  padding:27px 26px;
+  color:#f4f0e7;
+}
+.mh-ui.mh-cosmic-pilot .mh-cosmic-panel h2 {
+  position:relative;
+  padding-left:39px;
+  color:#f6eedf;
+  font-size:clamp(18px,2vw,23px);
+  font-weight:850;
+  text-shadow:0 2px 2px #000a;
+}
+.mh-ui.mh-cosmic-pilot .mh-cosmic-panel h2::before {
+  content:"✦";
+  position:absolute;left:0;top:-3px;
+  width:29px;height:29px;line-height:24px;text-align:center;
+  border:2px solid #e0b97d;border-radius:50%;
+  background:radial-gradient(circle at 28% 24%,#a27847,#322a25 55%,#111d2a);
+  box-shadow:0 2px 5px #0008,inset 0 1px 2px #ffe6b84f;
+  color:#fff0c1;font-size:17px;
+}
+.mh-ui.mh-cosmic-pilot .mh-cosmic-panel > div { min-width:0; }
+.mh-ui.mh-cosmic-pilot .mh-cosmic-heatmap > div.grid {
+  gap:8px;
+  margin-top:19px;
+}
+.mh-ui.mh-cosmic-pilot .mh-cosmic-heat__day {
+  position:relative;
+  min-height:63px;
+  border:1px solid #514f53;
+  border-radius:12px;
+  padding:9px 4px;
+  background:#1c2938;
+  box-shadow: 0 3px 4px #0007,
+    inset 0 1px 0 #fff2d20e,
+    inset 0 0 0 1px #9e795135,
+    inset 0 -3px 5px #0007;
+  color:#9eb0c3;
+  transition:border-color .15s ease,box-shadow .15s ease;
+}
+.mh-ui.mh-cosmic-pilot .mh-cosmic-heat__day.is-active {
+  border-color:#975451;
+  color:#ffdfd1;
+  background:
+    linear-gradient(180deg,rgba(214,63,65,var(--mh-day-intensity)) 0%,rgba(72,25,34,.87) 100%),
+    #301f2b;
+  box-shadow:0 3px 5px #0009,inset 0 1px 0 #ffd6c31e,inset 0 0 0 1px #e5806840;
+}
+.mh-ui.mh-cosmic-pilot .mh-cosmic-heat__day.is-empty { opacity:.78; }
+.mh-ui.mh-cosmic-pilot .mh-cosmic-heat__day p:first-child {
+  font-size:12px;font-weight:800;letter-spacing:.045em;
+}
+.mh-ui.mh-cosmic-pilot .mh-cosmic-heat__day p:last-child {
+  font-size:11px;font-weight:750;
+  color:inherit;
+  overflow-wrap:anywhere;
+}
+.mh-ui.mh-cosmic-pilot .mh-cosmic-heat__day:hover {
+  border-color:#d3a46f;
+  box-shadow:0 4px 8px #0009,inset 0 0 0 1px #d3a46f50;
+}
+
+/* Top 5 retains original selection, chronology and full amount. */
+.mh-ui.mh-cosmic-pilot .mh-cosmic-top5 select {
+  min-height:40px;
+  border:2px solid #93744e;
+  color:#f6ead6;
+  background:#213348;
+  box-shadow:inset 0 1px 2px #0009;
+  color-scheme:dark;
+}
+.mh-ui.mh-cosmic-pilot .mh-cosmic-top5 select:disabled {
+  opacity:.72;
+}
+.mh-ui.mh-cosmic-pilot .mh-cosmic-top5 .mh-cosmic-top5__detail {
+  color:#b9c4d1;
+}
+.mh-ui.mh-cosmic-pilot .mh-cosmic-top5__record {
+  position:relative;
+  min-width:0;
+  padding:15px 12px;
+  border:1px solid #99734c;
+  border-radius:13px;
+  background:
+    url("./financeHammeredSteelGrain.png"),
+    linear-gradient(155deg,#2d3e50,#162536 67%,#0e1c2b);
+  background-size:205px,auto;
+  background-blend-mode:overlay,normal;
+  box-shadow: 0 5px 10px #0008,
+    inset 0 2px 2px #ecd19a17,
+    inset 0 -3px 6px #0008,
+    inset 0 0 0 1px #ecc38b35;
+}
+.mh-ui.mh-cosmic-pilot .mh-cosmic-top5__record::after {
+  content:"";position:absolute;inset:5px;pointer-events:none;
+  border:1px solid #a58b6640;border-radius:8px;
+}
+.mh-ui.mh-cosmic-pilot .mh-cosmic-top5__rank {
+  border:2px solid #c69b61;
+  color:#ffe9c3;
+  background:linear-gradient(145deg,#604d37,#1b2a38 75%);
+  box-shadow:inset 0 1px 2px #f3d8a74d,0 2px 4px #0009;
+}
+.mh-ui.mh-cosmic-pilot .mh-cosmic-top5__name {
+  color:#fff1da;
+  overflow-wrap:anywhere;
+}
+.mh-ui.mh-cosmic-pilot .mh-cosmic-top5__meta { color:#b2c3d4; }
+.mh-ui.mh-cosmic-pilot .mh-cosmic-top5__amount {
+  color:#ff8e82;
+  font-weight:850;
+  overflow-wrap:anywhere;
+}
+.mh-ui.mh-cosmic-pilot .mh-cosmic-top5__empty {
+  background:#182635;
+  border:1px solid #927147;
+  color:#c3cbd2;
+}
+
+/* Brass instrument badges — preserve original hover-open behavior and
+   notification count. No labels added, no new timers, no changed callbacks. */
+.mh-ui.mh-cosmic-pilot .mh-stage2-notifications__bell,
+.mh-ui.mh-cosmic-pilot .mh-rule-assistant__launcher {
+  isolation:isolate;
+  position:relative;
+  border:3px ridge #c59859;
+  border-radius:50%;
+  background:radial-gradient(circle at 28% 22%,#51616a,#27384a 49%,#0c1b2a 83%);
+  box-shadow:0 6px 0 #0b1119,0 10px 20px #0009,
+             inset 0 2px 4px #fff0c753,inset 0 -5px 6px #000c,
+             0 0 0 2px #51341e;
+}
+.mh-ui.mh-cosmic-pilot .mh-stage2-notifications__bell::after,
+.mh-ui.mh-cosmic-pilot .mh-rule-assistant__launcher::after {
+  content:"";position:absolute;inset:3px;pointer-events:none;
+  border:1px dashed #dbb87c77;border-radius:50%;
+}
+.mh-ui.mh-cosmic-pilot .mh-stage2-notifications__bell {
+  width:65px;height:65px;min-height:65px;
+  padding:0;
+}
+.mh-ui.mh-cosmic-pilot .mh-rule-assistant__launcher {
+  width:67px;height:67px;min-height:67px;
+  padding:3px;
+}
+.mh-ui.mh-cosmic-pilot .mh-stage2-notifications__count {
+  z-index:3;
+  top:-5px;right:-5px;
+  background:#bc3342;
+  color:#fff;
+  border:2px solid #f6d6a7;
+  box-shadow:0 1px 5px #000c;
+}
+.mh-ui.mh-cosmic-pilot .mh-notification-emblem { width:45px;height:45px; }
+.mh-ui.mh-cosmic-pilot .mh-notification-emblem svg { width:44px;height:44px; }
+.mh-ui.mh-cosmic-pilot .mh-steampunk-assistant-emblem { width:55px;height:55px; }
+.mh-ui.mh-cosmic-pilot .mh-stage2-notifications__bell:focus-visible,
+.mh-ui.mh-cosmic-pilot .mh-rule-assistant__launcher:focus-visible {
+  outline:2px solid #ffdc9e;
+  outline-offset:5px;
+}
+@media (max-width: 767px) {
+  .mh-ui.mh-cosmic-pilot {
+    background-attachment:scroll;
+    background-size:auto 980px;
+    background-position:center top;
+    background-repeat:repeat-y;
+  }
+  .mh-ui.mh-cosmic-pilot .mh-dashboard-header { padding:9px 10px; min-height:0; }
+  .mh-ui.mh-cosmic-pilot .mh-dashboard-header .mh-dashboard-brand {
+    padding-left:0;
+  }
+  .mh-ui.mh-cosmic-pilot .mh-dashboard-brand::before { display:none; }
+  .mh-ui.mh-cosmic-pilot .mh-dashboard-header::after,
+  .mh-ui.mh-cosmic-pilot .mh-transfer-console::after,
+  .mh-ui.mh-cosmic-pilot .mh-cosmic-panel::after {
+    border-width:16px;
+    border-image-width:16px;
+  }
+  .mh-ui.mh-cosmic-pilot .mh-dashboard-today__metric {
+    padding:8px 9px;
+    min-width:108px;
+  }
+  .mh-ui.mh-cosmic-pilot .mh-dashboard-header .mh-dashboard-action {
+    min-width:35px;min-height:37px;
+    padding:7px 6px;
+  }
+  .mh-ui.mh-cosmic-pilot .mh-transfer-console { padding:17px 13px; }
+  .mh-ui.mh-cosmic-pilot .mh-cosmic-panel { padding:19px 15px; }
+  .mh-ui.mh-cosmic-pilot .mh-cosmic-panel h2 { padding-left:33px;font-size:18px; }
+  .mh-ui.mh-cosmic-pilot .mh-cosmic-heat__day { min-height:58px; }
+  .mh-ui.mh-cosmic-pilot .mh-stage2-notifications__bell {
+    width:53px;height:53px;min-height:53px;
+  }
+  .mh-ui.mh-cosmic-pilot .mh-rule-assistant__launcher {
+    width:55px;height:55px;min-height:55px;
+  }
+  .mh-ui.mh-cosmic-pilot .mh-notification-emblem svg { width:37px;height:37px; }
+  .mh-ui.mh-cosmic-pilot .mh-steampunk-assistant-emblem { width:45px;height:45px; }
+}
+@media (prefers-reduced-motion:reduce) {
+  .mh-ui.mh-cosmic-pilot .mh-cosmic-heat__day { transition:none!important; }
+}
+/* No selectors for other dashboard forms, charts, budgets, records or overlays. */

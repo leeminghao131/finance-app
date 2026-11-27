@@ -1,0 +1,82 @@
+/* Date drill-down: crisp accessible tappable heatmap cells, no filters/animation. */
+.mh-ui.mh-cosmic-pilot button.mh-cosmic-heat__day {
+  display:block;width:100%;font:inherit;cursor:pointer;
+  appearance:none;-webkit-appearance:none;touch-action:manipulation;
+}
+.mh-ui.mh-cosmic-pilot button.mh-cosmic-heat__day:focus-visible {
+  outline:2px solid #ffdfac;outline-offset:3px;
+}
+.mh-ui.mh-cosmic-pilot button.mh-cosmic-heat__day[aria-expanded="true"] {
+  border-color:#ffcf8b;
+  box-shadow:0 3px 9px #000a,inset 0 0 0 1px #ffcf8b;
+}
+.mh-heat-detail {color:#efe7db;min-width:0}
+.mh-heat-detail__summary {
+  display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:9px;
+}
+.mh-heat-detail__summary>div {
+  background:linear-gradient(145deg,#20384b,#11283a);
+  padding:12px;border:1px solid #896d47;border-radius:12px;min-width:0;
+}
+.mh-heat-detail__summary small {
+  display:block;color:#d7cbb6;font-size:11px;margin-bottom:5px;
+}
+.mh-heat-detail__summary strong {
+  display:block;color:#f3e7d5;font-size:clamp(13px,2vw,19px);
+  font-variant-numeric:tabular-nums;overflow-wrap:anywhere;
+}
+.mh-heat-detail__summary .is-income {color:#8de4c7}
+.mh-heat-detail__summary .is-expense {color:#ffaea7}
+.mh-heat-detail__hint {
+  margin:13px 0;color:#bfcdd8;font-size:12px;line-height:1.6;
+}
+.mh-heat-detail__columns {
+  display:grid;grid-template-columns:repeat(2,minmax(0,1fr));align-items:start;gap:14px;
+}
+.mh-heat-detail__section {
+  border:1px solid #85694b;border-radius:12px;background:#102637;min-width:0;overflow:hidden;
+}
+.mh-heat-detail__section>header {
+  display:flex;flex-wrap:wrap;justify-content:space-between;align-items:center;gap:7px;
+  border-bottom:1px solid #71583c;padding:12px;background:#25394b;
+}
+.mh-heat-detail__section h3 {color:#f2d29b;font-size:14px;font-weight:750}
+.mh-heat-detail__section>header strong {
+  color:#f6ead4;font-size:13px;font-variant-numeric:tabular-nums;
+}
+.mh-heat-detail__section>header small {color:#b7c8d4}
+.mh-heat-detail__records {
+  display:grid;gap:8px;padding:10px;max-height:min(48vh,380px);overflow-y:auto;
+  scrollbar-width:thin;scrollbar-color:#9c7b4a #132a3d;
+}
+.mh-heat-detail__record {
+  min-width:0;padding:11px;background:linear-gradient(135deg,#1d3446,#142737);
+  border:1px solid #6c5f4b;border-radius:10px;
+}
+.mh-heat-detail__record-head {
+  display:flex;justify-content:space-between;align-items:flex-start;gap:9px;overflow-wrap:anywhere;
+}
+.mh-heat-detail__record-head strong {color:#f3eadd;font-weight:750;min-width:0}
+.mh-heat-detail__record-head b {
+  font-variant-numeric:tabular-nums;text-align:right;overflow-wrap:anywhere;
+}
+.mh-heat-detail__section.is-expense .mh-heat-detail__record-head b {color:#ffb5aa}
+.mh-heat-detail__section.is-income .mh-heat-detail__record-head b {color:#89e9c5}
+.mh-heat-detail__meta {
+  margin-top:6px;color:#c0cbd5;font-size:12px;overflow-wrap:anywhere;line-height:1.5;
+}
+.mh-heat-detail__empty {padding:16px;color:#c4cdd3;font-size:13px}
+@media(max-width:600px) {
+  .mh-heat-detail__summary {grid-template-columns:repeat(2,minmax(0,1fr))}
+  .mh-heat-detail__summary>div:last-child {grid-column:span 2}
+  .mh-heat-detail__columns {grid-template-columns:1fr}
+  .mh-heat-detail__records {max-height:min(35vh,250px)}
+}
+
+/* Heatmap buttons use valid phrasing spans, matching the original day label sizes. */
+.mh-ui.mh-cosmic-pilot .mh-cosmic-heat__day > span:first-child {
+  font-size:12px;font-weight:800;letter-spacing:.045em;
+}
+.mh-ui.mh-cosmic-pilot .mh-cosmic-heat__day > span:last-child {
+  font-size:11px;font-weight:750;color:inherit;overflow-wrap:anywhere;
+}

@@ -1,0 +1,22 @@
+# Local environment secrets
+.env
+.env.*
+!.env.example
+!.env.sample
+
+# Dependency and build artifacts
+node_modules/
+dist/
+.vite/
+coverage/
+*.log
+.DS_Store
+.vercel/
+
+# Do not commit finance or database backups
+*.dump
+*.backup
+*.sql.gz
+*.gpg
+backup-*.json
+finance-backup*
