@@ -2,6 +2,7 @@ import React, { createContext, useContext, useLayoutEffect, useMemo, useRef, use
 import {
   readFinanceLanguage, persistFinanceLanguage, translateFinanceText,
 } from "./financeLanguage.js";
+import { financePerformanceSkipsTranslation } from "./financePerformanceDiagnostic.js";
 
 const LanguageContext = createContext(null);
 const originalText = new WeakMap();
@@ -76,10 +77,13 @@ function FinanceLanguageObserver({ language }) {
     currentLanguage.current = language;
     document.documentElement.lang = language === "zh" ? "zh-CN" : "en";
     document.title = language === "zh" ? "记账可视化软件" : "Personal Finance Visualizer";
-    localizeNode(document.body, language);
+    if (!financePerformanceSkipsTranslation()) localizeNode(document.body, language);
   }, [language]);
 
   useLayoutEffect(() => {
+    // Preview-only A/B diagnosis: isolate the cost of DOM-wide translation.
+    // Normal/Production/Android behavior is unchanged.
+    if (financePerformanceSkipsTranslation()) return undefined;
     const observer = new MutationObserver((mutations) => {
       const languageNow = currentLanguage.current;
       // React can emit overlapping mutations for the same new subtree.
