@@ -22,7 +22,7 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           name: mh-finance-prod-aes256-encrypted-backup
-          run-id: 45831886534
+          run-id: 45935281496
           github-token: ${{ github.token }}
           path: ${{ runner.temp }}/mh-finance-restore-input
 
@@ -253,7 +253,7 @@ jobs:
               (SELECT count(*) FROM public.records r WHERE r.amount IS NULL OR r.amount<=0);
           " | tr -d '[:space:]')
           IFS='|' read -r records transfers settings accounts rls policies ownerless orphan_transfers bad_amounts <<< "$result"
-          if [[ "$records" != "687" || "$transfers" != "58" || "$settings" != "2" || "$accounts" != "2" ]]; then
+          if [[ "$records" != "688" || "$transfers" != "58" || "$settings" != "2" || "$accounts" != "2" ]]; then
             echo '::error::Restore row counts differ from backup-time expected counts.'
             exit 1
           fi
