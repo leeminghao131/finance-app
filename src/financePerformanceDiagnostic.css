@@ -1,0 +1,33 @@
+/* Temporary Preview-only A/B test. No form, chart or transaction is hidden. */
+@media (min-width: 768px) and (hover: hover) and (pointer: fine) {
+  html:is([data-mh-perf-diag="paint-lite"],[data-mh-perf-diag="both"]) .mh-ui,
+  html:is([data-mh-perf-diag="paint-lite"],[data-mh-perf-diag="both"]) .mh-ui *,
+  html:is([data-mh-perf-diag="paint-lite"],[data-mh-perf-diag="both"]) .mh-ui *::before,
+  html:is([data-mh-perf-diag="paint-lite"],[data-mh-perf-diag="both"]) .mh-ui *::after,
+  html:is([data-mh-perf-diag="paint-lite"],[data-mh-perf-diag="both"]) .mh-cosmic-modal-sheet,
+  html:is([data-mh-perf-diag="paint-lite"],[data-mh-perf-diag="both"]) .mh-cosmic-modal-backdrop {
+    animation: none !important;
+    transition: none !important;
+    -webkit-backdrop-filter: none !important;
+    backdrop-filter: none !important;
+    filter: none !important;
+    box-shadow: none !important;
+    background-image: none !important;
+  }
+}
+.mh-perf-debug-panel {
+  position: fixed;
+  right: 7px;
+  bottom: 7px;
+  z-index: 100000;
+  max-width: calc(100vw - 14px);
+  background: rgba(5, 16, 29, .93);
+  border: 1px solid #d5aa6f;
+  color: #f9e8c8;
+  font: 11px/1.4 ui-monospace, Consolas, monospace;
+  padding: 7px 10px;
+  border-radius: 7px;
+  pointer-events: none;
+  user-select: none;
+  contain: layout paint style;
+}
