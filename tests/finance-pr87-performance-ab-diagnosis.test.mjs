@@ -51,6 +51,21 @@ test("Experimental paint reduction only affects opted-in desktop Preview",()=>{
   assert.doesNotMatch(css,/display:\s*none\s*!important|visibility:\s*hidden\s*!important/);
 });
 
+test("Each narrowed desktop paint hypothesis is separately switchable without hiding features",()=>{
+  const css=readFileSync(new URL("../src/financePerformanceDiagnostic.css",import.meta.url),"utf8");
+  for (const selected of ["texture-off","shadow-off","motion-off"]) {
+    assert.equal(mode("?mh_perf="+selected),selected);
+    assert.equal(mode("?mh_perf="+selected,"production",FINANCE_PRODUCTION_HOST),"normal");
+    assert.match(css,new RegExp('data-mh-perf-diag="'+selected+'"'));
+  }
+  assert.match(css,/background-image: none !important;/);
+  assert.match(css,/box-shadow: none !important;/);
+  assert.match(css,/backdrop-filter: none !important;/);
+  assert.match(css,/animation: none !important;/);
+  assert.match(css,/transition: none !important;/);
+  assert.doesNotMatch(css,/display:\\s*none\\s*!important|visibility:\\s*hidden\\s*!important/);
+});
+
 test("Diagnostic overlay is independent of finance state and enabled only on Preview",()=>{
   const src=readFileSync(new URL("../src/financePerformanceDiagnostic.js",import.meta.url),"utf8");
   const main=readFileSync(new URL("../src/main.jsx",import.meta.url),"utf8");
