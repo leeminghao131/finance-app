@@ -56,15 +56,15 @@ jobs:
             echo '::error::Stage 1 has unexpected browser-breaking policy changes.'
             exit 1
           fi
-          docker cp "$file" "$FAKE_LOCAL_DB:/tmp/mh-stage1.sql"
-          if ! docker exec -e PGPASSWORD=postgres "$FAKE_LOCAL_DB" \
+          docker cp "$file" "$FAKE_ONLY_CONTAINER:/tmp/mh-stage1.sql"
+          if ! docker exec -e PGPASSWORD=postgres "$FAKE_ONLY_CONTAINER" \
             psql -h localhost -U postgres -d postgres -X -q -v ON_ERROR_STOP=1 \
             -f /tmp/mh-stage1.sql > "$RUNNER_TEMP/mh-stage1-private.log" 2>&1; then
             echo '::error::Stage 1 failed on disposable fake schema'
             grep -E 'ERROR|FATAL|psql:' "$RUNNER_TEMP/mh-stage1-private.log" | head -8 || true
             exit 1
           fi
-          check=$(docker exec -e PGPASSWORD=postgres "$FAKE_LOCAL_DB" \
+          check=$(docker exec -e PGPASSWORD=postgres "$FAKE_ONLY_CONTAINER" \
             psql -h localhost -U postgres -d postgres -X -qAt -v ON_ERROR_STOP=1 -c "
               SELECT (SELECT count(*) FROM public.records),
                 (SELECT count(*) FROM public.transfers),
@@ -82,8 +82,8 @@ jobs:
           set -euo pipefail
           file="$GITHUB_WORKSPACE/docs/release/production-sql/DRAFT_STAGE2_SOFT_DELETE_CUTOVER.sql"
           test -s "$file"
-          docker cp "$file" "$FAKE_LOCAL_DB:/tmp/mh-stage2.sql"
-          if ! docker exec -e PGPASSWORD=postgres "$FAKE_LOCAL_DB" \
+          docker cp "$file" "$FAKE_ONLY_CONTAINER:/tmp/mh-stage2.sql"
+          if ! docker exec -e PGPASSWORD=postgres "$FAKE_ONLY_CONTAINER" \
             psql -h localhost -U postgres -d postgres -X -q -v ON_ERROR_STOP=1 \
             -f /tmp/mh-stage2.sql > "$RUNNER_TEMP/mh-stage2-private.log" 2>&1; then
             echo '::error::Stage 2 failed on disposable fake schema'
