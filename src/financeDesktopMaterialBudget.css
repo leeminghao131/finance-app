@@ -1,0 +1,60 @@
+/* MH Finance PR89 — Windows desktop lightweight Steam/Cosmos materials.
+ * Root cause signal: disabling CSS background images was as smooth as main,
+ * while disabling animation alone produced no noticeable improvement.
+ *
+ * This visual-only change removes oversized/repeated SVG and grain layers on
+ * the largest dashboard surfaces. It intentionally preserves brass borders,
+ * ornate 9-slice frames, metal palette, shadows, charts, button gradients,
+ * popup behavior, and every money/data callback.
+ *
+ * Mobile/touch browsers keep the original untouched visual design.
+ * The PR88 ?mh_perf=texture-off control remains available as a flatter
+ * diagnostic comparison if this selective fix does not go far enough.
+ */
+@media (min-width: 768px) and (hover: hover) and (pointer: fine) {
+  /* Large, vertically repeated 1920x1200 SVG is the first paint suspect. */
+  .mh-ui.mh-cosmic-pilot {
+    background-image: none !important;
+    background-color: #071421;
+    background-attachment: scroll;
+  }
+
+  /* Large metal panel frames remain; remove multi-layer grain/gradients. */
+  .mh-ui.mh-cosmic-pilot .mh-dashboard-header,
+  .mh-ui.mh-cosmic-pilot .mh-transfer-console,
+  .mh-ui.mh-cosmic-pilot .mh-cosmic-panel {
+    background-image: none !important;
+    background-color: #142335;
+    background-blend-mode: normal;
+  }
+
+  /* Repeated steel image on every dashboard metric and toolbar. */
+  .mh-ui.mh-cosmic-pilot .mh-dashboard-today__metric {
+    background-image: none !important;
+    background-color: #1b3146;
+    background-blend-mode: normal;
+  }
+  .mh-ui.mh-cosmic-pilot .mh-dashboard-quick-actions {
+    background-image: none !important;
+    background-color: #1a2c3e;
+    background-blend-mode: normal;
+  }
+
+  /* Decorative grain behind transfer controls is paint-only. */
+  .mh-ui.mh-cosmic-pilot .mh-transfer-console::before {
+    background-image: none !important;
+  }
+  .mh-ui.mh-cosmic-pilot .mh-transfer-orbit {
+    background-image: none !important;
+    background-color: #132737;
+  }
+
+  /* Many repeatable Top 5 row backgrounds no longer render tiled grain. */
+  .mh-ui.mh-cosmic-pilot .mh-cosmic-top5__record {
+    background-image: none !important;
+    background-color: #1c3044;
+    background-blend-mode: normal;
+  }
+
+  /* Their decoration, focus/hover feedback and button colors remain intact. */
+}
