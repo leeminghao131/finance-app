@@ -27,8 +27,9 @@ test("No diagnostics can activate on original Production host",()=>{
 });
 
 test("Non-Preview builds and non-Vercel hosts always ignore flags",()=>{
-  for (const tier of ["production","development","unknown",undefined,null])
+  for (const tier of ["production","development","unknown",null])
     assert.equal(mode("?mh_perf=both",tier,testHost),"normal");
+  assert.equal(resolveFinancePerformanceMode({tier:undefined,hostname:testHost,search:"?mh_perf=both"}),"normal");
   assert.equal(mode("?mh_perf=both","preview","localhost"),"normal");
   assert.equal(mode("?mh_perf=i18n-off","preview","example.com"),"normal");
 });
