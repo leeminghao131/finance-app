@@ -1,0 +1,109 @@
+name: MH Finance RC89 staged synthetic migration rehearsal
+
+on:
+  push:
+    branches:
+      - release/rc89-prod-preflight-2026-11-27
+    paths:
+      - .github/workflows/mh-finance-rc89-staged-migration-test.yml
+
+permissions:
+  contents: read
+
+jobs:
+  test-only:
+    name: Supabase local only, 2 fictional users
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: supabase/setup-cli@v1
+        with:
+          version: 3.4.0
+      - name: Create disposable Supabase Postgres
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/finance-fake-db"
+          cd "$RUNNER_TEMP/finance-fake-db"
+          supabase init --force >/dev/null 2>&1
+          if [[ -f supabase/config.jsonc && ! -f supabase/config.toml ]]; then
+            SUPABASE_YES=1 supabase config convert --to toml --yes >/dev/null 2>&1
+          fi
+          test -f supabase/config.toml
+          sed -i -E '/^[[:space:]]*major_version[[:space:]]*=/s/=[[:space:]]*[0-9]+/= 17/' supabase/config.toml
+          supabase db start > "$RUNNER_TEMP/finance-fake-db-start.log" 2>&1 || {
+            echo '::error::Local Supabase DB failed to start; no remote database was touched.'
+            exit 1
+          }
+          count=$(docker ps --filter 'name=supabase_db_' -q | wc -l)
+          test "$count" -eq 1
+          localdb=$(docker ps --filter 'name=supabase_db_' -q | head -1)
+          echo "FAKE_ONLY_CONTAINER=$localdb" >> "$GITHUB_ENV"
+          echo '::notice::Only temporary local Postgres started. No secrets/remote DB connections.'
+      - name: Create 3 exact legacy shapes with fake owner A and B data
+        run: |
+          set -euo pipefail
+          docker cp "$GITHUB_WORKSPACE/tests/fixtures/pr82_production_legacy_fictional.sql" "$FAKE_ONLY_CONTAINER:/tmp/fake-legacy.sql" >/dev/null
+          docker exec -e PGPASSWORD=postgres "$FAKE_ONLY_CONTAINER" \
+            psql -h localhost -U postgres -d postgres -X -q -v ON_ERROR_STOP=1 -f /tmp/fake-legacy.sql
+          echo '::notice::Legacy shape with fictional user A/B, 3 records, 1 transfer, 2 settings.'
+      - name: Apply Draft Stage 1 and assert old browser permissions remain intact
+        run: |
+          set -euo pipefail
+          file="$GITHUB_WORKSPACE/docs/release/production-sql/DRAFT_STAGE1_COMPATIBLE_PREPARE.sql"
+          test -s "$file"
+          if grep -Eq '^[[:space:]]*(DROP POLICY|REVOKE DELETE ON public.user_settings)' "$file"; then
+            echo '::error::Stage 1 has unexpected browser-breaking policy changes.'
+            exit 1
+          fi
+          docker cp "$file" "$FAKE_LOCAL_DB:/tmp/mh-stage1.sql"
+          if ! docker exec -e PGPASSWORD=postgres "$FAKE_LOCAL_DB" \
+            psql -h localhost -U postgres -d postgres -X -q -v ON_ERROR_STOP=1 \
+            -f /tmp/mh-stage1.sql > "$RUNNER_TEMP/mh-stage1-private.log" 2>&1; then
+            echo '::error::Stage 1 failed on disposable fake schema'
+            grep -E 'ERROR|FATAL|psql:' "$RUNNER_TEMP/mh-stage1-private.log" | head -8 || true
+            exit 1
+          fi
+          check=$(docker exec -e PGPASSWORD=postgres "$FAKE_LOCAL_DB" \
+            psql -h localhost -U postgres -d postgres -X -qAt -v ON_ERROR_STOP=1 -c "
+              SELECT (SELECT count(*) FROM public.records),
+                (SELECT count(*) FROM public.transfers),
+                (SELECT count(*) FROM public.user_settings),
+                (SELECT count(*) FROM pg_policies WHERE schemaname='public' AND tablename='records' AND cmd='DELETE'),
+                (SELECT count(*) FROM pg_policies WHERE schemaname='public' AND tablename='transfers' AND cmd='DELETE'),
+                has_table_privilege('authenticated','public.user_settings','DELETE')::text;")
+          test "$check" = '3|1|2|1|1|true' || {
+            echo '::error::Stage 1 changed fake ledger counts or old browser delete permissions'
+            exit 1
+          }
+          echo '::notice::Stage 1 passed old browser compatibility and fake data retention.'
+      - name: Apply Draft Stage 2 and restore intended soft-delete security
+        run: |
+          set -euo pipefail
+          file="$GITHUB_WORKSPACE/docs/release/production-sql/DRAFT_STAGE2_SOFT_DELETE_CUTOVER.sql"
+          test -s "$file"
+          docker cp "$file" "$FAKE_LOCAL_DB:/tmp/mh-stage2.sql"
+          if ! docker exec -e PGPASSWORD=postgres "$FAKE_LOCAL_DB" \
+            psql -h localhost -U postgres -d postgres -X -q -v ON_ERROR_STOP=1 \
+            -f /tmp/mh-stage2.sql > "$RUNNER_TEMP/mh-stage2-private.log" 2>&1; then
+            echo '::error::Stage 2 failed on disposable fake schema'
+            grep -E 'ERROR|FATAL|psql:' "$RUNNER_TEMP/mh-stage2-private.log" | head -8 || true
+            exit 1
+          fi
+          echo '::notice::Draft Stage 2 applied only on disposable fictional database.'
+      - name: Verify fake data and A/B RLS integrity
+        run: |
+          set -euo pipefail
+          docker cp "$GITHUB_WORKSPACE/tests/fixtures/pr82_production_fictional_assert.sql" "$FAKE_ONLY_CONTAINER:/tmp/fake-assert.sql" >/dev/null
+          docker exec -e PGPASSWORD=postgres "$FAKE_ONLY_CONTAINER" \
+            psql -h localhost -U postgres -d postgres -X -q -v ON_ERROR_STOP=1 -f /tmp/fake-assert.sql
+          echo '::notice::Synthetic checks passed. NO real data/Production/TEST used.'
+          echo '::notice::This rehearsal alone is NOT approval for Production migration.'
+      - name: Destroy local fake database
+        if: always()
+        run: |
+          if [[ -n "$FAKE_ONLY_CONTAINER" ]]; then
+            docker rm -f "$FAKE_ONLY_CONTAINER" >/dev/null 2>&1 || true
+          fi
+          rm -rf "$RUNNER_TEMP/finance-fake-db"
+          echo '::notice::Disposable database removed; original Production remains unchanged.'
