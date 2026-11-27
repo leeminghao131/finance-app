@@ -1,4 +1,4 @@
-name: MH Finance encrypted production backup (manual setup)
+name: MH Finance Stage 1 encrypted backup and isolated restore
 
 on:
   push:
@@ -9,6 +9,7 @@ on:
 
 permissions:
   contents: read
+  actions: read
 
 jobs:
   backup:
@@ -93,7 +94,7 @@ jobs:
           from pathlib import Path
           import re
           sql = Path('data.sql').read_text('utf-8')
-          for schema, table in [('public','records'),('public','transfers'),('public','user_settings'),('auth','users')]:
+          for schema, table in [('public','records'),('public','transfers'),('public','user_settings'),('public','monthly_budgets'),('public','finance_import_items'),('public','finance_activities'),('public','finance_activity_links'),('public','finance_claims'),('public','finance_claim_repayments'),('auth','users')]:
               pattern = rf'(?m)^COPY\s+(?:"?{schema}"?\.)"?{table}"?\s*\('
               if re.search(pattern, sql) is None:
                   raise SystemExit(f'Expected {schema}.{table} data section missing; refusing backup artifact.')
@@ -124,3 +125,286 @@ jobs:
 # Owner reports updated separate DB-password GitHub Environment Secret; one read-only encrypted backup retry approved 2026-11-26 MYT.
 
 # Owner's 2026-11-27 instruction to complete release preparation authorizes a new READ-ONLY encrypted snapshot. No Production schema/data writes.
+
+  restore:
+    needs: backup
+    name: Verify saved encrypted backup in disposable local PostgreSQL
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    environment: mh-finance-prod-backup
+    steps:
+      - name: Download the new encrypted artifact from this run
+        uses: actions/download-artifact@v4
+        with:
+          name: mh-finance-prod-aes256-encrypted-backup
+          path: ${{ runner.temp }}/mh-finance-restore-input
+
+      - name: Decrypt backup and verify archive checksums privately
+        shell: bash
+        env:
+          GPG_PASSPHRASE: ${{ secrets.MH_BACKUP_PASSPHRASE }}
+        run: |
+          set -euo pipefail
+          umask 077
+          work="$RUNNER_TEMP/mh-finance-isolated-restore"
+          mkdir -m 700 -p "$work"
+          shopt -s nullglob
+          archives=("$RUNNER_TEMP"/mh-finance-restore-input/*.gpg)
+          if [[ ${#archives[@]} -ne 1 || -z "${GPG_PASSPHRASE:-}" ]]; then
+            echo '::error::Expected exactly one encrypted archive and a protected encryption secret.'
+            exit 1
+          fi
+          printf '%s' "$GPG_PASSPHRASE" | gpg --batch --yes --quiet \
+            --pinentry-mode loopback --passphrase-fd 0 \
+            --output "$work/bundle.tar.gz" --decrypt "${archives[0]}"
+          WORK="$work" python3 - <<'PY'
+          import os, tarfile
+          path = os.path.join(os.environ["WORK"], "bundle.tar.gz")
+          expected = {'roles.sql','schema.sql','data.sql','manifest.sha256','metadata.txt'}
+          with tarfile.open(path,'r:gz') as t:
+              members=t.getmembers()
+              if {m.name for m in members} != expected:
+                  raise SystemExit('Archive contents do not match the five expected files.')
+              if any(not m.isfile() or m.size > 50_000_000 for m in members):
+                  raise SystemExit('Unsafe archive member type or size.')
+              t.extractall(os.environ['WORK'],filter='data')
+          PY
+          cd "$work"
+          sha256sum -c manifest.sha256 >/dev/null
+          grep -Fqx 'source_project=hlkciowyusbhwcwjzfsr' metadata.txt
+          grep -Fqx 'restoration_status=NOT_YET_VERIFIED' metadata.txt
+          for file in roles.sql schema.sql data.sql; do
+            test -s "$file"
+          done
+          echo '::notice::Encrypted backup decrypts and SQL checksums match. No transaction rows printed.'
+          rm -f "$work/bundle.tar.gz"
+
+      - name: Install Supabase CLI for disposable local database only
+        uses: supabase/setup-cli@v1
+        with:
+          version: 3.4.0
+
+      - name: Create isolated local PostgreSQL 17 (no remote database URL)
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/mh-finance-rehearsal-project"
+          cd "$RUNNER_TEMP/mh-finance-rehearsal-project"
+          supabase init --force >/dev/null 2>&1
+          # Supabase CLI 3.4+ defaults to config.jsonc; convert the LOCAL disposable project only.
+          if [[ -f supabase/config.jsonc && ! -f supabase/config.toml ]]; then
+            SUPABASE_YES=1 supabase config convert --to toml --yes >/dev/null 2>&1
+          fi
+          test -f supabase/config.toml || { echo '::error::Local CLI configuration not created.'; exit 1; }
+          python3 - <<'PY'
+          from pathlib import Path
+          import re
+          f=Path('supabase/config.toml')
+          txt=f.read_text()
+          if re.search(r'(?m)^[ \t]*major_version[ \t]*=[ \t]*\d+',txt):
+              txt=re.sub(r'(?m)^([ \t]*major_version[ \t]*=[ \t]*)\d+',r'\g<1>17',txt,count=1)
+          elif '[db]\n' in txt:
+              txt=txt.replace('[db]\n','[db]\nmajor_version = 17\n',1)
+          else:
+              raise SystemExit('No recognized Supabase db config; refusing restore.')
+          f.write_text(txt)
+          PY
+          if ! supabase db start > "$RUNNER_TEMP/mh-finance-local-db-start.log" 2>&1; then
+            echo '::error::Could not start disposable local Supabase DB. Production untouched.'
+            exit 1
+          fi
+          mapfile -t dbids < <(docker ps --filter 'name=supabase_db_' --format '{{.ID}}')
+          if [[ ${#dbids[@]} -ne 1 ]]; then
+            echo '::error::Expected exactly one disposable local Postgres container.'
+            exit 1
+          fi
+          echo "LOCAL_RESTORE_DB_CONTAINER=${dbids[0]}" >> "$GITHUB_ENV"
+          echo '::notice::Disposable local PostgreSQL 17 prepared; no shared Supabase project was contacted.'
+
+      - name: Transactional roles, schema and data restore (local container only)
+        shell: bash
+        run: |
+          set -euo pipefail
+          work="$RUNNER_TEMP/mh-finance-isolated-restore"
+          container="$LOCAL_RESTORE_DB_CONTAINER"
+          cd "$work"
+          # Use local loopback inside isolated Postgres Docker. This does not use any production DB connection.
+          if ! docker exec -e PGPASSWORD=postgres "$container" \
+            psql -h localhost -U postgres -d postgres -X -qAt -v ON_ERROR_STOP=1 -c 'SELECT 1' \
+              > /dev/null 2>&1; then
+            echo '::error::Disposable local PostgreSQL did not accept its own development credentials; no remote DB touched.'
+            exit 1
+          fi
+          # Read-only privilege boolean checks for the disposable local database.
+          for restore_role in postgres supabase_admin; do
+            probe=$(docker exec -e PGPASSWORD=postgres "$container" \
+              psql -h localhost -U postgres -d postgres -X -qAt -v ON_ERROR_STOP=1 \
+              -c "SELECT rolsuper::text || ',' || rolcreaterole::text FROM pg_roles WHERE rolname = '$restore_role'" 2>/dev/null || true)
+            if [[ "$probe" =~ ^(true|false|t|f),(true|false|t|f)$ ]]; then
+              echo "::notice::Local role ${restore_role} privilege flags: $probe"
+            else
+              echo "::notice::Local role ${restore_role} privilege flags unavailable."
+            fi
+          done
+          # Local-only privilege gate: Supabase-managed postgres role is not a superuser.
+          # Local supabase_admin is a verified superuser; do NOT change privileges in Production.
+          # Restore unmodified roles.sql and preserve original SQL checksums.
+          if ! docker exec "$container" psql -X -qAt -v ON_ERROR_STOP=1 \
+              -U supabase_admin -d postgres \
+              -c "SELECT rolsuper::text FROM pg_roles WHERE rolname = current_user" \
+              > "$work/private-admin-probe.log" 2>&1; then
+            echo '::error::Disposable local Supabase admin connection unavailable; no restore attempted.'
+            exit 1
+          fi
+          if [[ "$(tr -d '[:space:]' < "$work/private-admin-probe.log")" != "true" ]]; then
+            echo '::error::Disposable local admin role is not verified superuser; stop.'
+            exit 1
+          fi
+          echo '::notice::Verified LOCAL Supabase admin has restore privileges, no Production connection.'
+          # Local-only built-in Auth schema compatibility: verified against read-only
+          # Production information_schema metadata; never change Production or shared TEST.
+          if ! docker exec "$container" psql -U supabase_admin -d postgres -X -q -v ON_ERROR_STOP=1 \
+              -c "ALTER TABLE auth.custom_oauth_providers ADD COLUMN IF NOT EXISTS client_auth_method text NOT NULL DEFAULT 'client_secret', ADD COLUMN IF NOT EXISTS client_assertion_audience text" \
+              > "$work/private-local-auth-compat.log" 2>&1; then
+            echo '::error::Could not prepare missing Auth provider columns on disposable local DB.'
+            exit 1
+          fi
+          echo '::notice::Disposable Auth provider schema now includes the two source-compatible columns (metadata only).'
+          docker cp "$work/roles.sql" "$container:/tmp/mh-restore-roles.sql" >/dev/null
+          for file in schema.sql data.sql; do
+            docker cp "$work/$file" "$container:/tmp/mh-restore-$file" >/dev/null
+          done
+          if docker exec "$container" \
+            psql -U supabase_admin -d postgres -X -q -v ON_ERROR_STOP=1 -v VERBOSITY=sqlstate -1 \
+              -f /tmp/mh-restore-roles.sql -c 'SET session_replication_role = replica' \
+              -c 'SET ROLE postgres' -f /tmp/mh-restore-schema.sql -f /tmp/mh-restore-data.sql \
+              > "$work/private-restore.log" 2>&1; then
+            echo '::notice::All three SQL files restored transactionally to isolated local Postgres.'
+          else
+            echo '::error::Local SQL restore failed. Raw errors remain private.'
+            sqlstate=$(grep -Eom1 '(ERROR|FATAL):[[:space:]]*[A-Z0-9]{5}' "$work/private-restore.log" | grep -Eo '[A-Z0-9]{5}' | tail -1) || true
+            if [[ "$sqlstate" =~ ^[A-Z0-9]{5}$ ]]; then
+              echo "::notice::SQLSTATE (code only, no private values): $sqlstate"
+            fi
+            if grep -Fq 'mh-restore-roles.sql:' "$work/private-restore.log"; then
+              echo '::notice::Sanitized failure stage: roles'
+            elif grep -Fq 'mh-restore-schema.sql:' "$work/private-restore.log"; then
+              echo '::notice::Sanitized failure stage: schema'
+            elif grep -Fq 'mh-restore-data.sql:' "$work/private-restore.log"; then
+              echo '::notice::Sanitized failure stage: data'
+            else
+              echo '::notice::Sanitized failure stage: initial connection or command'
+            fi
+            if grep -Fq 'already exists' "$work/private-restore.log"; then
+              echo '::notice::Sanitized failure category: duplicate object'
+            elif grep -Fq 'does not exist' "$work/private-restore.log"; then
+              echo '::notice::Sanitized failure category: missing object'
+            elif grep -Fq 'permission denied' "$work/private-restore.log"; then
+              echo '::notice::Sanitized failure category: permissions'
+            elif grep -Fq 'must be member' "$work/private-restore.log"; then
+              echo '::notice::Sanitized failure category: role membership'
+            elif grep -Fq 'unrecognized configuration' "$work/private-restore.log"; then
+              echo '::notice::Sanitized failure category: server version setting'
+            else
+              echo '::notice::Sanitized failure category: other'
+            fi
+            # Secure metadata-only diagnosis. SQL rows/errors are private.
+            python3 - <<'PY'
+          from pathlib import Path
+          import os,re,subprocess
+          log=Path("private-restore.log").read_text(errors="replace")
+          for kind in ("roles","schema","data"):
+              match=re.search(r'psql:/tmp/mh-restore-'+kind+r'\.sql:(\d+):\s*(?:ERROR|FATAL):',log)
+              if not match:
+                  continue
+              index=int(match.group(1))
+              print(f'::notice::Sanitized first failing SQL file: {kind}, line {index}.')
+              sql=Path(kind+".sql").read_text(errors="replace").splitlines()
+              if kind=="roles":
+                  near=sql[max(0,index-24):min(index,len(sql))]
+                  first=next((z.strip() for z in reversed(near) if re.match(r'(?i)^(CREATE|ALTER|GRANT|REVOKE|COMMENT|SET|DO)\b',z.strip())),"")
+                  op=re.match(r'(?i)^([A-Z]+)',first)
+                  print('::notice::Sanitized role opcode: '+(op.group(1).upper() if op else "UNKNOWN"))
+              elif kind=="data":
+                  near=sql[max(0,index-120):min(index,len(sql))]
+                  stmt=next((z.strip() for z in reversed(near) if z.strip().startswith("COPY ")),"")
+                  cp=re.match(r'^COPY\s+"?([a-z_]+)"?\."?([a-z_]+)"?\s*\((.*?)\)\s+FROM\s+stdin;',stmt,re.I)
+                  if cp:
+                      schema,table,header=cp.groups()
+                      names=[x.strip(' "') for x in header.split(',')]
+                      if schema in ("auth","storage","public") and re.fullmatch(r'[a-z_]+',table) and all(re.fullmatch(r'[a-z_]+',col) for col in names):
+                          cmd=["docker","exec","-e","PGPASSWORD=postgres",os.environ["LOCAL_RESTORE_DB_CONTAINER"],"psql","-h","localhost","-U","postgres","-d","postgres","-X","-qAt","-v","ON_ERROR_STOP=1","-c","SELECT column_name FROM information_schema.columns WHERE table_schema='"+schema+"' AND table_name='"+table+"'"]
+                          out=subprocess.run(cmd,stdout=subprocess.PIPE,stderr=subprocess.DEVNULL,text=True,check=False)
+                          known=set(out.stdout.splitlines()) if out.returncode==0 else set()
+                          missing=[n for n in names if n not in known]
+                          print(f'::notice::Missing column metadata for {schema}.{table}: '+(", ".join(missing[:12]) if missing else "none detected"))
+                          print(f'::notice::Missing column count: {len(missing)} (no row values disclosed).')
+                      else:
+                          print("::notice::COPY header could not be safely parsed.")
+                  else:
+                      print("::notice::No COPY header found around failing data statement.")
+              break
+          PY
+            exit 1
+          fi
+
+      - name: Verify Stage 1 restore against full read-only Production baseline
+        shell: bash
+        run: |
+          set -euo pipefail
+          container="$LOCAL_RESTORE_DB_CONTAINER"
+          # Exact 9-table counts and complete row digests captured read-only after Stage 1.
+          # Compare only in memory, never print ledger rows, hashes or credentials.
+          expected='688|ef4b247a24dfe0225936620c34e8a7abb93358ce50b29b31a66b411210eb11a6|58|d52c412fd6c895e89181d64ab8ab50a96f1851fa7b7b4833569681202fabb0f4|2|033f45cb72173cdd6c7e1723551a55b46ffb4ffee215d61206c7cf2a3920881f|0|4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945|0|4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945|0|4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945|0|4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945|0|4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945|0|4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945|2|23798a6b91f216928918efb56b359f9993941842b261ab24c27e498bc1e80876|9|30|12'
+          if ! actual=$(docker exec "$container" psql -X -qAt -v ON_ERROR_STOP=1 -U postgres -d postgres -c "SET TIME ZONE 'UTC'" -c "
+            SELECT
+              (SELECT count(*) FROM public.records),
+              (SELECT encode(sha256(convert_to(coalesce(jsonb_agg(to_jsonb(r) ORDER BY id),'[]'::jsonb)::text,'UTF8')),'hex') FROM public.records r),
+              (SELECT count(*) FROM public.transfers),
+              (SELECT encode(sha256(convert_to(coalesce(jsonb_agg(to_jsonb(r) ORDER BY id),'[]'::jsonb)::text,'UTF8')),'hex') FROM public.transfers r),
+              (SELECT count(*) FROM public.user_settings),
+              (SELECT encode(sha256(convert_to(coalesce(jsonb_agg(to_jsonb(r) ORDER BY user_id),'[]'::jsonb)::text,'UTF8')),'hex') FROM public.user_settings r),
+              (SELECT count(*) FROM public.monthly_budgets),
+              (SELECT encode(sha256(convert_to(coalesce(jsonb_agg(to_jsonb(r) ORDER BY user_id,month),'[]'::jsonb)::text,'UTF8')),'hex') FROM public.monthly_budgets r),
+              (SELECT count(*) FROM public.finance_import_items),
+              (SELECT encode(sha256(convert_to(coalesce(jsonb_agg(to_jsonb(r) ORDER BY id),'[]'::jsonb)::text,'UTF8')),'hex') FROM public.finance_import_items r),
+              (SELECT count(*) FROM public.finance_activities),
+              (SELECT encode(sha256(convert_to(coalesce(jsonb_agg(to_jsonb(r) ORDER BY id),'[]'::jsonb)::text,'UTF8')),'hex') FROM public.finance_activities r),
+              (SELECT count(*) FROM public.finance_activity_links),
+              (SELECT encode(sha256(convert_to(coalesce(jsonb_agg(to_jsonb(r) ORDER BY id),'[]'::jsonb)::text,'UTF8')),'hex') FROM public.finance_activity_links r),
+              (SELECT count(*) FROM public.finance_claims),
+              (SELECT encode(sha256(convert_to(coalesce(jsonb_agg(to_jsonb(r) ORDER BY id),'[]'::jsonb)::text,'UTF8')),'hex') FROM public.finance_claims r),
+              (SELECT count(*) FROM public.finance_claim_repayments),
+              (SELECT encode(sha256(convert_to(coalesce(jsonb_agg(to_jsonb(r) ORDER BY id),'[]'::jsonb)::text,'UTF8')),'hex') FROM public.finance_claim_repayments r),
+              (SELECT count(*) FROM auth.users),
+              (SELECT encode(sha256(convert_to(coalesce(jsonb_agg(jsonb_build_array(u.id,u.created_at) ORDER BY u.id),'[]'::jsonb)::text,'UTF8')),'hex') FROM auth.users u),
+              (SELECT count(*) FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace WHERE n.nspname='public' AND c.relkind='r' AND c.relrowsecurity),
+              (SELECT count(*) FROM pg_policies WHERE schemaname='public'),
+              (SELECT count(*) FROM pg_policies WHERE schemaname='public' AND tablename IN ('records','transfers','user_settings'))
+          " 2>/dev/null); then
+            echo '::error::Stage 1 restore query failed; no production writes.'
+            exit 1
+          fi
+          if [[ "$actual" != "$expected" ]]; then
+            echo '::error::Stage 1 backup baseline mismatch; do not proceed to Stage 2.'
+            exit 1
+          fi
+          for table in records transfers user_settings monthly_budgets finance_import_items finance_activities finance_activity_links finance_claims finance_claim_repayments; do
+            no_owner=$(docker exec "$container" psql -X -qAt -v ON_ERROR_STOP=1 -U postgres -d postgres -c "SET ROLE authenticated; SELECT count(*) FROM public.$table;" 2>/dev/null | tail -1)
+            if [[ "$no_owner" != "0" ]]; then
+              echo '::error::Restored no-owner RLS check failed.'
+              exit 1
+            fi
+          done
+          echo '::notice::All nine business table counts and full SHA-256 fingerprints, account identity fingerprint, 30 policies, 12 legacy policies and no-owner RLS match the Stage 1 baseline.'
+          echo '::notice::External Auth/email settings, storage objects and live sessions are not covered by this database verification.'
+
+      - name: Cleanup disposable unencrypted data
+        if: always()
+        shell: bash
+        run: |
+          rm -rf "$RUNNER_TEMP/mh-finance-isolated-restore" "$RUNNER_TEMP/mh-finance-restore-input"
+          if [[ -n "${LOCAL_RESTORE_DB_CONTAINER:-}" ]]; then
+            docker rm -f "$LOCAL_RESTORE_DB_CONTAINER" >/dev/null 2>&1 || true
+          fi
+          echo '::notice::Temporary plaintext and local container cleanup attempted; no restored database artifact uploaded.'
